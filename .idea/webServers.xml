@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="f5e6bdbe-659e-4f21-aa25-82d2c5d8c2ea" name="meta4">
+        <fileTransfer rootFolder="/home/pineda" accessType="SFTP" host="10.5.166.216" port="22" sshConfigId="59b7b1dc-50f0-4929-9cb3-7ba5cdac0a64" sshConfig="pineda@10.5.166.216:22 agent" authAgent="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
