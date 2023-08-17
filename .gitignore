@@ -1,0 +1,37 @@
+# Python
+__pycache__
+dist
+
+# Log files
+*.out
+*.err
+*.log
+*.json
+
+# slurm scripts
+slurm_scripts/*
+
+# Documentation
+site/*
+
+# IDE related
+.vscode/
+.idea/
+
+# Poetry
+poetry.lock
+
+# Misc
+*.sh
+*.model
+*.pth
+*.png
+
+# Results
+results
+
+# Jupyter
+.ipynb_checkpoints/
+
+# MacOS
+*.DS_Store

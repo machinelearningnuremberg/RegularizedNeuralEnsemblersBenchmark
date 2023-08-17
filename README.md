@@ -1,0 +1,61 @@
+# MetaLearningEnsembles
+
+<p align="center">
+  <a href="https://github.com/releaunifreiburg/MetaLearningEnsembles">
+    <img src="https://img.shields.io/badge/Python-3.9-blue?style=for-the-badge&logo=python" />
+  </a>&nbsp;
+  <a href="https://pytorch.org/">
+    <img src="https://img.shields.io/badge/pytorch-1.9-orange?style=for-the-badge&logo=pytorch" alt="PyTorch Version" />
+  </a>&nbsp;
+  <a href="https://github.com/releaunifreiburg/MetaLearningEnsembles">
+    <img src="https://img.shields.io/badge/open-source-9cf?style=for-the-badge&logo=Open-Source-Initiative" alt="Open Source" />
+  </a>
+  <a href="https://github.com/releaunifreiburg/MetaLearningEnsembles">
+    <img src="https://img.shields.io/github/stars/releaunifreiburg/MetaLearningEnsembles=for-the-badge&logo=github" alt="GitHub Repo Stars" />
+  </a>
+</p>
+
+## Contributing
+
+### 1. Optional: Install miniconda and create an environment
+
+```
+wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O install_miniconda.sh
+bash install_miniconda.sh -b -p $HOME/.conda  # Change to place of preference
+rm install_miniconda.sh
+```
+
+Consider running `~/.conda/bin/conda init` or `~/.conda/bin/conda init zsh`.
+
+Create the environment and activate it
+
+```
+conda create -n MetaLearningEnsembles python=3.9
+conda activate MetaLearningEnsembles
+```
+
+### 2. Install poetry
+
+First, [install poetry](https://python-poetry.org/docs), e.g., via
+
+```
+curl -sSL https://install.python-poetry.org | python3 -
+```
+
+Consider appending `export PATH="$HOME/.local/bin:$PATH"` into `~/.zshrc` / `~/.bashrc`.
+
+### 3. Let poetry take care of all dependencies
+
+```
+poetry install
+```
+
+To install a new dependency use `poetry add dependency` and commit the updated `pyproject.toml` to git.
+
+### 4. Activate pre-commit
+
+```
+pre-commit install
+```
+
+Consider appending `--no-verify` to your urgent commits to disable checks.

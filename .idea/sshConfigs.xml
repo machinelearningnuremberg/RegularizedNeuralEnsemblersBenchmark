@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="SshConfigs">
-    <configs>
-      <sshConfig authType="OPEN_SSH" host="10.5.166.216" id="59b7b1dc-50f0-4929-9cb3-7ba5cdac0a64" port="22" nameFormat="DESCRIPTIVE" username="pineda" useOpenSSHConfig="true" />
-    </configs>
-  </component>
-</project>
