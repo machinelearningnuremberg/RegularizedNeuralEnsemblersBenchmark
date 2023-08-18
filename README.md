@@ -30,8 +30,8 @@ Consider running `~/.conda/bin/conda init` or `~/.conda/bin/conda init zsh`.
 Create the environment and activate it
 
 ```
-conda create -n MetaLearningEnsembles python=3.9
-conda activate MetaLearningEnsembles
+conda create -n searching_optimal_ensembles python=3.9
+conda activate searching_optimal_ensembles
 ```
 
 ### 2. Install poetry
