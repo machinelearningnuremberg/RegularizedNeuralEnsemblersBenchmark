@@ -9,15 +9,22 @@ class BaseModel:
 
         self.metadataset = metadataset
 
-        self.observed_ids = {}
-        self.pending_ids = {}
-        for dataset_name in self.metadataset.dataset_names:
-            self.observed_ids[dataset_name] = []
-            self.pending_ids[dataset_name] = metadataset.get_hp_candidates(dataset_name)
 
-    def _observe(self, dataset_name: str, new_id: int):
-        self.observed_ids[dataset_name].append(new_id)
-        self.pending_ids[dataset_name].remove(new_id)
+    def initialize_model(self, dataset_name: str):
+        self.observed_ids = []
+        self.pending_ids = self.metadataset.get_hp_candidates(dataset_name)
+
+    def _observe(self, new_id: int):
+        self.observed_ids.append(new_id)
+        self.pending_ids.remove(new_id)
+
+    @abstractmethod
+    def meta_train(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def meta_val(self):
+        raise NotImplementedError
 
     @abstractmethod
     def load_checkpoint(self):
@@ -28,8 +35,8 @@ class BaseModel:
         raise NotImplementedError
 
     @abstractmethod
-    def observe(self, dataset_name: str, new_id: int):
-        self._observe(dataset_name, new_id)
+    def observe(self, new_id: int):
+        self._observe(new_id)
         self._fit()
 
         raise NotImplementedError
