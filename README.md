@@ -1,4 +1,4 @@
-# MetaLearningEnsembles
+# Searching Optimal Ensembles
 
 <p align="center">
   <a href="https://github.com/releaunifreiburg/MetaLearningEnsembles">
