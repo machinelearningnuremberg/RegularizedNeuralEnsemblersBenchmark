@@ -1,3 +1,3 @@
-import MetaLearningEnsembles as MLE
+import SearchingOptimalEnsembles as SOE
 
-MLE.run(metadataset_name="scikit-learn")
+SOE.run(metadataset_name="scikit-learn")

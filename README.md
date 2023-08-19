@@ -10,9 +10,9 @@
   <a href="https://github.com/releaunifreiburg/MetaLearningEnsembles">
     <img src="https://img.shields.io/badge/open-source-9cf?style=for-the-badge&logo=Open-Source-Initiative" alt="Open Source" />
   </a>
-  <a href="https://github.com/releaunifreiburg/MetaLearningEnsembles">
+  <!-- <a href="https://github.com/releaunifreiburg/MetaLearningEnsembles">
     <img src="https://img.shields.io/github/stars/releaunifreiburg/MetaLearningEnsembles=for-the-badge&logo=github" alt="GitHub Repo Stars" />
-  </a>
+  </a> -->
 </p>
 
 ## Contributing
