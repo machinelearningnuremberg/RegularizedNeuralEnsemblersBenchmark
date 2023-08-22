@@ -20,7 +20,7 @@ classifiers = [
   "Operating System :: POSIX :: Linux",
   "Operating System :: Microsoft :: Windows",
   "Operating System :: MacOS",
-  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.9",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: System :: Distributed Computing",
 ]
@@ -31,7 +31,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.9"
-#pipeline_bench = { git = "https://github.com/worstseed/Pipeline-Bench", extras = ["without_data_creation"] }
+pipeline_bench = { git = "https://github.com/releaunifreiburg/Pipeline-Bench.git", rev = "main", extras = ["without_data_creation"] }
 configspace = "^0.7.1"
 regex = "^2023.8.8"
 tqdm = "^4.66.1"

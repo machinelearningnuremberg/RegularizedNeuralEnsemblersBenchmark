@@ -12,9 +12,9 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
     def __init__(
         self,
         data_dir: str = "/work/dlclarge2/janowski-quicktune/ask",
-        data_pct: tuple[float, float, float] = (0.6, 0.2, 0.2),
+        meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
     ):
-        self.data_dir = data_dir
+        super().__init__(data_dir=data_dir, meta_split_ids=meta_split_ids)
         self.task_ids = (
             pd.read_csv(
                 f"{self.data_dir}/pipeline_bench_data/openml_cc18_datasets.csv",
@@ -23,7 +23,14 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
             .values.flatten()
             .tolist()
         )
-        self.dataset_names = (
+
+        self._initialize()
+
+        self.benchmark: pipeline_bench.Benchmark
+        self.dataset_name: str
+
+    def get_dataset_names(self) -> list[str]:
+        return (
             pd.read_csv(
                 f"{self.data_dir}/pipeline_bench_data/openml_cc18_datasets.csv",
                 usecols=[1],
@@ -31,10 +38,6 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
             .values.flatten()
             .tolist()
         )
-        self.split_indices = self._get_meta_splits(data_pct=data_pct)
-
-        self.benchmark: pipeline_bench.Benchmark
-        self.dataset_name: str
 
     def _set_dataset(
         self, dataset_name: str | None = None, meta_split: str = "meta-train"
