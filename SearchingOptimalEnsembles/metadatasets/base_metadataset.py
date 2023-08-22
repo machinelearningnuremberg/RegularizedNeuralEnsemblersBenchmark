@@ -4,14 +4,22 @@ from abc import abstractmethod
 
 import numpy as np
 import torch
-from sklearn.model_selection import train_test_split
+
+META_SPLITS = {
+    0: [(0, 1, 2), (3,), (4,)],
+    1: [(1, 2, 3), (4,), (0,)],
+    2: [(2, 3, 4), (0,), (1,)],
+    3: [(3, 4, 0), (1,), (2,)],
+    4: [(4, 0, 1), (2,), (3,)],
+}
 
 
 class BaseMetaDataset:
     def __init__(
         self,
         data_dir: str,
-        data_pct: tuple[float, float, float] = (0.6, 0.2, 0.2),
+        meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
+        seed: int = 42,
     ):
         """Initialize the BaseMetaDataset.
 
@@ -20,6 +28,7 @@ class BaseMetaDataset:
             data_pct (tuple(float, float, float ), optional):
                 Percentage of data to use for meta-train, meta-val, and meta-test.
                 Defaults to (0.6, 0.2, 0.2).
+            seed (int, optional): Random seed. Defaults to 42.
 
         Attributes:
             data_dir (str): Directory path for the dataset.
@@ -30,8 +39,25 @@ class BaseMetaDataset:
         """
 
         self.data_dir = data_dir
+        self.seed = seed
+        self.meta_split_ids = meta_split_ids
+
+        # To initialize call _initialize() in the child class
         self.dataset_names: list[str] = []
-        self.split_indices = self._get_meta_splits(data_pct=data_pct)
+        self.split_indices: dict[str, list[str]] = {}
+
+    def _initialize(self):
+        self.dataset_names = self.get_dataset_names()
+        self.split_indices = self._get_meta_splits()
+
+    def get_dataset_names(self) -> list[str]:
+        """Fetch the dataset names present in the meta-dataset.
+
+        Returns:
+            list: List of dataset names present in the meta-dataset.
+        """
+
+        raise NotImplementedError
 
     @abstractmethod
     def get_hp_candidates(self, dataset_name: str) -> torch.Tensor:
@@ -52,34 +78,40 @@ class BaseMetaDataset:
 
         raise NotImplementedError
 
-    def _get_meta_splits(
-        self, data_pct: tuple[float, float, float] = (0.6, 0.2, 0.2)
-    ) -> dict[str, list[str]]:
+    def _get_meta_splits(self) -> dict[str, list[str]]:
         """Internal method to get meta splits for datasets.
 
         Args:
-            data_pct (tuple(float, float, float ), optional):
-                Percentage split for meta-train, meta-val, and meta-test.
-                Defaults to (0.6, 0.2, 0.2).
-
+            data_pct (tuple(tuple(float), float, float ), optional):
+                ID of the cross validation partition assigned to meta-train, meta-val and meta-test.
+                The dfault assumes 5-fold cross (meta-) validation.
         Returns:
             dict[str, list[str]]: Dictionary containing meta train, val, and test splits.
 
         """
+        rnd_gen = np.random.default_rng(self.seed)
+        dataset_names = self.dataset_names.copy()
+        rnd_gen.shuffle(dataset_names)
 
-        # Split into train and remaining meta datasets
-        train, rem = train_test_split(
-            np.array(self.dataset_names),
-            test_size=data_pct[1] + data_pct[2],
-            random_state=42,
-        )
+        meta_train_splits, meta_val_splits, meta_test_splits = self.meta_split_ids
 
-        # Split remaining meta datasets into validation and test
-        val, test = train_test_split(
-            rem, test_size=data_pct[2] / (data_pct[1] + data_pct[2]), random_state=42
-        )
-
-        return {"meta-train": train, "meta-val": val, "meta-test": test}
+        meta_splits: dict[str, list[str]] = {
+            "meta-train": [],
+            "meta-val": [],
+            "meta-test": [],
+        }
+        num_splits = len(meta_train_splits) + len(meta_test_splits) + len(meta_val_splits)
+        for i, dataset in enumerate(dataset_names):
+            split_id = i % num_splits
+            if split_id in meta_train_splits:
+                meta_splits["meta-train"].append(dataset)
+            elif split_id in meta_test_splits:
+                meta_splits["meta-test"].append(dataset)
+            elif split_id in meta_val_splits:
+                meta_splits["meta-val"].append(dataset)
+            else:
+                raise ValueError("Dataset not assigned to any split")
+        return meta_splits
 
     @abstractmethod
     def get_batch(
