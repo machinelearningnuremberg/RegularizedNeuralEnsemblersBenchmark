@@ -153,9 +153,6 @@ class BaseMetaDataset:
 
         Args:
             ensembles (list[list[int]]): Ensemble configuration.
-            dataset_name (str): Name of the dataset.
-            split (str, optional): Dataset split name. Defaults to "valid".
-            metric_name (str, optional): Name of the metric. Defaults to "acc".
 
         Returns:
             tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
