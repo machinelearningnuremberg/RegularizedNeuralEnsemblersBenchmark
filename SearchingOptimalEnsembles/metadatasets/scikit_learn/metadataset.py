@@ -14,12 +14,14 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         self,
         data_dir: str = "/work/dlclarge2/janowski-quicktune/ask",
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
+        seed: int = 42,
         split: str = "valid",
         metric_name: str = "acc",
     ):
         super().__init__(
             data_dir=data_dir,
             meta_split_ids=meta_split_ids,
+            seed=seed,
             split=split,
             metric_name=metric_name,
         )
