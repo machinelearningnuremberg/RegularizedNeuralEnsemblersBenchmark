@@ -1,0 +1,47 @@
+from __future__ import annotations
+
+import numpy as np
+import torch
+
+from ..utils.common import move_to_device
+from .base_sampler import BaseSampler
+
+
+class RandomSampler(BaseSampler):
+    def __init__(
+        self, metadataset, device: torch.device = torch.device("cpu"), patience: int = 50
+    ):
+        super().__init__(metadataset=metadataset, patience=patience, device=device)
+
+    @move_to_device
+    def sample(
+        self,
+        acquisition_function=None,
+        max_num_pipelines: int = 10,
+        batch_size: int = 16,
+        observed_pipeline_ids: list[int] | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        if observed_pipeline_ids is None or len(observed_pipeline_ids) == 0:
+            candidates = self.metadataset.hp_candidates_ids
+        else:
+            candidates = observed_pipeline_ids
+
+        num_pipelines = np.random.randint(1, max_num_pipelines + 1)
+        selected_indices = torch.multinomial(
+            torch.ones(len(candidates)), num_pipelines * batch_size, replacement=True
+        )
+
+        # Fetch the actual pipeline IDs or row indices using the selected indices
+        ensembles = [
+            candidates[idx].tolist()
+            for idx in selected_indices.view(batch_size, num_pipelines)
+        ]
+
+        (
+            pipeline_hps,
+            metric,
+            metric_per_pipeline,
+            time_per_pipeline,
+        ) = self.metadataset.evaluate_ensembles(ensembles=ensembles)
+
+        return pipeline_hps, metric, metric_per_pipeline, time_per_pipeline

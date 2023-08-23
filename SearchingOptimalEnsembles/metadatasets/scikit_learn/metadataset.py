@@ -13,8 +13,19 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         self,
         data_dir: str = "/work/dlclarge2/janowski-quicktune/ask",
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
+        split: str = "valid",
+        metric_name: str = "acc",
     ):
-        super().__init__(data_dir=data_dir, meta_split_ids=meta_split_ids)
+        super().__init__(
+            data_dir=data_dir,
+            meta_split_ids=meta_split_ids,
+            split=split,
+            metric_name=metric_name,
+        )
+
+        # Scikit-leran specific attributes
+        self.benchmark: pipeline_bench.Benchmark
+        self.feature_dim = 196
         self.task_ids = (
             pd.read_csv(
                 f"{self.data_dir}/pipeline_bench_data/openml_cc18_datasets.csv",
@@ -26,10 +37,7 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
 
         self._initialize()
 
-        self.benchmark: pipeline_bench.Benchmark
-        self.dataset_name: str
-
-    def get_dataset_names(self) -> list[str]:
+    def _get_dataset_names(self) -> list[str]:
         return (
             pd.read_csv(
                 f"{self.data_dir}/pipeline_bench_data/openml_cc18_datasets.csv",
@@ -39,100 +47,45 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
             .tolist()
         )
 
-    def _set_dataset(
-        self, dataset_name: str | None = None, meta_split: str = "meta-train"
-    ):
-        if dataset_name is None:
-            self.dataset_name = np.random.choice(self.split_indices[meta_split])
-        else:
-            self.dataset_name = dataset_name
-
-        task_id = self.task_ids[self.dataset_names.index(self.dataset_name)]
-
+    def set_dataset(self, dataset_name: str):
+        # Sci-kit learn specific attributes
+        task_id = self.task_ids[self.dataset_names.index(dataset_name)]
         self.benchmark = pipeline_bench.Benchmark(
             task_id=task_id, worker_dir=self.data_dir, mode="table", lazy=False
         )
 
+        super().set_dataset(dataset_name=dataset_name)
+
     def _unset_dataset(self):
         del self.benchmark
         del self.dataset_name
+        del self.hp_candidates
+        del self.hp_candidates_ids
+        del self.feature_dim
 
-    def get_hp_candidates(
-        self, dataset_name: str, return_indices: bool = False
-    ) -> torch.Tensor:
-        if not hasattr(self, "benchmark"):
-            self._set_dataset(dataset_name=dataset_name)
-
-        # pylint: disable=protected-access
-        hp_candidates = self.benchmark._configs.compute()
-        if not return_indices:
-            # Convert DataFrame to a numpy array and handle NaN values.
-            hp_candidates = hp_candidates.values.astype(np.float32)
-            hp_candidates[np.isnan(hp_candidates)] = 0
-
-            # Convert the numpy array to a torch tensor.
-            hp_candidates = torch.from_numpy(hp_candidates)
-        else:
-            # Return the indices of rows that exist in the dataframe.
-            hp_candidates = hp_candidates.index.values
-
-        return hp_candidates
-
-    def get_batch(
+    def _get_hp_candidates_and_indices(
         self,
-        meta_split: str = "meta-train",
-        split: str = "valid",
-        dataset_name: str | None = None,
-        max_num_pipelines: int = 10,
-        batch_size: int = 16,
-        metric_name: str = "acc",
-        observed_pipeline_ids: list[int] | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        self._set_dataset(dataset_name=dataset_name, meta_split=meta_split)
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        # pylint: disable=protected-access
+        _hp_candidates = self.benchmark._configs.compute()
 
-        if observed_pipeline_ids is None:
-            candidates = self.get_hp_candidates(
-                dataset_name=self.dataset_name, return_indices=True
-            )
-        else:
-            candidates = observed_pipeline_ids
+        # Convert DataFrame to a numpy array and handle NaN values.
+        hp_candidates = _hp_candidates.values.astype(np.float32)
+        hp_candidates[np.isnan(hp_candidates)] = 0
 
-        # Generate ensemble indices
-        num_pipelines = np.random.randint(1, max_num_pipelines + 1)
-        selected_indices = torch.multinomial(
-            torch.ones(len(candidates)), num_pipelines * batch_size, replacement=True
-        )
+        # Convert the numpy array to a torch tensor.
+        hp_candidates = torch.from_numpy(hp_candidates)
 
-        # Fetch the actual pipeline IDs or row indices using the selected indices
-        ensembles = [
-            candidates[idx].tolist()
-            for idx in selected_indices.view(batch_size, num_pipelines)
-        ]
+        # Get the indices of rows that exist in the dataframe.
+        hp_candidates_ids = _hp_candidates.index.values
 
-        (
-            pipeline_hps,
-            metric,
-            metric_per_pipeline,
-            time_per_pipeline,
-        ) = self.evaluate_ensembles(
-            ensembles=ensembles,
-            dataset_name=self.dataset_name,
-            split=split,
-            metric_name=metric_name,
-        )
-
-        return pipeline_hps, metric, metric_per_pipeline, time_per_pipeline
+        return hp_candidates, hp_candidates_ids
 
     # TODO: add time info
     def evaluate_ensembles(
         self,
         ensembles: list[list[int]],
-        dataset_name: str,
-        split: str = "valid",
-        metric_name: str = "acc",
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        self._set_dataset(dataset_name=dataset_name)
-
         batch_size = len(ensembles)
 
         pipeline_hps = np.array(
@@ -144,17 +97,17 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         splits_ids = self.benchmark.get_splits(return_array=False)
         splits = self.benchmark.get_splits(return_array=True)
 
-        y_true = np.repeat(splits[f"y_{split}"].reshape(1, -1), batch_size, axis=0)
+        y_true = np.repeat(splits[f"y_{self.split}"].reshape(1, -1), batch_size, axis=0)
 
         # Retieve the predictions for each pipeline in each ensemble
         y_proba = self.benchmark(
             ensembles=ensembles,
-            datapoints=splits_ids[f"X_{split}"],
-            get_probabilities=False if metric_name == "acc" else True,
+            datapoints=splits_ids[f"X_{self.split}"],
+            get_probabilities=False if self.metric_name == "acc" else True,
             aggregate=False,
         )
 
-        if metric_name == "acc":
+        if self.metric_name == "acc":
             # Step 1: Reshape the predictions and the true labels to have the same shape
             predictions = np.round(y_proba.reshape(batch_size, -1, y_true.shape[1]))
 
@@ -165,7 +118,7 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
             metric = torch.tensor(acc_per_ensemble, dtype=torch.float32)
             metric_per_pipeline = torch.tensor(acc_per_pipeline, dtype=torch.float32)
 
-        elif metric_name == "nll":
+        elif self.metric_name == "nll":
             num_datapoints = y_proba.shape[1]
             num_pipelines = y_proba.shape[2]
 
@@ -195,7 +148,7 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         else:
             raise NotImplementedError
 
-        self._unset_dataset()
+        # self._unset_dataset()  # TODO: FIX THIS
 
         return (
             pipeline_hps,

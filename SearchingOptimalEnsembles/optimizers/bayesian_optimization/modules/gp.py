@@ -1,6 +1,15 @@
 import gpytorch
 import torch
 
+# from typing import Callable
+
+# from ....utils.common import instance_from_map
+
+# KernelMapping: dict[str, Callable] = {
+#     "rbf": gpytorch.kernels.RBFKernel,
+#     "matern": gpytorch.kernels.MaternKernel,
+# }
+
 
 class ExactGPLayer(gpytorch.models.ExactGP):
     def __init__(
@@ -29,6 +38,17 @@ class ExactGPLayer(gpytorch.models.ExactGP):
             )
 
         self.covar_module = kernel_function_mapping[kernel_name](config, dims)
+
+    # def _create_kernel(self, kernel_name: str):
+
+    #     kernel = instance_from_map(
+    #         KernelMapping,
+    #         kernel_name,
+    #         name="kernel",
+    #         kwargs=
+    #     )
+
+    #     return gpytorch.kernels.ScaleKernel(kernel)
 
     @staticmethod
     def _create_scale_rbf_kernel(config: dict, dims: int):
