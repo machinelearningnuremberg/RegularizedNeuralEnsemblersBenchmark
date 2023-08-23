@@ -21,7 +21,7 @@ class BaseMetaDataset:
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         seed: int = 42,
         split: str = "valid",
-        metric_name: str = "acc",
+        metric_name: str = "error",
     ):
         """Initialize the BaseMetaDataset.
 
@@ -31,6 +31,8 @@ class BaseMetaDataset:
                 Percentage of data to use for meta-train, meta-val, and meta-test.
                 Defaults to (0.6, 0.2, 0.2).
             seed (int, optional): Random seed. Defaults to 42.
+            split (str, optional): Dataset split name. Defaults to "valid".
+            metric_name (str, optional): Name of the metric. Defaults to "error".
 
         Attributes:
             data_dir (str): Directory path for the dataset.
@@ -42,20 +44,27 @@ class BaseMetaDataset:
 
         self.data_dir = data_dir
         self.seed = seed
-        self.meta_split_ids = meta_split_ids
-        # self.dataset_name = dataset_name
         self.split = split
         self.metric_name = metric_name
-        # self.device = device
+        self.meta_split_ids = meta_split_ids
+        self.meta_splits: dict[str, list[str]] = {}
+
+        self.feature_dim: int = None
 
         # To initialize call _initialize() in the child class
         self.dataset_names: list[str] = []
-        self.split_indices: dict[str, list[str]] = {}
+
+        # To initialize call set_dataset(dataset_name) in the child class
+        self.dataset_name: str
+        self.hp_candidates: torch.Tensor
+        self.hp_candidates_ids: torch.Tensor
 
     def _initialize(self):
+        """Initialize the meta-dataset. This method should be called in the child class."""
         self.dataset_names = self.get_dataset_names()
-        self.split_indices = self._get_meta_splits()
+        self.meta_splits = self._get_meta_splits()
 
+    @abstractmethod
     def get_dataset_names(self) -> list[str]:
         """Fetch the dataset names present in the meta-dataset.
 
@@ -66,16 +75,21 @@ class BaseMetaDataset:
         raise NotImplementedError
 
     @abstractmethod
-    def get_hp_candidates(self, dataset_name: str) -> torch.Tensor:
+    def _get_hp_candidates_and_indices(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Fetch hyperparameter candidates for a given dataset.
 
         Args:
             dataset_name (str): Name of the dataset for which hyperparameters are required.
-
         Returns:
-            torch.Tensor: A tensor of size [N, F], where N is the number of possible
-            pipelines evaluated for a specific dataset and F is the number of features
-            per pipeline.
+            tuple[torch.Tensor, torch.Tensor]:
+            A tuple of tensors, namely:
+                - hp_candidates: tensor [N, F]
+                - hp_candidates_ids: tensor [N]
+
+
+            where N is the number of possible pipelines evaluated for a specific dataset
+            and F is the number of features per pipeline. The hp_candidates_ids tensor
+            contains the pipeline ids for the corresponding hyperparameter candidates.
 
         Raises:
             NotImplementedError: This method should be overridden by the child class.
@@ -103,7 +117,7 @@ class BaseMetaDataset:
 
         meta_splits: dict[str, list[str]] = {
             "meta-train": [],
-            "meta-val": [],
+            "meta-valid": [],
             "meta-test": [],
         }
         num_splits = len(meta_train_splits) + len(meta_test_splits) + len(meta_val_splits)
@@ -114,56 +128,27 @@ class BaseMetaDataset:
             elif split_id in meta_test_splits:
                 meta_splits["meta-test"].append(dataset)
             elif split_id in meta_val_splits:
-                meta_splits["meta-val"].append(dataset)
+                meta_splits["meta-valid"].append(dataset)
             else:
                 raise ValueError("Dataset not assigned to any split")
         return meta_splits
 
-    @abstractmethod
-    def get_batch(
-        self,
-        meta_split: str = "meta-train",
-        split: str = "valid",
-        dataset_name: str | None = None,
-        max_num_pipelines: int = 10,
-        batch_size: int = 16,
-        metric_name: str = "acc",
-        observed_pipeline_ids: list[int] | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Fetch a batch of data.
+    def set_dataset(self, dataset_name: str):
+        """
+        Set the dataset to be used for training and evaluation.
+        This method should be called before sampling.
 
-        Args:
-            meta_split (str, optional): Meta dataset split name. Defaults to "meta-train".
-            split (str, optional): Dataset split name. Defaults to "valid".
-            dataset_name (str, optional): Name of the dataset. Defaults to None.
-            max_num_pipelines (int, optional): Maximum number of pipelines. Defaults to 10.
-            batch_size (int, optional): Size of the batch to fetch. Defaults to 16.
-            metric_name (str, optional): Name of the metric. Defaults to "acc".
-            observed_pipeline_ids (list[int], optional): List of observed pipeline IDs. Defaults to None.
-
-        Returns:
-            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-            A tuple of tensors, namely:
-                - pipeline_hps: tensor [B, N, F]
-                - metric: tensor [B]
-                - metric_per_pipeline: tensor [B, N]
-                - time_per_pipeline: tensor [B, N]
-
-            where:
-                - B is the batch size
-                - N = Number of pipelines per ensemble, with 1 <= N <= max_num_pipelines
-                - F = Number of features per pipeline
-
-        Raises:
-            NotImplementedError: This method should be overridden by the child class.
+            Args:
+                dataset_name (str): Name of the dataset.
 
         """
-
-        raise NotImplementedError
+        self.dataset_name = dataset_name
+        self.hp_candidates, self.hp_candidates_ids = self._get_hp_candidates_and_indices()
 
     @abstractmethod
     def evaluate_ensembles(
-        self, ensembles: list[list[int]]
+        self,
+        ensembles: list[list[int]],
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Evaluate given ensemble configurations.
 
