@@ -70,6 +70,7 @@ class BaseModel(nn.Module):
                 metric_per_pipeline,  # pylint: disable=unused-variable
                 time_per_pipeline,  # pylint: disable=unused-variable
             ) = self.sampler.sample(observed_pipeline_ids=self.observed_ids)
+            # TODO: get the ensembles
 
             try:
                 loss, noise = self._fit_batch(
@@ -81,7 +82,7 @@ class BaseModel(nn.Module):
                 logging.info(f"Exception {e}")
                 continue  # TODO: handle this better
 
-            self._observe(x=pipeline_hps, y=metric)
+            # self._observe(x=pipeline_hps, y=metric)
 
             print_progress(epoch + 1, loss.item(), noise.item())
 
@@ -91,11 +92,14 @@ class BaseModel(nn.Module):
                 weights = copy.deepcopy(self.state_dict())
 
             epochs = training_epochs
+            # TODO: make conditional (this is finetune), do not stop for meta training, based on MSE of prediction
             if np.allclose(losses[-1], losses[-2], atol=loss_tol):
                 if epoch - (epochs - max_patience) >= 0:
                     break
             else:
                 epochs = min(epochs, epoch + max_patience + 1)
+
+            # TODO: add meta-validate + early stopping here (from above)
 
         self.load_state_dict(weights)
         self.save_checkpoint()

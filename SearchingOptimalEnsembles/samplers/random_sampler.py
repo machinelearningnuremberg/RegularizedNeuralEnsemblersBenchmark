@@ -16,7 +16,7 @@ class RandomSampler(BaseSampler):
     @move_to_device
     def sample(
         self,
-        acquisition_function=None,
+        acquisition_function=None,  # TODO: remove acquisition_function
         max_num_pipelines: int = 10,
         batch_size: int = 16,
         observed_pipeline_ids: list[int] | None = None,
@@ -32,6 +32,7 @@ class RandomSampler(BaseSampler):
         )
 
         # Fetch the actual pipeline IDs or row indices using the selected indices
+        # TODO: optimize this Sebastian :)
         ensembles = [
             candidates[idx].tolist()
             for idx in selected_indices.view(batch_size, num_pipelines)
@@ -44,4 +45,5 @@ class RandomSampler(BaseSampler):
             time_per_pipeline,
         ) = self.metadataset.evaluate_ensembles(ensembles=ensembles)
 
+        # TODO: return ensembles to get the ids
         return pipeline_hps, metric, metric_per_pipeline, time_per_pipeline

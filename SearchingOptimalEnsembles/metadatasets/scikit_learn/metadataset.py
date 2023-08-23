@@ -8,6 +8,7 @@ import torch
 from ..base_metadataset import BaseMetaDataset
 
 
+# TODO: return 100 (or 1) - acc actually, call it error
 class ScikitLearnMetaDataset(BaseMetaDataset):
     def __init__(
         self,
@@ -79,7 +80,7 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         # Get the indices of rows that exist in the dataframe.
         hp_candidates_ids = _hp_candidates.index.values
 
-        return hp_candidates, hp_candidates_ids
+        return hp_candidates, hp_candidates_ids  # TODO: eleminate indices (future work)
 
     # TODO: add time info
     def evaluate_ensembles(

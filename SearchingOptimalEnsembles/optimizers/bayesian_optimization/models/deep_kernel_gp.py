@@ -27,6 +27,8 @@ class DeepKernelGP(BaseModel):
         super().__init__(sampler=sampler, checkpoint_path=checkpoint_path, device=device)
 
         dim_in = self.sampler.metadataset.feature_dim
+        if dim_in is None:
+            raise ValueError("Feature dimension is None")
         self.feature_extractor = SetTransformer(dim_in=dim_in).to(self.device)
 
         self.model, self.likelihood, self.mll = self._get_model_likelihood_mll(
@@ -126,19 +128,21 @@ class DeepKernelGP(BaseModel):
         self.feature_extractor.eval()
         self.likelihood.eval()
 
+        # TODO: fix the concatenation
         X_obs = torch.ones(1, self.feature_extractor.dim_in).to(self.device)
         y_obs = torch.ones(1).to(self.device)
+        # TODO: do from 1 to max_num_pipelines
         for num_pipelines in range(10, 12):
             # pylint: disable=unused-variable
             pipeline_hps, metric, metric_per_pipeline, time_per_pipeline = sampler.sample(
                 observed_pipeline_ids=self.observed_ids,
                 max_num_pipelines=num_pipelines,
             )
-            X_obs = torch.cat([X_obs, pipeline_hps], dim=0)
             y_obs = torch.cat([y_obs, metric], dim=0)
+            z_support = self.feature_extractor(pipeline_hps).detach()
+            X_obs = torch.cat([X_obs, z_support], dim=0)
 
-        z_support = self.feature_extractor(X_obs).detach()
-        self.model.set_train_data(inputs=z_support, targets=y_obs, strict=False)
+        self.model.set_train_data(inputs=X_obs, targets=y_obs, strict=False)
 
         with torch.no_grad():
             z_query = self.feature_extractor(x).detach()

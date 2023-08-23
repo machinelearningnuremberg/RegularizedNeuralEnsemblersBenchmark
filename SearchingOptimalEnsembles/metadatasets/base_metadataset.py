@@ -49,9 +49,10 @@ class BaseMetaDataset:
         self.meta_split_ids = meta_split_ids
         self.meta_splits: dict[str, list[str]] = {}
 
+        self.feature_dim: int = None
+
         # To initialize call _initialize() in the child class
         self.dataset_names: list[str] = []
-        self.feature_dim: int
 
         # To initialize call set_dataset(dataset_name) in the child class
         self.dataset_name: str
@@ -63,6 +64,7 @@ class BaseMetaDataset:
         self.dataset_names = self._get_dataset_names()
         self.meta_splits = self._get_meta_splits()
 
+    # TODO: make public
     @abstractmethod
     def _get_dataset_names(self) -> list[str]:
         """Fetch the dataset names present in the meta-dataset.
