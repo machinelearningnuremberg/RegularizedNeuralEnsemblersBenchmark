@@ -82,8 +82,6 @@ class BaseModel(nn.Module):
                 logging.info(f"Exception {e}")
                 continue  # TODO: handle this better
 
-            # self._observe(x=pipeline_hps, y=metric)
-
             print_progress(epoch + 1, loss.item(), noise.item())
 
             losses.append(loss.detach().to("cpu").item())

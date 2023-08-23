@@ -21,7 +21,7 @@ class BaseMetaDataset:
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         seed: int = 42,
         split: str = "valid",
-        metric_name: str = "acc",
+        metric_name: str = "error",
     ):
         """Initialize the BaseMetaDataset.
 
@@ -32,7 +32,7 @@ class BaseMetaDataset:
                 Defaults to (0.6, 0.2, 0.2).
             seed (int, optional): Random seed. Defaults to 42.
             split (str, optional): Dataset split name. Defaults to "valid".
-            metric_name (str, optional): Name of the metric. Defaults to "acc".
+            metric_name (str, optional): Name of the metric. Defaults to "error".
 
         Attributes:
             data_dir (str): Directory path for the dataset.
@@ -49,7 +49,7 @@ class BaseMetaDataset:
         self.meta_split_ids = meta_split_ids
         self.meta_splits: dict[str, list[str]] = {}
 
-        self.feature_dim: int = None
+        self.feature_dim: int = None  
 
         # To initialize call _initialize() in the child class
         self.dataset_names: list[str] = []
@@ -61,12 +61,11 @@ class BaseMetaDataset:
 
     def _initialize(self):
         """Initialize the meta-dataset. This method should be called in the child class."""
-        self.dataset_names = self._get_dataset_names()
+        self.dataset_names = self.get_dataset_names()
         self.meta_splits = self._get_meta_splits()
 
-    # TODO: make public
     @abstractmethod
-    def _get_dataset_names(self) -> list[str]:
+    def get_dataset_names(self) -> list[str]:
         """Fetch the dataset names present in the meta-dataset.
 
         Returns:
@@ -118,7 +117,7 @@ class BaseMetaDataset:
 
         meta_splits: dict[str, list[str]] = {
             "meta-train": [],
-            "meta-val": [],
+            "meta-valid": [],
             "meta-test": [],
         }
         num_splits = len(meta_train_splits) + len(meta_test_splits) + len(meta_val_splits)
@@ -129,7 +128,7 @@ class BaseMetaDataset:
             elif split_id in meta_test_splits:
                 meta_splits["meta-test"].append(dataset)
             elif split_id in meta_val_splits:
-                meta_splits["meta-val"].append(dataset)
+                meta_splits["meta-valid"].append(dataset)
             else:
                 raise ValueError("Dataset not assigned to any split")
         return meta_splits

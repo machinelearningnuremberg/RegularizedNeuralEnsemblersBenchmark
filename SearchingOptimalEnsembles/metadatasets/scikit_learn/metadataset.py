@@ -38,7 +38,7 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
 
         self._initialize()
 
-    def _get_dataset_names(self) -> list[str]:
+    def get_dataset_names(self) -> list[str]:
         return (
             pd.read_csv(
                 f"{self.data_dir}/pipeline_bench_data/openml_cc18_datasets.csv",
