@@ -20,6 +20,8 @@ class BaseMetaDataset:
         data_dir: str,
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         seed: int = 42,
+        split: str = "valid",
+        metric_name: str = "acc",
     ):
         """Initialize the BaseMetaDataset.
 
@@ -41,6 +43,10 @@ class BaseMetaDataset:
         self.data_dir = data_dir
         self.seed = seed
         self.meta_split_ids = meta_split_ids
+        # self.dataset_name = dataset_name
+        self.split = split
+        self.metric_name = metric_name
+        # self.device = device
 
         # To initialize call _initialize() in the child class
         self.dataset_names: list[str] = []
@@ -157,19 +163,12 @@ class BaseMetaDataset:
 
     @abstractmethod
     def evaluate_ensembles(
-        self,
-        ensembles: list[list[int]],
-        dataset_name: str,
-        split: str = "valid",
-        metric_name: str = "acc",
+        self, ensembles: list[list[int]]
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Evaluate given ensemble configurations.
 
         Args:
             ensembles (list[list[int]]): Ensemble configuration.
-            dataset_name (str): Name of the dataset.
-            split (str, optional): Dataset split name. Defaults to "valid".
-            metric_name (str, optional): Name of the metric. Defaults to "acc".
 
         Returns:
             tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
