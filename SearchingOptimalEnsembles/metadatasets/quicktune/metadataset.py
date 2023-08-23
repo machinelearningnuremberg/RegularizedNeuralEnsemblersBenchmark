@@ -16,17 +16,20 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         data_dir: str,
         meta_split_ids=((0, 1, 2), (3,), (4,)),
         seed: int = 42,
+        split: str = "val",
+        metric_name: str = "acc",
         ensemble_type: str = "soft",
         data_version: str = "micro",
-        metric_name: str = "acc",
-        split: str = "val",
-        device: str = "cpu",
     ):
+        super().__init__(
+            data_dir=data_dir,
+            meta_split_ids=meta_split_ids,
+            seed=seed,
+            split=split,
+            metric_name=metric_name,
+        )
         self.ensemble_type = ensemble_type
         self.data_version = data_version
-        self.metric_name = metric_name
-        self.split = split
-        super().__init__(data_dir, meta_split_ids, seed, device)
 
         self.dataset_name: str = ""
         self.hps = pd.read_csv(
@@ -39,10 +42,11 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         self.best_performance = None
         self.worst_performance_idx = None
         self.worst_performance = None
-        self.pipeline_hps = None
-        self.targets = None
-        self.time = None
-        self.predictions = None
+        self.pipeline_hps: torch.Tensor = None
+        self.targets: torch.Tensor = None
+        self.time: torch.Tensor = None
+        self.predictions: torch.Tensor = None
+        self.is_test_id: np.array | torch.Tensor = None
 
     def _aggregate_info(self):
         self.aggregated_info = {}
