@@ -138,11 +138,9 @@ class BayesianOptimization(BaseOptimizer):
         for epoch in range(num_epochs):
             start_time = time.time()
 
-            meta_train_loss = self.surrogate.train(
-                scheduler=scheduler,
+            meta_train_loss = self.surrogate.fit(
                 dataset_name=None,  # Sample random dataset
                 num_epochs=num_inner_epochs,
-                mode="train",
             )
 
             # Logging the time and loss for this epoch
@@ -160,11 +158,13 @@ class BayesianOptimization(BaseOptimizer):
                 # using all datasets in the split
                 meta_valid_losses = []
                 for dataset_name in self.sampler.metadataset.meta_splits["meta-valid"]:
-                    meta_valid_loss = self.surrogate.train(
-                        scheduler=scheduler,
+                    pipeline_hps, metric_per_pipeline, metric = self.sampler.sample(
                         dataset_name=dataset_name,
-                        num_epochs=1,
-                        mode="eval",
+                    )
+                    meta_valid_loss = self.surrogate.validate(
+                        pipeline_hps = pipeline_hps,
+                        metric_per_pipeline = metric_per_pipeline,
+                        metric = metric,
                     )
 
                     meta_valid_losses.append(meta_valid_loss)

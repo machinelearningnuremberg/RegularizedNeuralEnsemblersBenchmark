@@ -36,6 +36,7 @@ class BaseSampler:
     def sample(
         self,
         max_num_pipelines: int = 10,
+        fixed_num_pipelines: int | None = None,
         batch_size: int = 16,
         observed_pipeline_ids: list[int] | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, list[list[int]]]:

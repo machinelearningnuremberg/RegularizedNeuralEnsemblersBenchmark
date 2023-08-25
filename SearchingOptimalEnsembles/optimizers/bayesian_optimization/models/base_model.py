@@ -29,7 +29,7 @@ class BaseModel(nn.Module):
         self.y_obs: list[torch.Tensor] = []
 
         self.model: torch.nn.Module
-        self.scheduler: torch.optim.Optimizer
+        self.optimizer: torch.optim.Optimizer
 
     @abstractmethod
     def load_checkpoint(self, checkpoint_name: str = "checkpoint.pth"):
@@ -45,9 +45,8 @@ class BaseModel(nn.Module):
         self.x_obs.append(x)
         self.y_obs.append(y)
 
-    def train(
+    def fit(
         self,
-        scheduler: torch.optim.Optimizer,
         dataset_name: str,
         num_epochs: int = 100,
         mode: str = "train",
@@ -91,9 +90,8 @@ class BaseModel(nn.Module):
             try:
                 loss = self._fit_batch(
                     pipeline_hps=pipeline_hps,
-                    metric=metric,
-                    scheduler=scheduler,
-                    mode=mode,
+                    metric_per_pipeline=metric_per_pipeline,
+                    metric=metric
                 )
 
                 # Logging the loss for the current iteration
@@ -111,9 +109,8 @@ class BaseModel(nn.Module):
     def _fit_batch(
         self,
         pipeline_hps: torch.Tensor,
+        metric_per_pipeline: torch.Tensor,
         metric: torch.Tensor,
-        scheduler: torch.optim.Optimizer,
-        mode: str = "train",
     ) -> torch.Tensor:
         """Fits the model to the observed data. Returns the loss and the noise
         of the likelihood.
@@ -132,6 +129,23 @@ class BaseModel(nn.Module):
             torch.Tensor: Loss.
         """
 
+        raise NotImplementedError
+
+    @abstractmethod
+    def _validate(self,
+            pipeline_hps: torch.Tensor,
+            metric_per_pipeline: torch.Tensor,
+            metric: torch.Tensor) -> torch.Tensor:
+        """Validates the model to the observed data. Returns the loss and the noise
+        of the likelihood.
+
+        Args:
+            pipeline_hps (torch.Tensor): Hyperparameters of the pipelines, shape (B, N, F)
+                where B is the batch size, N is the number of pipelines, and F is the
+                number of features.
+            metric (torch.Tensor): Metric of the pipelines, shape (B, N) where B is the
+            batch size and N is the number of pipelines.
+        """
         raise NotImplementedError
 
     @abstractmethod
