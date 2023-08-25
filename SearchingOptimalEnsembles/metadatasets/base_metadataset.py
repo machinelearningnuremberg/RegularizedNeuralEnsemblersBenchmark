@@ -5,6 +5,8 @@ from abc import abstractmethod
 import numpy as np
 import torch
 
+from ..utils.logger import get_logger
+
 META_SPLITS = {
     0: [(0, 1, 2), (3,), (4,)],
     1: [(1, 2, 3), (4,), (0,)],
@@ -39,6 +41,12 @@ class BaseMetaDataset:
             dataset_names (list): List of dataset names present in the meta-dataset.
             split_indices (dict): Dictionary containing splits for meta-training,
                                    meta-validation, and meta-testing.
+            seed (int): Random seed.
+            split (str): Dataset split name.
+            metric_name (str): Name of the metric.
+            meta_splits (dict): Dictionary containing meta train, val, and test splits.
+            meta_split_ids (tuple): Tuple containing meta train, val, and test split ids.
+            logger (logging.Logger): Logger.
 
         """
 
@@ -48,6 +56,7 @@ class BaseMetaDataset:
         self.metric_name = metric_name
         self.meta_split_ids = meta_split_ids
         self.meta_splits: dict[str, list[str]] = {}
+        self.logger = get_logger(name="SEO-METADATASET", logging_level="debug")
 
         self.feature_dim: int = None
 
@@ -133,7 +142,7 @@ class BaseMetaDataset:
                 raise ValueError("Dataset not assigned to any split")
         return meta_splits
 
-    def set_dataset(self, dataset_name: str):
+    def set_state(self, dataset_name: str):
         """
         Set the dataset to be used for training and evaluation.
         This method should be called before sampling.
@@ -144,6 +153,8 @@ class BaseMetaDataset:
         """
         self.dataset_name = dataset_name
         self.hp_candidates, self.hp_candidates_ids = self._get_hp_candidates_and_indices()
+
+        self.logger.debug(f"Setting dataset to {dataset_name}")
 
     @abstractmethod
     def evaluate_ensembles(

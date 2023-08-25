@@ -13,8 +13,17 @@ def run(
     surrogate_name: Literal["dkl", "dre"] = "dkl",
     sampler_name: Literal["random"] = "random",
     acquisition_name: Literal["ei"] = "ei",
-    budget: None | int | float = None,
 ) -> None:
+    """Runs the optimizer on the metadataset.
+
+    Args:
+        metadataset_name
+        optimizer_name
+        surrogate_name
+        sampler_name
+        acquisition_name
+    """
+
     metadataset = instance_from_map(
         MetaDatasetMapping,
         metadataset_name,
@@ -26,7 +35,6 @@ def run(
         "surrogate_name": surrogate_name,
         "sampler_name": sampler_name,
         "acquisition_name": acquisition_name,
-        "budget": budget,
         "initial_design_size": 5,
         "patience": 50,
     }

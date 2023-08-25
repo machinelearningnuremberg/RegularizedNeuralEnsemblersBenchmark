@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import logging
 from abc import abstractmethod
 
 import torch
+
+from ..utils.logger import get_logger
 
 
 class BaseOptimizer:
@@ -13,18 +14,27 @@ class BaseOptimizer:
         self,
         metadataset,
         patience: int = 50,
-        logger=None,
-        budget: None | int | float = None,
+        **kwargs,  # pylint: disable=unused-argument
     ):
+        """Initializes the base optimizer class.
+
+        Args:
+
+            metadataset (BaseMetaDataset): The meta-dataset to be used for the optimization.
+            patience (int, optional): The number of epochs to wait for the validation loss to improve.
+
+        Raises:
+            ValueError: If the patience is less than 1.
+        """
         if patience < 1:
             raise ValueError("Patience should be at least 1")
 
         self.metadataset = metadataset
         self.patience = patience
-        self.logger = logger or logging.getLogger("seo")
-        self.budget = budget
+        self.logger = get_logger(name="SEO-OPTIMIZER", logging_level="debug")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # self.logger.info(f"Using device: {self.device}")
+
+        self.logger.debug(f"Using device: {self.device}")
 
     @abstractmethod
     def run(self):

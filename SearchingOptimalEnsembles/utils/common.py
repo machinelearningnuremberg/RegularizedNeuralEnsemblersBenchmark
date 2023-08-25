@@ -14,7 +14,7 @@ def move_to_device(method):
     def wrapper(self, *args, **kwargs):
         results = method(self, *args, **kwargs)
         if self.device and isinstance(results, (tuple, list)):
-            return tuple(x.to(self.device) for x in results)
+            return tuple(x.to(self.device) if hasattr(x, "to") else x for x in results)
         return results
 
     return wrapper
