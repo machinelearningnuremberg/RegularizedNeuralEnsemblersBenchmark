@@ -130,11 +130,6 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             raise ValueError("split must be either val or test")
 
         self.predictions[torch.isnan(self.predictions)] = 0
-        self.hp_candidates_ids =  torch.arange(len(self.hp_candidates))
-
-        return self.hp_candidates, self.time, self.predictions, self.targets
-
-    def set_dataset(self, dataset_name: str):
         if dataset_name != self.dataset_name:
             self.dataset_name = dataset_name
             self.get_dataset_info(dataset_name)
@@ -193,6 +188,6 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(axis=-1)
 
         else:
-            raise ValueError("metric_name must be either acc or nll")
+            raise ValueError("metric_name must be either error or nll")
 
         return hp_candidates, metric, metric_per_pipeline, time_per_pipeline

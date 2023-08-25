@@ -118,7 +118,6 @@ class DRE(BaseModel):
 
         return out
 
-
     def predict(self, x, y):
         with torch.no_grad():
             x_query = x[0]
@@ -138,11 +137,10 @@ class DRE(BaseModel):
 
     def get_rank(self, x):
         #x += torch.rand(x.shape).to(x.device) * 1e-5
-        sorted_indices = torch.argsort(x)
 
-        # Create a tensor to store the ranks
+        # x += torch.rand(x.shape).to(x.device) * 1e-5
+        sorted_indices = torch.argsort(x)#
         ranks = torch.zeros_like(x).to(x.device)
-
         # Assign ranks to each element based on their sorted indices
         ranks[sorted_indices] = torch.arange(len(x)).to(x.device).float()
         return ranks

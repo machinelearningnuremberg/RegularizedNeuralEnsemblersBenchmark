@@ -8,7 +8,6 @@ import torch
 from ..base_metadataset import BaseMetaDataset
 
 
-# TODO: return 100 (or 1) - acc actually, call it error
 class ScikitLearnMetaDataset(BaseMetaDataset):
     def __init__(
         self,
@@ -16,7 +15,7 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         seed: int = 42,
         split: str = "valid",
-        metric_name: str = "acc",
+        metric_name: str = "error",
     ):
         super().__init__(
             data_dir=data_dir,
@@ -26,9 +25,10 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
             metric_name=metric_name,
         )
 
-        # Scikit-leran specific attributes
-        self.benchmark: pipeline_bench.Benchmark
         self.feature_dim = 196
+
+        # Scikit-learn specific attributes
+        self.benchmark: pipeline_bench.Benchmark
         self.task_ids = (
             pd.read_csv(
                 f"{self.data_dir}/pipeline_bench_data/openml_cc18_datasets.csv",
@@ -50,39 +50,30 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
             .tolist()
         )
 
-    def set_dataset(self, dataset_name: str):
-        # Sci-kit learn specific attributes
+    def set_state(self, dataset_name: str):
+        # Scikit-learn specific attributes
         task_id = self.task_ids[self.dataset_names.index(dataset_name)]
         self.benchmark = pipeline_bench.Benchmark(
             task_id=task_id, worker_dir=self.data_dir, mode="table", lazy=False
         )
-
-        super().set_dataset(dataset_name=dataset_name)
-
-    def _unset_dataset(self):
-        del self.benchmark
-        del self.dataset_name
-        del self.hp_candidates
-        del self.hp_candidates_ids
-        del self.feature_dim
+        super().set_state(dataset_name=dataset_name)
 
     def _get_hp_candidates_and_indices(
-        self,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        # pylint: disable=protected-access
-        _hp_candidates = self.benchmark._configs.compute()
+        self, return_only_ids: bool = True
+    ) -> tuple[torch.Tensor | None, torch.Tensor]:
+        hp_candidates_ids = np.array(self.benchmark.get_hp_candidates_ids())
 
-        # Convert DataFrame to a numpy array and handle NaN values.
-        hp_candidates = _hp_candidates.values.astype(np.float32)
-        hp_candidates[np.isnan(hp_candidates)] = 0
+        if not return_only_ids:
+            _hp_candidates = self.benchmark._configs.compute()
+            # Convert DataFrame to a numpy array and handle NaN values.
+            hp_candidates = _hp_candidates.values.astype(np.float32)
+            hp_candidates[np.isnan(hp_candidates)] = 0
 
-        # Convert the numpy array to a torch tensor.
-        hp_candidates = torch.from_numpy(hp_candidates)
+            # Convert the numpy array to a torch tensor.
+            hp_candidates = torch.from_numpy(hp_candidates)
 
-        # Get the indices of rows that exist in the dataframe.
-        hp_candidates_ids = _hp_candidates.index.values
-
-        return hp_candidates, hp_candidates_ids  # TODO: eleminate indices (future work)
+            return hp_candidates, hp_candidates_ids
+        return None, hp_candidates_ids  # TODO: eleminate indices (future work)
 
     # TODO: add time info
     def evaluate_ensembles(
@@ -101,25 +92,32 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         splits = self.benchmark.get_splits(return_array=True)
 
         y_true = np.repeat(splits[f"y_{self.split}"].reshape(1, -1), batch_size, axis=0)
+        # del splits  # free memory
 
         # Retieve the predictions for each pipeline in each ensemble
         y_proba = self.benchmark(
             ensembles=ensembles,
             datapoints=splits_ids[f"X_{self.split}"],
-            get_probabilities=False if self.metric_name == "acc" else True,
+            get_probabilities=False if self.metric_name == "error" else True,
             aggregate=False,
         )
 
-        if self.metric_name == "acc":
+        if self.metric_name == "error":
             # Step 1: Reshape the predictions and the true labels to have the same shape
             predictions = np.round(y_proba.reshape(batch_size, -1, y_true.shape[1]))
+            # del y_proba  # free memory
 
             # Step 2: Compute the accuracy for each pipeline and each ensemble
             acc_per_pipeline = (predictions == y_true[:, None, :]).mean(axis=2)
+            # del predictions  # free memory
             acc_per_ensemble = acc_per_pipeline.mean(axis=1)
 
-            metric = torch.tensor(acc_per_ensemble, dtype=torch.float32)
-            metric_per_pipeline = torch.tensor(acc_per_pipeline, dtype=torch.float32)
+            # Step 3: Compute the error rate
+            error_per_pipeline = 1.0 - acc_per_pipeline
+            error_per_ensemble = 1.0 - acc_per_ensemble
+
+            metric = torch.tensor(error_per_ensemble, dtype=torch.float32)
+            metric_per_pipeline = torch.tensor(error_per_pipeline, dtype=torch.float32)
 
         elif self.metric_name == "nll":
             num_datapoints = y_proba.shape[1]
@@ -135,12 +133,15 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
             true_probabilities = y_proba[
                 batch_indices, datapoint_indices, pipeline_indices, true_class_indices
             ]
+            # del y_proba  # free memory
 
             # Step 2: Compute the negative log of those probabilities (with a small epsilon to avoid NaNs)
             nll_per_pipeline_datapoint = -np.log(true_probabilities + 1e-10)
+            # del true_probabilities  # free memory
 
             # Step 3: Average over datapoints to get NLL for each pipeline
             nll_per_pipeline = nll_per_pipeline_datapoint.mean(axis=1)
+            # del nll_per_pipeline_datapoint  # free memory
 
             # Step 4: Average over pipelines to get a single NLL value for each ensemble
             nll_per_ensemble = nll_per_pipeline.mean(axis=1)
@@ -150,8 +151,6 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
 
         else:
             raise NotImplementedError
-
-        # self._unset_dataset()  # TODO: FIX THIS
 
         return (
             pipeline_hps,

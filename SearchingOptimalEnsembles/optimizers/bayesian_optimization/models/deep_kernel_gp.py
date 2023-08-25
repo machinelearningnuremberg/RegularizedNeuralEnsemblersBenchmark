@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import gpytorch
@@ -11,9 +10,6 @@ from ....utils.common import move_to_device
 from ..modules.gp import ExactGPLayer
 from ..modules.set_transformer import SetTransformer
 from .base_model import BaseModel
-
-logging.basicConfig(level=logging.DEBUG)
-logging.getLogger("fsspec").setLevel(logging.WARNING)
 
 
 class DeepKernelGP(BaseModel):
@@ -35,7 +31,7 @@ class DeepKernelGP(BaseModel):
             config=config
         )
         lr = 0.001
-        self.optimizer = torch.optim.Adam(
+        self.scheduler = torch.optim.Adam(
             [
                 {"params": self.model.parameters(), "lr": lr},
                 {"params": self.feature_extractor.parameters(), "lr": lr},
@@ -66,40 +62,40 @@ class DeepKernelGP(BaseModel):
 
         return model, likelihood, mll
 
-    def load_checkpoint(self, checkpoint_name: str = "checkpoint.pth"):
+    def load_checkpoint(self, checkpoint_name: str = "surrogate.pth"):
         if self.checkpoint_path is None:
-            logging.info("No checkpoint specified. Skipping...")
+            self.logger.info("No checkpoint specified. Skipping...")
             return
 
         checkpoint = self.checkpoint_path / checkpoint_name
-        logging.info(f"Loading checkpoint from {checkpoint}...")
+        self.logger.info(f"Loading checkpoint from {checkpoint}...")
 
         try:
             if not Path(checkpoint).exists():
-                logging.info(f"Checkpoint {checkpoint} does not exist. Skipping...")
+                self.logger.info(f"Checkpoint {checkpoint} does not exist. Skipping...")
                 return
             ckpt = torch.load(checkpoint, map_location=torch.device(self.device))
             self.model.load_state_dict(ckpt["model"])
             self.likelihood.load_state_dict(ckpt["likelihood"])
             self.feature_extractor.load_state_dict(ckpt["feature_extractor"])
-            self.optimizer.load_state_dict(ckpt["optimizer"])
+            self.scheduler.load_state_dict(ckpt["scheduler"])
         except Exception as e:
-            logging.info(f"Exception {e}")
+            self.logger.info(f"Exception {e}")
 
-    def save_checkpoint(self, checkpoint_name: str = "checkpoint.pth"):
+    def save_checkpoint(self, checkpoint_name: str = "surrogate.pth"):
         if self.checkpoint_path is None:
-            logging.info("No checkpoint specified. Skipping...")
+            self.logger.info("No checkpoint specified. Skipping...")
             return
 
         checkpoint = self.checkpoint_path / checkpoint_name
-        logging.info(f"Saving checkpoint to {checkpoint}...")
+        self.logger.info(f"Saving checkpoint to {checkpoint}...")
 
         torch.save(
             {
                 "model": self.model.state_dict(),
                 "likelihood": self.likelihood.state_dict(),
                 "feature_extractor": self.feature_extractor.state_dict(),
-                "optimizer": self.optimizer.state_dict(),
+                "scheduler": self.scheduler.state_dict(),
             },
             checkpoint,
         )
@@ -108,39 +104,65 @@ class DeepKernelGP(BaseModel):
         self,
         pipeline_hps: torch.Tensor,
         metric: torch.Tensor,
-        optimizer: torch.optim.Optimizer,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        optimizer.zero_grad()
-        z = self.feature_extractor(pipeline_hps)
-        self.model.set_train_data(inputs=z, targets=metric, strict=False)
-        predictions = self.model(z)
+        scheduler: torch.optim.Optimizer,
+        mode: str = "train",
+    ) -> torch.Tensor:
+        if mode == "train":
+            self.model.train()
+            self.feature_extractor.train()
+            self.likelihood.train()
 
-        loss = -self.mll(predictions, self.model.train_targets)
-        loss.backward()
-        optimizer.step()
+            scheduler.zero_grad()
+            z = self.feature_extractor(pipeline_hps)
+            self.model.set_train_data(inputs=z, targets=metric, strict=False)
+            predictions = self.model(z)
 
-        return loss, self.likelihood.noise
+            loss = -self.mll(predictions, self.model.train_targets)
+            loss.backward()
+            scheduler.step()
+        elif mode == "eval":
+            self.model.eval()
+            self.feature_extractor.eval()
+            self.likelihood.eval()
+
+            z = self.feature_extractor(pipeline_hps)
+            self.model.set_train_data(inputs=z, targets=metric, strict=False)
+            predictions = self.model(z)
+
+            # Calcualte loss as MSE
+            loss = torch.mean((predictions.mean - metric) ** 2)
+
+        return loss
 
     def predict(
-        self, x: torch.Tensor, sampler: BaseSampler
+        self, x: torch.Tensor, sampler: BaseSampler, max_num_pipelines: int = 10
     ) -> tuple[torch.Tensor, torch.Tensor]:
         self.model.eval()
         self.feature_extractor.eval()
         self.likelihood.eval()
 
-        # TODO: fix the concatenation
-        X_obs = torch.ones(1, self.feature_extractor.dim_in).to(self.device)
-        y_obs = torch.ones(1).to(self.device)
-        # TODO: do from 1 to max_num_pipelines
-        for num_pipelines in range(10, 12):
+        # Initialize lists to collect the tensors
+        X_obs_list = []
+        y_obs_list = []
+        for num_pipelines in range(1, max_num_pipelines + 1):
             # pylint: disable=unused-variable
-            pipeline_hps, metric, metric_per_pipeline, time_per_pipeline = sampler.sample(
+            (
+                pipeline_hps,
+                metric,
+                metric_per_pipeline,
+                time_per_pipeline,
+                ensembles,
+            ) = sampler.sample(
                 observed_pipeline_ids=self.observed_ids,
                 max_num_pipelines=num_pipelines,
             )
-            y_obs = torch.cat([y_obs, metric], dim=0)
+            y_obs_list.append(metric)
             z_support = self.feature_extractor(pipeline_hps).detach()
-            X_obs = torch.cat([X_obs, z_support], dim=0)
+            X_obs_list.append(z_support)
+
+        # Concatenate the lists to form tensors
+        y_obs = torch.cat(y_obs_list, dim=0)
+        X_obs = torch.cat(X_obs_list, dim=0)
 
         self.model.set_train_data(inputs=X_obs, targets=y_obs, strict=False)
 
