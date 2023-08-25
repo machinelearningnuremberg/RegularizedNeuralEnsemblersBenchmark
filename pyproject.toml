@@ -35,8 +35,8 @@ pipeline_bench = { git = "https://github.com/releaunifreiburg/Pipeline-Bench.git
 configspace = "^0.7.1"
 regex = "^2023.8.8"
 tqdm = "^4.66.1"
-torch = { version = "1.9", extras = ["cu121"] }  
-torchvision = { version = "^0.10.0", extras = ["cu121"] }  
+torch = { version = "1.9", extras = ["cu121"] }
+torchvision = { version = "^0.10.0", extras = ["cu121"] }
 gpytorch = "1.6.0"
 
 [tool.poetry.group.dev.dependencies]

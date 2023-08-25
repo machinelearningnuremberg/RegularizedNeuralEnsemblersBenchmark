@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import copy
-import logging
 from abc import abstractmethod
 from pathlib import Path
 
-import numpy as np
 import torch
 import torch.nn as nn
 
 from ....samplers.base_sampler import BaseSampler
+from ....utils.logger import get_logger
 
 
 class BaseModel(nn.Module):
@@ -24,20 +22,23 @@ class BaseModel(nn.Module):
         self.sampler = sampler
         self.checkpoint_path = checkpoint_path
         self.device = device
+        self.logger = get_logger(name="SEO-MODEL", logging_level="debug")
 
         self.observed_ids = None
         self.x_obs: list[torch.Tensor] = []
         self.y_obs: list[torch.Tensor] = []
 
         self.model: torch.nn.Module
-        self.optimizer: torch.optim.Optimizer
+        self.scheduler: torch.optim.Optimizer
 
     @abstractmethod
     def load_checkpoint(self, checkpoint_name: str = "checkpoint.pth"):
+        """Loads the checkpoint from the checkpoint path."""
         raise NotImplementedError
 
     @abstractmethod
     def save_checkpoint(self, checkpoint_name: str = "checkpoint.pth"):
+        """Saves the checkpoint to the checkpoint path."""
         raise NotImplementedError
 
     def _observe(self, x: torch.Tensor, y: torch.Tensor):
@@ -46,77 +47,113 @@ class BaseModel(nn.Module):
 
     def train(
         self,
-        training_epochs: int = 100,
-        max_patience: int = 16,
-        loss_tol: float = 0.0001,
-    ):
-        def print_progress(iteration: int, loss: float, noise: float):
-            logging.debug(
-                f"Iter {iteration}/{training_epochs} - Loss: {loss:.5f} noise: {noise:.5f}"
-            )
+        scheduler: torch.optim.Optimizer,
+        dataset_name: str,
+        num_epochs: int = 100,
+        mode: str = "train",
+    ) -> float:
+        """
+        Trains or evaluates the model based on a dataset.
+        This function computes the loss for either the training or evaluation mode.
 
-        self.load_checkpoint()
+        Args:
+            scheduler (torch.optim.Optimizer): The optimizer object to manage optimization.
 
-        losses = [np.inf]
-        best_loss = np.inf
-        weights = copy.deepcopy(self.state_dict())
+            dataset_name (str): Name of the dataset to train on.
+            num_epochs (int, optional): Number of training epochs for each dataset. Defaults to 100.
+            mode (str, optional): Mode of the model, can be either "train" or "eval".
+                                If "train", the model is updated based on the loss.
+                                If "eval", the loss is computed but no model update occurs.
+                                Defaults to "train".
 
-        self.model.train()
+        Returns:
+            float: The average loss across all the batches and datasets.
 
-        for epoch in range(training_epochs):
+        Raises:
+            Exception: Catches any exception that occurs during batch training and logs it.
+        """
+
+        # Update sampler state based on the current dataset and mode
+        self.sampler.set_state(dataset_name=dataset_name, meta_split=f"meta-{mode}")
+
+        loss = None
+
+        # Loop for each epoch
+        for epoch in range(num_epochs):
             (
                 pipeline_hps,
                 metric,
                 metric_per_pipeline,  # pylint: disable=unused-variable
                 time_per_pipeline,  # pylint: disable=unused-variable
+                ensembles,  # pylint: disable=unused-variable
             ) = self.sampler.sample(observed_pipeline_ids=self.observed_ids)
-            # TODO: get the ensembles
 
             try:
-                loss, noise = self._fit_batch(
+                loss = self._fit_batch(
                     pipeline_hps=pipeline_hps,
                     metric=metric,
-                    optimizer=self.optimizer,
+                    scheduler=scheduler,
+                    mode=mode,
                 )
-            except Exception as e:
-                logging.info(f"Exception {e}")
-                continue  # TODO: handle this better
 
-            print_progress(epoch + 1, loss.item(), noise.item())
+                # Logging the loss for the current iteration
+                self.logger.debug(
+                    f"Iter {epoch+1}/{num_epochs} - Loss: {loss.item():.5f}"
+                )
 
-            losses.append(loss.detach().to("cpu").item())
-            if best_loss > losses[-1]:
-                best_loss = losses[-1]
-                weights = copy.deepcopy(self.state_dict())
+            except Exception as e:  # Handle exceptions
+                self.logger.info(f"Exception during training: {e}")
+                # epoch -= 1 # Repeat (TODO: consider better error handling)
 
-            epochs = training_epochs
-            # TODO: make conditional (this is finetune), do not stop for meta training, based on MSE of prediction
-            if np.allclose(losses[-1], losses[-2], atol=loss_tol):
-                if epoch - (epochs - max_patience) >= 0:
-                    break
-            else:
-                epochs = min(epochs, epoch + max_patience + 1)
-
-            # TODO: add meta-validate + early stopping here (from above)
-
-        self.load_state_dict(weights)
-        self.save_checkpoint()
+        return loss
 
     @abstractmethod
     def _fit_batch(
         self,
         pipeline_hps: torch.Tensor,
         metric: torch.Tensor,
-        optimizer: torch.optim.Optimizer,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        "Fits the model to the observed data. Returns the loss and the noise"
+        scheduler: torch.optim.Optimizer,
+        mode: str = "train",
+    ) -> torch.Tensor:
+        """Fits the model to the observed data. Returns the loss and the noise
+        of the likelihood.
+
+        Args:
+            pipeline_hps (torch.Tensor): Hyperparameters of the pipelines, shape (B, N, F)
+                where B is the batch size, N is the number of pipelines, and F is the
+                number of features.
+            metric (torch.Tensor): Metric of the pipelines, shape (B, N) where B is the
+            batch size and N is the number of pipelines.
+            scheduler (torch.optim.Optimizer): Optimizer to use for training.
+            mode (str, optional): Mode of the model. Defaults to "train". Can be "train"
+                or "eval".  If "eval", the loss is calculated as MSE.
+
+        Returns:
+            torch.Tensor: Loss.
+        """
 
         raise NotImplementedError
 
     @abstractmethod
     def predict(
-        self, x: torch.Tensor, sampler: BaseSampler
+        self, x: torch.Tensor, sampler: BaseSampler, max_num_pipelines: int = 10
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        "Returns the mean and standard deviation of the predictive distribution"
+        """Returns the mean and standard deviation of the predictive distribution
+
+        Args:
+            x (torch.Tensor):
+                The input tensor to evaluate the model.
+                    Shape should be (B, N, F) where:
+                    - B is the batch size
+                    - N is the number of pipelines
+                    - F is the number of features
+            sampler (BaseSampler): Sampler to generate candidates.
+            max_num_pipelines (int, optional): Maximum number of pipelines in the
+                ensemble. Defaults to 10.
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]: Mean and standard deviation of the
+                predictive distribution
+        """
 
         raise NotImplementedError

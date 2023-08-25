@@ -17,7 +17,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         meta_split_ids=((0, 1, 2), (3,), (4,)),
         seed: int = 42,
         split: str = "val",
-        metric_name: str = "acc",
+        metric_name: str = "error",
         ensemble_type: str = "soft",
         data_version: str = "micro",
     ):
@@ -135,7 +135,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
 
         return self.pipeline_hps, self.time, self.predictions, self.targets
 
-    def set_dataset(self, dataset_name: str):
+    def set_state(self, dataset_name: str):
         if dataset_name != self.dataset_name:
             self.dataset_name = dataset_name
             self.get_dataset_info(dataset_name)
@@ -194,6 +194,6 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(axis=-1)
 
         else:
-            raise ValueError("metric_name must be either acc or nll")
+            raise ValueError("metric_name must be either error or nll")
 
         return self.pipeline_hps, metric, metric_per_pipeline, time_per_pipeline
