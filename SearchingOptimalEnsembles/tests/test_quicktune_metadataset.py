@@ -1,7 +1,7 @@
 import torch
 
 import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
-import SearchingOptimalEnsembles.tests.base_test as base_test
+import SearchingOptimalEnsembles.tests.test_metadataset as base_test
 
 DATA_DIR = "/home/pineda/AutoFinetune/aft_data/predictions/"
 
