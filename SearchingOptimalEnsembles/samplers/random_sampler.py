@@ -22,21 +22,13 @@ class RandomSampler(BaseSampler):
         observed_pipeline_ids: list[int] | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         if observed_pipeline_ids is None or len(observed_pipeline_ids) == 0:
-            candidates = self.metadataset.hp_candidates_ids
+            candidates = self.metadataset.hp_candidates_ids.numpy()
         else:
-            candidates = observed_pipeline_ids
+            candidates = np.array(observed_pipeline_ids)
 
         num_pipelines = np.random.randint(1, max_num_pipelines + 1)
-        selected_indices = torch.multinomial(
-            torch.ones(len(candidates)), num_pipelines * batch_size, replacement=True
-        )
-
-        # Fetch the actual pipeline IDs or row indices using the selected indices
-        # TODO: optimize this Sebastian :)
-        ensembles = [
-            candidates[idx].tolist()
-            for idx in selected_indices.view(batch_size, num_pipelines)
-        ]
+        ensembles = np.random.randint(0, len(candidates), (batch_size, num_pipelines))
+        ensembles = candidates[ensembles].tolist()
 
         (
             pipeline_hps,
