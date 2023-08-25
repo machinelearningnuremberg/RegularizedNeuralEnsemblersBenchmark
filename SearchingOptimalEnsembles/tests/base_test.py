@@ -1,7 +1,7 @@
 def test_evaluate_ensembles(metadataset):
 
     dataset_names = metadataset.get_dataset_names()
-    metadataset.set_dataset_name(dataset_names[0])
+    metadataset.set_dataset(dataset_names[0])
     pipeline_hps, metric, metric_per_pipeline, time_per_pipeline = metadataset.evaluate_ensembles([[0, 1, 2], [3, 4, 5]])
 
     assert pipeline_hps.shape[:2] == (2, 3)
@@ -23,6 +23,3 @@ def test_evaluate_ensembles(metadataset):
     assert metric_per_pipeline.shape == (1, 1)
     assert time_per_pipeline.shape == (1, 1)
 
-
-def test_get_batch(metadataset):
-    pass
