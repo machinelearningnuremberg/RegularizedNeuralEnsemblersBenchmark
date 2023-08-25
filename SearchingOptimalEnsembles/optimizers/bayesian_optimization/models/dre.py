@@ -1,13 +1,27 @@
 import torch
 import torch.nn as nn
+
 from ..modules.set_transformer import SetTransformer
 from .base_model import BaseModel
 
+
 class DRE(BaseModel):
-    def __init__(self, sampler, checkpoint_path, device,
-                    dim_in, hidden_dim=64, hidden_dim_ff=32, num_heads=4,
-                    num_seeds=1, out_dim=32, out_dim_ff=1, num_encoders=2,
-                    num_layers_ff=1, add_y=False):
+    def __init__(
+        self,
+        sampler,
+        checkpoint_path,
+        device,
+        dim_in,
+        hidden_dim=64,
+        hidden_dim_ff=32,
+        num_heads=4,
+        num_seeds=1,
+        out_dim=32,
+        out_dim_ff=1,
+        num_encoders=2,
+        num_layers_ff=1,
+        add_y=False,
+    ):
         super().__init__(sampler, checkpoint_path, device)
 
         assert num_encoders > 0, "num_encoders must be greater than 0"
@@ -21,21 +35,26 @@ class DRE(BaseModel):
         self.num_encoders = num_encoders
 
         self.hidden_layers = nn.ModuleList()
-        self.hidden_layers.append(nn.Linear(in_features=out_dim * num_encoders, out_features=hidden_dim_ff))
+        self.hidden_layers.append(
+            nn.Linear(in_features=out_dim * num_encoders, out_features=hidden_dim_ff)
+        )
         for i in range(1, num_layers_ff):
-            self.hidden_layers.append(nn.Linear(in_features=hidden_dim_ff, out_features=hidden_dim_ff))
+            self.hidden_layers.append(
+                nn.Linear(in_features=hidden_dim_ff, out_features=hidden_dim_ff)
+            )
 
         self.out_layer = nn.ModuleList()
         for i in range(num_encoders):
-            self.out_layer.append(nn.Linear(in_features=hidden_dim_ff, out_features=out_dim_ff))
-
+            self.out_layer.append(
+                nn.Linear(in_features=hidden_dim_ff, out_features=out_dim_ff)
+            )
 
     def mask_y(self, y, shape, device):
         if y is None:
             y = torch.zeros(shape[0], shape[1], 1).to(device)
             mask = y
         else:
-            ones_pct = 1-1/shape[1]
+            ones_pct = 1 - 1 / shape[1]
             y_temp = y.unsqueeze(-1)
             mask = torch.bernoulli(torch.full(y_temp.shape, ones_pct)).to(device)
 
@@ -47,7 +66,6 @@ class DRE(BaseModel):
         return y, mask.bool()
 
     def forward(self, x, y):
-
         assert len(x) == self.num_encoders
         assert len(y) == self.num_encoders
 
@@ -84,7 +102,6 @@ class DRE(BaseModel):
 
         return out
 
-
     def predict(self, x, y):
         with torch.no_grad():
             x_query = x[0]
@@ -103,7 +120,7 @@ class DRE(BaseModel):
         return out_mean, out_std
 
     def get_rank(self, x):
-        #x += torch.rand(x.shape).to(x.device) * 1e-5
+        # x += torch.rand(x.shape).to(x.device) * 1e-5
         sorted_indices = torch.argsort(x)
 
         # Create a tensor to store the ranks
