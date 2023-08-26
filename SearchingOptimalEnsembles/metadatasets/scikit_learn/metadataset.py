@@ -51,19 +51,30 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         )
 
     def set_state(self, dataset_name: str):
+        self.logger.debug(f"Setting dataset: {dataset_name}")
+
+        # TODO: clean it up
+        try:
+            name = self.dataset_name
+        except Exception as e:
+            self.logger.debug(f"Exception: {e}")
+            name = None
+
         # Scikit-learn specific attributes
         task_id = self.task_ids[self.dataset_names.index(dataset_name)]
-        self.benchmark = pipeline_bench.Benchmark(
-            task_id=task_id, worker_dir=self.data_dir, mode="table", lazy=False
-        )
+        if name != dataset_name:
+            self.benchmark = pipeline_bench.Benchmark(
+                task_id=task_id, worker_dir=self.data_dir, mode="table", lazy=False
+            )
         super().set_state(dataset_name=dataset_name)
 
     def _get_hp_candidates_and_indices(
         self, return_only_ids: bool = True
     ) -> tuple[torch.Tensor | None, torch.Tensor]:
-        hp_candidates_ids = np.array(self.benchmark.get_hp_candidates_ids())
+        hp_candidates_ids = torch.Tensor(self.benchmark.get_hp_candidates_ids())
 
         if not return_only_ids:
+            # pylint: disable=protected-access
             _hp_candidates = self.benchmark._configs.compute()
             # Convert DataFrame to a numpy array and handle NaN values.
             hp_candidates = _hp_candidates.values.astype(np.float32)
@@ -73,7 +84,10 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
             hp_candidates = torch.from_numpy(hp_candidates)
 
             return hp_candidates, hp_candidates_ids
-        return None, hp_candidates_ids  # TODO: eleminate indices (future work)
+        return (
+            None,
+            hp_candidates_ids,
+        )  # TODO: eleminate indices (future work), edit: depned only on ids
 
     # TODO: add time info
     def evaluate_ensembles(
@@ -88,6 +102,7 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         pipeline_hps[np.isnan(pipeline_hps)] = 0
         pipeline_hps = torch.from_numpy(pipeline_hps)
 
+        # TODO: optimize it on benchmark's side
         splits_ids = self.benchmark.get_splits(return_array=False)
         splits = self.benchmark.get_splits(return_array=True)
 
@@ -133,15 +148,12 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
             true_probabilities = y_proba[
                 batch_indices, datapoint_indices, pipeline_indices, true_class_indices
             ]
-            # del y_proba  # free memory
 
             # Step 2: Compute the negative log of those probabilities (with a small epsilon to avoid NaNs)
             nll_per_pipeline_datapoint = -np.log(true_probabilities + 1e-10)
-            # del true_probabilities  # free memory
 
             # Step 3: Average over datapoints to get NLL for each pipeline
             nll_per_pipeline = nll_per_pipeline_datapoint.mean(axis=1)
-            # del nll_per_pipeline_datapoint  # free memory
 
             # Step 4: Average over pipelines to get a single NLL value for each ensemble
             nll_per_ensemble = nll_per_pipeline.mean(axis=1)

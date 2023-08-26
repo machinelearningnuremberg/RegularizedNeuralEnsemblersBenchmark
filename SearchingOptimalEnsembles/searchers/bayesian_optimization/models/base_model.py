@@ -47,61 +47,51 @@ class BaseModel(nn.Module):
 
     def fit(
         self,
-        dataset_name: str,
         num_epochs: int = 100,
-        mode: str = "train",
-    ) -> float:
+    ) -> float | None:
         """
         Trains or evaluates the model based on a dataset.
         This function computes the loss for either the training or evaluation mode.
 
         Args:
-            scheduler (torch.optim.Optimizer): The optimizer object to manage optimization.
-
-            dataset_name (str): Name of the dataset to train on.
             num_epochs (int, optional): Number of training epochs for each dataset. Defaults to 100.
-            mode (str, optional): Mode of the model, can be either "train" or "eval".
-                                If "train", the model is updated based on the loss.
-                                If "eval", the loss is computed but no model update occurs.
-                                Defaults to "train".
-
         Returns:
             float: The average loss across all the batches and datasets.
 
         Raises:
             Exception: Catches any exception that occurs during batch training and logs it.
         """
-
-        # Update sampler state based on the current dataset and mode
-        self.sampler.set_state(dataset_name=dataset_name, meta_split=f"meta-{mode}")
-
         loss = None
 
         # Loop for each epoch
         for epoch in range(num_epochs):
+            # pylint: disable=unused-variable
             (
                 pipeline_hps,
                 metric,
-                metric_per_pipeline,  # pylint: disable=unused-variable
-                time_per_pipeline,  # pylint: disable=unused-variable
-                ensembles,  # pylint: disable=unused-variable
+                metric_per_pipeline,
+                time_per_pipeline,
+                ensembles,
             ) = self.sampler.sample(observed_pipeline_ids=self.observed_ids)
 
             try:
                 loss = self._fit_batch(
                     pipeline_hps=pipeline_hps,
                     metric_per_pipeline=metric_per_pipeline,
-                    metric=metric
+                    metric=metric,
                 )
 
                 # Logging the loss for the current iteration
-                self.logger.debug(
-                    f"Iter {epoch+1}/{num_epochs} - Loss: {loss.item():.5f}"
-                )
+                if num_epochs > 1:
+                    self.logger.debug(
+                        f"Inner loop step {epoch+1}/{num_epochs} - Loss: {loss.item():.5f}"
+                    )
 
             except Exception as e:  # Handle exceptions
-                self.logger.info(f"Exception during training: {e}")
-                # epoch -= 1 # Repeat (TODO: consider better error handling)
+                self.logger.debug(
+                    f"Epoch {epoch+1}/{num_epochs} - Exception during training: {e}"
+                )
+                continue
 
         return loss
 
@@ -116,12 +106,15 @@ class BaseModel(nn.Module):
         of the likelihood.
 
         Args:
-            pipeline_hps (torch.Tensor): Hyperparameters of the pipelines, shape (B, N, F)
-                where B is the batch size, N is the number of pipelines, and F is the
-                number of features.
+            pipeline_hps (torch.Tensor):
+                 Hyperparameters of the pipelines as tensor.
+                    Shape should be (B, N, F) where:
+                    - B is the batch size
+                    - N is the number of pipelines
+                    - F is the number of features
             metric (torch.Tensor): Metric of the pipelines, shape (B, N) where B is the
             batch size and N is the number of pipelines.
-            scheduler (torch.optim.Optimizer): Optimizer to use for training.
+            optimizer (torch.optim.Optimizer): Optimizer to use for training.
             mode (str, optional): Mode of the model. Defaults to "train". Can be "train"
                 or "eval".  If "eval", the loss is calculated as MSE.
 
@@ -132,17 +125,22 @@ class BaseModel(nn.Module):
         raise NotImplementedError
 
     @abstractmethod
-    def _validate(self,
-            pipeline_hps: torch.Tensor,
-            metric_per_pipeline: torch.Tensor,
-            metric: torch.Tensor) -> torch.Tensor:
+    def validate(
+        self,
+        pipeline_hps: torch.Tensor,
+        metric_per_pipeline: torch.Tensor,
+        metric: torch.Tensor,
+    ) -> torch.Tensor:
         """Validates the model to the observed data. Returns the loss and the noise
         of the likelihood.
 
         Args:
-            pipeline_hps (torch.Tensor): Hyperparameters of the pipelines, shape (B, N, F)
-                where B is the batch size, N is the number of pipelines, and F is the
-                number of features.
+            pipeline_hps (torch.Tensor):
+                 Hyperparameters of the pipelines as tensor to validate the model.
+                    Shape should be (B, N, F) where:
+                    - B is the batch size
+                    - N is the number of pipelines
+                    - F is the number of features
             metric (torch.Tensor): Metric of the pipelines, shape (B, N) where B is the
             batch size and N is the number of pipelines.
         """

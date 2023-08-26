@@ -3,13 +3,13 @@ from __future__ import annotations
 from typing_extensions import Literal
 
 from .metadatasets import MetaDatasetMapping
-from .optimizers import OptimizerMapping
+from .searchers import SearcherMapping
 from .utils.common import instance_from_map
 
 
 def run(
     metadataset_name: Literal["scikit-learn", "nasbench201", "quicktune"],
-    optimizer_name: Literal["random", "bo"] = "bo",
+    searcher_name: Literal["random", "bo"] = "bo",
     surrogate_name: Literal["dkl", "dre"] = "dkl",
     sampler_name: Literal["random"] = "random",
     acquisition_name: Literal["ei"] = "ei",
@@ -18,7 +18,7 @@ def run(
 
     Args:
         metadataset_name
-        optimizer_name
+        searcher_name
         surrogate_name
         sampler_name
         acquisition_name
@@ -30,7 +30,7 @@ def run(
         name="metadataset",
     )
 
-    optimizer_args = {
+    searcher_args = {
         "metadataset": metadataset,
         "surrogate_name": surrogate_name,
         "sampler_name": sampler_name,
@@ -39,11 +39,11 @@ def run(
         "patience": 50,
     }
 
-    optimizer = instance_from_map(
-        OptimizerMapping,
-        optimizer_name,
+    searcher = instance_from_map(
+        SearcherMapping,
+        searcher_name,
         name="optimizer",
-        kwargs=optimizer_args,
+        kwargs=searcher_args,
     )
 
-    optimizer.run()
+    searcher.run()

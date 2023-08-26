@@ -3,7 +3,8 @@ import torch
 import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
 import SearchingOptimalEnsembles.tests.test_metadataset as base_test
 
-DATA_DIR = "/home/pineda/AutoFinetune/aft_data/predictions/"
+# DATA_DIR = "/home/pineda/AutoFinetune/aft_data/predictions/"
+DATA_DIR = "/work/dlclarge2/janowski-quicktune/predictions/"
 
 
 def test_quicktune_metadataset():

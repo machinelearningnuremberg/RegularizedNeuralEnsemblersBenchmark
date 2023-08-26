@@ -8,7 +8,7 @@ from ..utils.logger import get_logger
 
 
 class BaseOptimizer:
-    """Base optimizer class."""
+    """Base searcher class."""
 
     def __init__(
         self,
@@ -16,7 +16,7 @@ class BaseOptimizer:
         patience: int = 50,
         **kwargs,  # pylint: disable=unused-argument
     ):
-        """Initializes the base optimizer class.
+        """Initializes the base searcher class.
 
         Args:
 
@@ -31,7 +31,7 @@ class BaseOptimizer:
 
         self.metadataset = metadataset
         self.patience = patience
-        self.logger = get_logger(name="SEO-OPTIMIZER", logging_level="debug")
+        self.logger = get_logger(name="SEO-SEARCHER", logging_level="debug")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.logger.debug(f"Using device: {self.device}")
