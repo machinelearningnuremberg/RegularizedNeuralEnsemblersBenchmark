@@ -41,6 +41,18 @@ class BaseModel(nn.Module):
         """Saves the checkpoint to the checkpoint path."""
         raise NotImplementedError
 
+    @abstractmethod
+    def checkpoint_exists(self, checkpoint_name="checkpoint.pth") -> bool:
+        """Checks if the checkpoint exists.
+
+        Args:
+            checkpoint_name (str, optional): Name of the checkpoint. Defaults to "checkpoint.pth".
+
+        Returns:
+            bool: True if the checkpoint exists.
+        """
+        raise NotImplementedError
+
     def _observe(self, x: torch.Tensor, y: torch.Tensor):
         self.x_obs.append(x)
         self.y_obs.append(y)
@@ -145,6 +157,8 @@ class BaseModel(nn.Module):
             batch size and N is the number of pipelines.
         """
         raise NotImplementedError
+
+
 
     @abstractmethod
     def predict(

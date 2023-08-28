@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+import os
 from ..modules.rank_loss import RankLoss
 from ..modules.set_transformer import SetTransformer
 from .base_model import BaseModel
@@ -55,6 +55,7 @@ class DRE(BaseModel):
         self.device = sampler.device
         self.criterion = RankLoss(type=criterion_type)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+        self.to(self.device)
 
     def mask_y(self, y, shape, device):
         if y is None:
@@ -104,7 +105,7 @@ class DRE(BaseModel):
         loss.backward()
         self.optimizer.step()
 
-        return loss, torch.FloatTensor([0])
+        return loss.item()
 
     def forward(self, x, y):
         assert len(x) == self.num_encoders
@@ -139,6 +140,7 @@ class DRE(BaseModel):
             x = nn.ReLU()(x)
             x = layer(x)
         x = nn.ReLU()(x)
+        #x = nn.Sigmoid()(x)
         out = [f(x) for f in self.out_layer]
 
         return out
@@ -168,10 +170,43 @@ class DRE(BaseModel):
         ranks = torch.zeros_like(x).to(x.device)
         # Assign ranks to each element based on their sorted indices
         ranks[sorted_indices] = torch.arange(len(x)).to(x.device).float()
+
+        #TODO: use rankdata from scipy
+        #ranks = scipy.stats.rankdata(x, axis=-1)
+
         return ranks
 
-    def save_checkpoint(self, path):
-        torch.save(self.state_dict(), path)
+    def validate(self, pipeline_hps, metric_per_pipeline, metric):
 
-    def load_checkpoint(self, path):
-        self.load_state_dict(torch.load(path))
+        batch_size, num_pipelines, _ = pipeline_hps.shape
+        batches = [
+            self.sampler.sample(fixed_num_pipelines=num_pipelines, batch_size=batch_size)
+            for _ in range(self.num_encoders - 1)
+        ]
+        X = [pipeline_hps]
+        y_e = [metric]
+        y_p = [metric_per_pipeline]
+
+        for batch in batches:
+            X.append(batch[0])
+            y_e.append(batch[1])
+            y_p.append(batch[2])
+
+        self.eval()
+        y_pred = self.forward(X, y_e)
+        loss = self.criterion(y_pred[0].reshape(metric.shape),metric)
+        self.train()
+
+        return loss.item()
+
+
+
+
+    def save_checkpoint(self, checkpoint_name: str = "checkpoint.pth"):
+        torch.save(self.state_dict(), os.path.join(self.checkpoint_path, checkpoint_name))
+
+    def load_checkpoint(self, checkpoint_name: str = "checkpoint.pth"):
+        self.load_state_dict(torch.load(os.path.join(self.checkpoint_path, checkpoint_name)))
+
+    def checkpoint_exists(self, checkpoint_name="checkpoint.pth") -> bool:
+        return os.path.exists(os.path.join(self.checkpoint_path, checkpoint_name))

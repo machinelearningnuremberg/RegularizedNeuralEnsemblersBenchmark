@@ -27,6 +27,7 @@ class BayesianOptimization(BaseOptimizer):
         initial_design_size: int = 5,
         checkpoint_path: str
         | None = "/work/dlclarge2/janowski-quicktune/SearchingOptimalEnsembles/SearchingOptimalEnsembles_experiments/checkpoints",
+        surrogate_args: dict = None,
     ):
         """
         Initialize the Bayesian Optimization class.
@@ -60,11 +61,17 @@ class BayesianOptimization(BaseOptimizer):
             name="sampler",
             kwargs=sampler_args,
         )
-        surrogate_args = {
+
+        if surrogate_args is None:
+            surrogate_args = {}
+
+        surrogate_args.update({
             "sampler": self.sampler,
             "checkpoint_path": self.checkpoint_path,
             "device": self.device,
-        }
+        })
+
+
         self.surrogate = instance_from_map(
             ModelMapping,
             surrogate_name,
@@ -115,13 +122,15 @@ class BayesianOptimization(BaseOptimizer):
         """
 
         # Initialize the surrogate model
-        self.surrogate.load_checkpoint(checkpoint_name="surrogate.pth")
+        if self.surrogate.checkpoint_exists(checkpoint_name = "surrogate.pth"):
+            self.logger.debug("Loading surrogate model from checkpoint...")
+            self.surrogate.load_checkpoint(checkpoint_name="surrogate.pth")
 
         # Initialize the learning rate optimizer
         optimizer = self.surrogate.optimizer
 
         # Variables to track the best losses and weights
-        meta_valid_losses = []
+        meta_valid_losses = [np.inf]
         best_meta_valid_loss = np.inf
         weights = copy.deepcopy(self.surrogate.state_dict())
 
@@ -139,8 +148,8 @@ class BayesianOptimization(BaseOptimizer):
 
             # Set sampler, i.e. meta-train to random dataset
             start_time = time.time()
-            self.sampler.set_state(dataset_name="kr-vs-kp", meta_split="meta-train")
-            # self.sampler.set_state(dataset_name=None, meta_split="meta-train")
+            #self.sampler.set_state(dataset_name="kr-vs-kp", meta_split="meta-train")
+            self.sampler.set_state(dataset_name=None, meta_split="meta-train")
             set_sampler_time = time.time() - start_time
             self.logger.debug(
                 f"Epoch {epoch+1}/{num_epochs} - Setting sampler - Time: {set_sampler_time:.2f}s"
