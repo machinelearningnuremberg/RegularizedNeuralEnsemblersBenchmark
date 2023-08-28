@@ -26,7 +26,7 @@ class RandomSampler(BaseSampler):
         observed_pipeline_ids: list[int] | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, list[list[int]]]:
         if observed_pipeline_ids is None or len(observed_pipeline_ids) == 0:
-            candidates = self.metadataset.hp_candidates_ids.numpy()
+            candidates = self.metadataset.hp_candidates_ids.numpy().astype(int)
         else:
             candidates = np.array(observed_pipeline_ids)
 

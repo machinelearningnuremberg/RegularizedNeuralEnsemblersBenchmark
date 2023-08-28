@@ -10,28 +10,38 @@ log_level_mapping = {
 
 
 def get_logger(name: str = "SEO", logging_level: str = "debug") -> logging.Logger:
-    # Create a logger
     logging.getLogger("fsspec").setLevel(logging.WARNING)
 
+    # Create or retrieve a logger
     logger = logging.getLogger(name)
 
-    # Set the log level
-    logger.setLevel(log_level_mapping[logging_level.lower()])
+    # Create a formatter
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)-15s - %(levelname)-7s - %(message)s", datefmt="%H:%M"
+    )
 
-    # # Remove all handlers
-    # for handler in logger.handlers[:]:
-    #     logger.removeHandler(handler)
+    if not logger.handlers:
+        # Logger does not have handlers, so we assume it hasn't been configured yet.
 
-    # Create a new handler for outputting log messages to the console
-    # console_handler = logging.StreamHandler()
+        # Suppress "No handlers could be found for logger X" warnings
+        logger.propagate = False
 
-    # # Create a formatter with a custom log format
-    # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        # Set the log level
+        logger.setLevel(log_level_mapping[logging_level.lower()])
 
-    # # Set the formatter for the handler
-    # console_handler.setFormatter(formatter)
+        # Create a handler that writes log messages to the console
+        handler = logging.StreamHandler()
 
-    # Add the handler to the logger
-    # logger.addHandler(console_handler)
+        # Attach formatter to handler
+        handler.setFormatter(formatter)
+
+        # Add handler to logger
+        logger.addHandler(handler)
+
+    else:
+        # Logger already has handlers, update their log levels and formatters
+        for handler in logger.handlers:
+            handler.setLevel(log_level_mapping[logging_level.lower()])
+            handler.setFormatter(formatter)
 
     return logger

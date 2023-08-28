@@ -9,7 +9,7 @@ from typing_extensions import Literal
 
 from ...samplers import SamplerMapping
 from ...utils.common import instance_from_map
-from ..base_optimizer import BaseOptimizer
+from ..base_searcher import BaseOptimizer
 from .acquisition import AcquisitionMapping
 from .models import ModelMapping
 
@@ -88,12 +88,10 @@ class BayesianOptimization(BaseOptimizer):
         self.logger.debug(f"Sampler name: {sampler_name}")
         self.logger.debug(f"Acquisition name: {acquisition_name}")
 
-    # TODO: add early stopping
     def meta_train_surrogate(
         self,
-        num_epochs: int = 10,
+        num_epochs: int = 10000,
         num_inner_epochs: int = 1,
-        max_patience: int = 16,
         loss_tol: float = 0.0001,
         valid_frequency: int = 100,
     ) -> None:
@@ -107,8 +105,6 @@ class BayesianOptimization(BaseOptimizer):
             num_epochs (int, optional): Total number of meta-training epochs. Defaults to 100.
             num_inner_epochs (int, optional): Number of epochs for each inner optimization loop.
                 These inner epochs train on individual datasets. Defaults to 100.
-            max_patience (int, optional): Maximum number of epochs to continue without loss improvement.
-                Useful for early stopping. Defaults to 16.
             loss_tol (float, optional): Tolerance for loss improvement. Considered as no improvement
                 if less than this value. Defaults to 0.0001.
             valid_frequency (int, optional): Frequency of performing meta-validation, in terms of epochs.
@@ -121,64 +117,89 @@ class BayesianOptimization(BaseOptimizer):
         # Initialize the surrogate model
         self.surrogate.load_checkpoint(checkpoint_name="surrogate.pth")
 
-        # Initialize the learning rate scheduler
-        scheduler = self.surrogate.scheduler
+        # Initialize the learning rate optimizer
+        optimizer = self.surrogate.optimizer
 
         # Variables to track the best losses and weights
-        best_meta_train_loss = np.inf
+        meta_valid_losses = []
         best_meta_valid_loss = np.inf
         weights = copy.deepcopy(self.surrogate.state_dict())
 
         # Logging setup and initial information
         self.logger.debug(f"Starting meta-training for {num_epochs} epochs")
-        self.logger.debug(f"Current learning rate: {scheduler.param_groups[0]['lr']:.5f}")
+        self.logger.debug(f"Current learning rate: {optimizer.param_groups[0]['lr']:.5f}")
         self.logger.debug(f"Each dataset is sampled {num_inner_epochs} time(s)")
 
+        patience = self.patience
         # Main loop for meta-training + meta-validation
         for epoch in range(num_epochs):
-            start_time = time.time()
+            if patience <= 0:  # Check for patience
+                self.logger.debug("Patience reached zero. Stopping early...")
+                break
 
+            # Set sampler, i.e. meta-train to random dataset
+            start_time = time.time()
+            self.sampler.set_state(dataset_name="kr-vs-kp", meta_split="meta-train")
+            # self.sampler.set_state(dataset_name=None, meta_split="meta-train")
+            set_sampler_time = time.time() - start_time
+            self.logger.debug(
+                f"Epoch {epoch+1}/{num_epochs} - Setting sampler - Time: {set_sampler_time:.2f}s"
+            )
+
+            start_time = time.time()
             meta_train_loss = self.surrogate.fit(
-                dataset_name=None,  # Sample random dataset
                 num_epochs=num_inner_epochs,
             )
 
+            if meta_train_loss is None:
+                self.logger.info("Encountered NaN loss. Reducing patience...")
+                patience -= 1  # Reduce patience
+                continue
+
             # Logging the time and loss for this epoch
             meta_train_time = time.time() - start_time
-            self.logger.info(
-                f"Epoch {epoch+1}/{num_epochs} - Meta-train loss: {meta_train_loss:.5f}"
+            self.logger.debug(
+                f"Epoch {epoch+1}/{num_epochs} - Meta-train - Loss: {meta_train_loss:.5f}"
             )
             self.logger.debug(
-                f"Epoch {epoch+1}/{num_epochs} - Time: {meta_train_time:.2f}s"
+                f"Epoch {epoch+1}/{num_epochs} - Meta-train - Time: {meta_train_time:.2f}s"
             )
 
             # Meta-validation phase
-            if epoch % valid_frequency == 0:
+            if (epoch + 1) % valid_frequency == 0:
                 # Perform meta-validation, which is just eval pass on the meta-valid split,
                 # using all datasets in the split
-                meta_valid_losses = []
+                _meta_valid_losses = []
                 for dataset_name in self.sampler.metadataset.meta_splits["meta-valid"]:
-                    pipeline_hps, metric_per_pipeline, metric = self.sampler.sample(
-                        dataset_name=dataset_name,
-                        num_samples=1,
+                    self.sampler.set_state(
+                        dataset_name=dataset_name, meta_split="meta-valid"
                     )
+                    # pylint: disable=unused-variable
+                    (
+                        pipeline_hps,
+                        metric,
+                        metric_per_pipeline,
+                        time_per_pipeline,
+                        ensembles,
+                    ) = self.sampler.sample()
                     meta_valid_loss = self.surrogate.validate(
                         pipeline_hps=pipeline_hps,
                         metric_per_pipeline=metric_per_pipeline,
                         metric=metric,
                     )
 
-                    meta_valid_losses.append(meta_valid_loss)
+                    _meta_valid_losses.append(meta_valid_loss)
 
                 # Calculate the average loss across all datasets
-                meta_valid_loss = np.mean(meta_valid_losses)
+                meta_valid_loss = np.mean(_meta_valid_losses)
+                meta_valid_losses.append(meta_valid_loss)
 
                 # Logging meta-validation information
                 self.logger.info(
-                    f"Epoch {epoch+1}/{num_epochs} - Meta-valid loss: {meta_valid_loss:.5f}"
+                    f"Epoch {epoch+1}/{num_epochs} - Meta-valid - Loss: {meta_valid_loss:.5f}"
                 )
                 self.logger.debug(
-                    f"Epoch {epoch+1}/{num_epochs} - Time: {time.time() - meta_train_time:.2f}s"
+                    f"Epoch {epoch+1}/{num_epochs} - Meta-valid - Time: {time.time() - meta_train_time:.2f}s"
                 )
 
                 # Check for improvement and update best weights if needed
@@ -191,25 +212,30 @@ class BayesianOptimization(BaseOptimizer):
                     )
                     self.logger.debug(f"Epoch {epoch+1}/{num_epochs} - Saving weights...")
 
+                # Check for early stopping
+                if meta_valid_losses[-1] > meta_valid_losses[-2] + loss_tol:
+                    self.logger.debug(
+                        f"Epoch {epoch+1}/{num_epochs} - No improvement in meta-valid loss. Reducing patience..."
+                    )
+                    patience -= 1  # Reduce patience
+
         # Load the best model weights and save them to a checkpoint file
         self.surrogate.load_state_dict(weights)
         self.surrogate.save_checkpoint(checkpoint_name="surrogate.pth")
 
     def run(
         self,
-        max_patience: int = 16,
         loss_tol: float = 0.0001,
-        meta_numn_epochs: int = 10,
-        meta_num_inner_epochs: int = 1,
+        meta_num_epochs: int = 3,
+        meta_num_inner_epochs: int = 10,
         meta_valid_frequency: int = 100,
     ):
         # Meta-train the surrogate model if num_epochs > 0,
         # otherwise load the checkpoint if exists
 
         self.meta_train_surrogate(
-            num_epochs=meta_numn_epochs,
+            num_epochs=meta_num_epochs,
             num_inner_epochs=meta_num_inner_epochs,
-            max_patience=max_patience,
             loss_tol=loss_tol,
             valid_frequency=meta_valid_frequency,
         )

@@ -151,10 +151,9 @@ class BaseMetaDataset:
                 dataset_name (str): Name of the dataset.
 
         """
+
         self.dataset_name = dataset_name
         self.hp_candidates, self.hp_candidates_ids = self._get_hp_candidates_and_indices()
-
-        self.logger.debug(f"Setting dataset to {dataset_name}")
 
     @abstractmethod
     def evaluate_ensembles(

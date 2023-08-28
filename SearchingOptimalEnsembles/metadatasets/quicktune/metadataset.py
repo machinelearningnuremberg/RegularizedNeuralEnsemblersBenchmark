@@ -122,6 +122,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             self.predictions = self.predictions[:, self.is_test_id == 0, :]
             self.targets = self.targets[self.is_test_id == 0]
 
+
         elif self.split == "test":
             self.predictions = self.predictions[:, self.is_test_id == 1, :]
             self.targets = self.targets[self.is_test_id == 1]
@@ -129,11 +130,6 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             raise ValueError("split must be either val or test")
 
         self.predictions[torch.isnan(self.predictions)] = 0
-        self.hp_candidates_ids = torch.arange(len(self.hp_candidates))
-
-        return self.hp_candidates, self.time, self.predictions, self.targets
-
-    def set_state(self, dataset_name: str):
         if dataset_name != self.dataset_name:
             self.dataset_name = dataset_name
             self.get_dataset_info(dataset_name)
