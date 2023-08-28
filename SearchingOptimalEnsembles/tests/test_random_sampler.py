@@ -11,3 +11,4 @@ if __name__ == "__main__":
     metadataset.set_dataset(dataset_names[0])
     sampler = rs.RandomSampler(metadataset=metadataset, device=torch.device("cpu"))
     base_test.test_sample(sampler)
+    base_test.test_sample(sampler)

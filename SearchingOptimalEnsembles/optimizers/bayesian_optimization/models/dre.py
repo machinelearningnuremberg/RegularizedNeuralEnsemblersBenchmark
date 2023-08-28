@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from ..modules.rank_loss import RankLoss
 from ..modules.set_transformer import SetTransformer
 from .base_model import BaseModel
 
@@ -21,6 +22,8 @@ class DRE(BaseModel):
         num_encoders=2,
         num_layers_ff=1,
         add_y=False,
+        criterion_type="listwise",
+        lr=1e-3,
     ):
         super().__init__(sampler, checkpoint_path, device)
 
@@ -49,6 +52,10 @@ class DRE(BaseModel):
                 nn.Linear(in_features=hidden_dim_ff, out_features=out_dim_ff)
             )
 
+        self.device = sampler.device
+        self.criterion = RankLoss(type=criterion_type)
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+
     def mask_y(self, y, shape, device):
         if y is None:
             y = torch.zeros(shape[0], shape[1], 1).to(device)
@@ -64,6 +71,40 @@ class DRE(BaseModel):
             y_temp = y_temp.to(device)
             y = y_temp * mask
         return y, mask.bool()
+
+    def _fit_batch(
+        self,
+        pipeline_hps: torch.Tensor,
+        metric_per_pipeline: torch.Tensor,
+        metric: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        batch_size, num_pipelines, _ = pipeline_hps.shape
+        batches = [
+            self.sampler.sample(fixed_num_pipelines=num_pipelines, batch_size=batch_size)
+            for _ in range(self.num_encoders - 1)
+        ]
+        X = [pipeline_hps]
+        y_e = [metric]
+        y_p = [metric_per_pipeline]
+
+        for batch in batches:
+            X.append(batch[0])
+            y_e.append(batch[1])
+            y_p.append(batch[2])
+
+        self.optimizer.zero_grad()
+        y_pred = self.forward(X, y_e)
+        loss = torch.Tensor([0]).cuda()
+
+        for y_pred_, y_e_ in zip(y_pred, y_e):
+            loss += (
+                self.criterion(y_pred_.reshape(y_e_.shape), y_e_)
+            ) / self.num_encoders
+
+        loss.backward()
+        self.optimizer.step()
+
+        return loss, torch.FloatTensor([0])
 
     def forward(self, x, y):
         assert len(x) == self.num_encoders
@@ -121,11 +162,10 @@ class DRE(BaseModel):
 
     def get_rank(self, x):
         # x += torch.rand(x.shape).to(x.device) * 1e-5
-        sorted_indices = torch.argsort(x)
 
-        # Create a tensor to store the ranks
+        # x += torch.rand(x.shape).to(x.device) * 1e-5
+        sorted_indices = torch.argsort(x)  #
         ranks = torch.zeros_like(x).to(x.device)
-
         # Assign ranks to each element based on their sorted indices
         ranks[sorted_indices] = torch.arange(len(x)).to(x.device).float()
         return ranks

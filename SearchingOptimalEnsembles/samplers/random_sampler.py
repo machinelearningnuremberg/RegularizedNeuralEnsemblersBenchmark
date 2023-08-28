@@ -21,6 +21,7 @@ class RandomSampler(BaseSampler):
     def sample(
         self,
         max_num_pipelines: int = 10,
+        fixed_num_pipelines: int | None = None,
         batch_size: int = 16,
         observed_pipeline_ids: list[int] | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, list[list[int]]]:
@@ -29,7 +30,10 @@ class RandomSampler(BaseSampler):
         else:
             candidates = np.array(observed_pipeline_ids)
 
-        num_pipelines = np.random.randint(1, max_num_pipelines + 1)
+        if fixed_num_pipelines is not None:
+            num_pipelines = fixed_num_pipelines
+        else:
+            num_pipelines = np.random.randint(1, max_num_pipelines + 1)
         ensembles = np.random.randint(0, len(candidates), (batch_size, num_pipelines))
         ensembles = candidates[ensembles].tolist()
 
