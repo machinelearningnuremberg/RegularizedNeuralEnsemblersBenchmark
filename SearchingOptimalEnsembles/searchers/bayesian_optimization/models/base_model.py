@@ -167,7 +167,8 @@ class BaseModel(nn.Module):
 
     @abstractmethod
     def predict(
-        self, x: torch.Tensor, sampler: BaseSampler, max_num_pipelines: int = 10
+        self, x: torch.Tensor, sampler: BaseSampler,
+            max_num_pipelines: int = 10, y_per_pipeline: torch.Tensor = None
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Returns the mean and standard deviation of the predictive distribution
 

@@ -1,3 +1,5 @@
+#based on NES: https://github.com/arberzela/nes-bo/blob/main/nes/nasbench201/scripts/run_nes_bo_sls_evo.py
+
 from __future__ import annotations
 
 import numpy as np
@@ -8,20 +10,51 @@ from ..utils.common import move_to_device
 from .base_sampler import BaseSampler
 
 
-class LocalSeaearchSampler(BaseSampler):
+class LocalSearchSampler(BaseSampler):
     def __init__(
         self,
         metadataset: BaseMetaDataset,
         patience: int = 50,
         device: torch.device = torch.device("cpu"),
+        ls_iter: int = 10,
     ):
         super().__init__(metadataset=metadataset, patience=patience, device=device)
+        self.ls_iter = ls_iter
 
-    def sample(
-        self,
-        max_num_pipelines: int = 10,
-        fixed_num_pipelines: int | None = None,
-        batch_size: int = 16,
-        observed_pipeline_ids: list[int] | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, list[int]]:
-        pass
+    def search_ensemble(self, candidates, num_pipelines):
+
+        choices_idx = np.random.choice(len(candidates), num_pipelines, replace=False)
+        best_X = choices_idx.tolist()
+        best_y = self.metadataset.evaluate_ensembles(ensembles=[best_X])[1]
+
+        for _ in range(self.ls_iter):
+            ids = list(set(np.arange(len(candidates))) - set(choices_idx))
+            new_sampled_pipeline = np.random.choice(ids)
+            random_id = np.random.choice(len(choices_idx))
+            new_choices_idx = np.copy(choices_idx)
+            new_choices_idx[random_id] = new_sampled_pipeline
+            ens_to_evaluate = [candidates[i] for i in new_choices_idx]
+
+            (
+                pipeline_hps,
+                metric,
+                metric_per_pipeline,
+                time_per_pipeline,
+            ) = self.metadataset.evaluate_ensembles(ensembles=[ens_to_evaluate])
+
+            if metric > best_y:
+                best_y = metric
+                best_X = ens_to_evaluate
+                choices_idx = new_choices_idx
+
+        return best_X
+
+    def generate_ensembles(self, candidates, num_pipelines, batch_size):
+
+        ensembles = []
+        for _ in range(batch_size):
+            new_ensemble = self.search_ensemble(candidates, num_pipelines)
+            ensembles.append(new_ensemble)
+
+        return ensembles
+

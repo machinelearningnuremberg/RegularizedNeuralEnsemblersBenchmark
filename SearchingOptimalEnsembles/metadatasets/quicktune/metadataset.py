@@ -161,24 +161,19 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         targets = torch.tile(self.targets.unsqueeze(0), (batch_size, 1))
         cross_entropy = torch.nn.CrossEntropyLoss(reduction="none")
 
-        if batch_size == 1:
-            predictions = self.predictions.unsqueeze(0)
-            if len(ensembles) == 1:
-                predictions = self.predictions.unsqueeze(1)
-
         n_classes = predictions.shape[-1]
         ensemble_size = predictions.shape[1]
         temp_targets = torch.tile(targets.unsqueeze(1), (1, ensemble_size, 1))
         hp_candidates = self.hp_candidates[ensembles]
 
         if self.metric_name == "error":
-            metric_per_sample = torch.eq(
+            metric_per_sample = torch.ne(
                 predictions.reshape(-1, n_classes).argmax(-1), temp_targets.reshape(-1)
             ).float()
             metric_per_pipeline = metric_per_sample.reshape(
                 batch_size, ensemble_size, -1
             ).mean(axis=2)
-            metric_ensemble_per_sample = torch.eq(
+            metric_ensemble_per_sample = torch.ne(
                 predictions.mean(1).reshape(-1, n_classes).argmax(-1), targets.reshape(-1)
             ).float()
             metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(axis=-1)

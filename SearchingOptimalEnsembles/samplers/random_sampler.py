@@ -17,6 +17,14 @@ class RandomSampler(BaseSampler):
     ):
         super().__init__(metadataset=metadataset, patience=patience, device=device)
 
+    def generate_ensembles(self,
+                            candidates: np.ndarray,
+                            num_pipelines: int,
+                            batch_size: int) -> list[list[int]]:
+
+        ensembles = np.random.randint(0, len(candidates), (batch_size, num_pipelines))
+        return candidates[ensembles].tolist()
+
     @move_to_device
     def sample(
         self,
@@ -24,7 +32,7 @@ class RandomSampler(BaseSampler):
         fixed_num_pipelines: int | None = None,
         batch_size: int = 16,
         observed_pipeline_ids: list[int] | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, list[int]]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, list[list[int]]]:
         if observed_pipeline_ids is None or len(observed_pipeline_ids) == 0:
             candidates = self.metadataset.hp_candidates_ids.numpy().astype(int)
         else:
