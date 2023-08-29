@@ -58,7 +58,7 @@ class BaseMetaDataset:
         self.meta_splits: dict[str, list[str]] = {}
         self.logger = get_logger(name="SEO-METADATASET", logging_level="debug")
 
-        self.feature_dim: int = None
+        self.feature_dim: int | None = None
 
         # To initialize call _initialize() in the child class
         self.dataset_names: list[str] = []
