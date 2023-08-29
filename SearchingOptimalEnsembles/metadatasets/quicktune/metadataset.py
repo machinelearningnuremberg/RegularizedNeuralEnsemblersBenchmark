@@ -28,6 +28,9 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             split=split,
             metric_name=metric_name,
         )
+
+        self.feature_dim = 65
+
         self.ensemble_type = ensemble_type
         self.data_version = data_version
 
@@ -124,7 +127,6 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             self.predictions = self.predictions[:, self.is_test_id == 0, :]
             self.targets = self.targets[self.is_test_id == 0]
 
-
         elif self.split == "test":
             self.predictions = self.predictions[:, self.is_test_id == 1, :]
             self.targets = self.targets[self.is_test_id == 1]
@@ -135,9 +137,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
 
         return self.hp_candidates, self.time, self.predictions, self.targets
 
-
     def set_state(self, dataset_name: str):
-
         if dataset_name != self.dataset_name:
             self.dataset_name = dataset_name
             self.get_dataset_info(dataset_name)

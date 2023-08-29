@@ -1,3 +1,6 @@
+# pylint: disable=all
+
+
 def test_evaluate_ensembles(metadataset):
     dataset_names = metadataset.get_dataset_names()
     metadataset.set_dataset(dataset_names[0])

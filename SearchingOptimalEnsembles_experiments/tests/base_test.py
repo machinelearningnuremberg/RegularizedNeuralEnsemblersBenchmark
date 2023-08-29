@@ -38,5 +38,5 @@ def test_evaluate_ensembles(metadataset):
     assert time_per_pipeline.shape == (1, 1)
 
 
-def test_get_batch(metadataset):
-    pass
+# def test_get_batch(metadataset):
+#     pass
