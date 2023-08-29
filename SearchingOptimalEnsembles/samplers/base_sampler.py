@@ -39,7 +39,7 @@ class BaseSampler:
         fixed_num_pipelines: int | None = None,
         batch_size: int = 16,
         observed_pipeline_ids: list[int] | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, list[list[int]]]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, list[int]]:
         """Sample a batch of pipelines along with metrics. The pipelines are sampled from the
         hyperparameter candidates of the dataset specified in self.dataset_name.
 

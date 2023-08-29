@@ -8,7 +8,7 @@ if __name__ == "__main__":
     DATA_DIR = "/home/pineda/AutoFinetune/aft_data/predictions/"
     metadataset = qmd.QuicktuneMetaDataset(data_dir=DATA_DIR)
     dataset_names = metadataset.get_dataset_names()
-    metadataset.set_dataset(dataset_names[0])
+    metadataset.set_state(dataset_names[0])
     sampler = rs.RandomSampler(metadataset=metadataset, device=torch.device("cpu"))
-    base_test.test_sample(sampler)
-    base_test.test_sample(sampler)
+    base_test.test_sampler(sampler)
+    base_test.test_sampler(sampler)
