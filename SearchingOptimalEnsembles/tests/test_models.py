@@ -1,12 +1,17 @@
+# pylint: disable=all
+
 import os
-from SearchingOptimalEnsembles.searchers.bayesian_optimization.models.dre import DRE
+
+import numpy as np
+import torch
+
 import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
 import SearchingOptimalEnsembles.samplers.random_sampler as rs
-import torch
-import numpy as np
+
+from ..searchers.bayesian_optimization.models.dre import DRE
+
 
 def test_DRE():
-
     current_dir = os.path.dirname(os.path.abspath(__file__))
     os.makedirs(os.path.join(current_dir, "test_logs"), exist_ok=True)
 
@@ -18,12 +23,14 @@ def test_DRE():
     dataset_names = metadataset.get_dataset_names()
     metadataset.set_state(dataset_names[0])
     sampler = rs.RandomSampler(metadataset=metadataset, device=torch.device(device))
-    dim_in = sampler.metadataset.hp_candidates.shape[1]
+    # dim_in = sampler.metadataset.hp_candidates.shape[1]
 
-    model = DRE(sampler = sampler,
-                checkpoint_path = checkpoint_path,
-                device = torch.device(device),
-                dim_in = dim_in)
+    model = DRE(
+        sampler=sampler,
+        checkpoint_path=checkpoint_path,
+        device=torch.device(device),
+        # dim_in=dim_in,
+    )
 
     mean_parameters_before = list(model.parameters())[0].mean().item()
     loss = model.fit(10)
@@ -32,6 +39,7 @@ def test_DRE():
     assert mean_parameters_before != mean_parameters_after
     assert loss != 0.0
     assert torch.isnan(loss) == False
+
 
 if __name__ == "__main__":
     test_DRE()
