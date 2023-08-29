@@ -1,3 +1,5 @@
+# pylint: disable=all
+
 import os
 
 import numpy as np
@@ -21,13 +23,13 @@ def test_DRE():
     dataset_names = metadataset.get_dataset_names()
     metadataset.set_state(dataset_names[0])
     sampler = rs.RandomSampler(metadataset=metadataset, device=torch.device(device))
-    dim_in = sampler.metadataset.hp_candidates.shape[1]
+    # dim_in = sampler.metadataset.hp_candidates.shape[1]
 
     model = DRE(
         sampler=sampler,
         checkpoint_path=checkpoint_path,
         device=torch.device(device),
-        dim_in=dim_in,
+        # dim_in=dim_in,
     )
 
     mean_parameters_before = list(model.parameters())[0].mean().item()

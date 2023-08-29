@@ -1,3 +1,6 @@
+# pylint: disable=all
+# mypy: ignore-errors
+
 import os
 
 import torch

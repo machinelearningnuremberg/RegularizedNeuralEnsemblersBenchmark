@@ -10,15 +10,27 @@ from ....utils.common import move_to_device
 from ..modules.gp import ExactGPLayer
 from ..modules.set_transformer import SetTransformer
 from .base_model import BaseModel
+from .utils import ConfigurableMeta
 
 
-class DeepKernelGP(BaseModel):
+class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
+    default_config = {
+        "kernel_name": "matern",
+        "ard": False,
+        "nu": 2.5,
+        "lr": 1e-3,
+    }
+
     def __init__(
         self,
         sampler: BaseSampler,
-        config={"kernel": "matern", "ard": False, "nu": 2.5},
         checkpoint_path: Path | None = None,
         device: torch.device = torch.device("cpu"),
+        #############################################
+        kernel_name: str = "matern",
+        ard: bool = False,
+        nu: float = 2.5,
+        lr: float = 1e-3,
     ):
         super().__init__(sampler=sampler, checkpoint_path=checkpoint_path, device=device)
 
@@ -28,9 +40,8 @@ class DeepKernelGP(BaseModel):
         self.encoder = SetTransformer(dim_in=dim_in).to(self.device)
 
         self.model, self.likelihood, self.mll = self._get_model_likelihood_mll(
-            config=config
+            kernel_name=kernel_name, ard=ard, nu=nu
         )
-        lr = 0.001
         self.optimizer = torch.optim.Adam(
             [
                 {"params": self.model.parameters(), "lr": lr},
@@ -40,7 +51,7 @@ class DeepKernelGP(BaseModel):
 
     @move_to_device
     def _get_model_likelihood_mll(
-        self, config: dict, train_size: int = 1
+        self, kernel_name, ard: bool, nu: float, train_size: int = 1
     ) -> tuple[
         ExactGPLayer,
         gpytorch.likelihoods.GaussianLikelihood,
@@ -54,44 +65,24 @@ class DeepKernelGP(BaseModel):
             train_x=train_x,
             train_y=train_y,
             likelihood=likelihood,
-            config=config,
             dims=self.encoder.dim_out,
+            kernel_name=kernel_name,
+            ard=ard,
+            nu=nu,
         )
 
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
 
         return model, likelihood, mll
 
-    def load_checkpoint(self, checkpoint_name: str = "surrogate.pth"):
-        if self.checkpoint_path is None:
-            self.logger.info("No checkpoint specified. Skipping...")
-            return
+    def load_checkpoint(self, checkpoint: Path = Path("surrogate.pth")):
+        ckpt = torch.load(checkpoint, map_location=torch.device(self.device))
+        self.model.load_state_dict(ckpt["model"])
+        self.likelihood.load_state_dict(ckpt["likelihood"])
+        self.encoder.load_state_dict(ckpt["encoder"])
+        self.optimizer.load_state_dict(ckpt["optimizer"])
 
-        checkpoint = self.checkpoint_path / checkpoint_name
-        self.logger.info(f"Loading DKL from {checkpoint_name}...")
-
-        try:
-            if not Path(checkpoint).exists():
-                self.logger.info(
-                    f"Checkpoint {checkpoint_name} does not exist. Skipping..."
-                )
-                return
-            ckpt = torch.load(checkpoint, map_location=torch.device(self.device))
-            self.model.load_state_dict(ckpt["model"])
-            self.likelihood.load_state_dict(ckpt["likelihood"])
-            self.encoder.load_state_dict(ckpt["encoder"])
-            self.optimizer.load_state_dict(ckpt["optimizer"])
-        except Exception as e:
-            self.logger.info(f"Exception loading checkpoint: {e}")
-
-    def save_checkpoint(self, checkpoint_name: str = "surrogate.pth"):
-        if self.checkpoint_path is None:
-            self.logger.info("No checkpoint specified. Skipping...")
-            return
-
-        checkpoint = self.checkpoint_path / checkpoint_name
-        self.logger.info(f"Saving DKL to {checkpoint_name}...")
-
+    def save_checkpoint(self, checkpoint: Path = Path("surrogate.pth")):
         torch.save(
             {
                 "model": self.model.state_dict(),

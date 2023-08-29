@@ -2,15 +2,30 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from pathlib import Path
+from typing import Any
 
 import torch
 import torch.nn as nn
 
 from ....samplers.base_sampler import BaseSampler
 from ....utils.logger import get_logger
+from .utils import Checkpointer
 
 
 class BaseModel(nn.Module):
+    class ModelCheckpointer(Checkpointer):
+        def __init__(self, model, checkpoint_path: Path | None = None):
+            super().__init__(checkpoint_path)
+            self.model = model
+
+        def _load_checkpoint(self, checkpoint: Path = Path("surrogate.pth")):
+            """Loads the checkpoint from the checkpoint path."""
+            self.model.load_checkpoint(checkpoint)
+
+        def _save_checkpoint(self, checkpoint: Path = Path("surrogate.pth")):
+            """Saves the checkpoint to the checkpoint path."""
+            self.model.save_checkpoint(checkpoint)
+
     def __init__(
         self,
         sampler: BaseSampler,
@@ -30,16 +45,8 @@ class BaseModel(nn.Module):
 
         self.model: torch.nn.Module
         self.optimizer: torch.optim.Optimizer
-
-    @abstractmethod
-    def load_checkpoint(self, checkpoint_name: str = "checkpoint.pth"):
-        """Loads the checkpoint from the checkpoint path."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def save_checkpoint(self, checkpoint_name: str = "checkpoint.pth"):
-        """Saves the checkpoint to the checkpoint path."""
-        raise NotImplementedError
+        self.default_config: dict[str, Any]
+        self.checkpointer = self.ModelCheckpointer(self, checkpoint_path)
 
     @abstractmethod
     def checkpoint_exists(self, checkpoint_name="checkpoint.pth") -> bool:
@@ -96,7 +103,7 @@ class BaseModel(nn.Module):
                 # Logging the loss for the current iteration
                 if num_epochs > 1:
                     self.logger.debug(
-                        f"Inner loop step {epoch+1}/{num_epochs} - Loss: {loss.item():.5f}"
+                        f"Inner loop step {epoch+1}/{num_epochs} - Loss: {float(loss):.5f}"
                     )
 
             except Exception as e:  # Handle exceptions
@@ -105,7 +112,7 @@ class BaseModel(nn.Module):
                 )
                 continue
 
-        return loss
+        return loss.item() if loss is not None else None
 
     @abstractmethod
     def _fit_batch(

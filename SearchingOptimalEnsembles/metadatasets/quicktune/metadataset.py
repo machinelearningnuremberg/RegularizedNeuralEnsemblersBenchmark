@@ -28,6 +28,9 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             split=split,
             metric_name=metric_name,
         )
+
+        self.feature_dim = 65
+
         self.ensemble_type = ensemble_type
         self.data_version = data_version
 

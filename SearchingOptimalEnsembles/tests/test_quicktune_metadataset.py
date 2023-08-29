@@ -1,3 +1,5 @@
+# pylint: disable=all
+
 import torch
 
 import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd

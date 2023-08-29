@@ -1,3 +1,6 @@
+# pylint: disable=all
+
+
 def test_sampler(sampler):
     x = sampler.sample(max_num_pipelines=10, batch_size=16)
     i, j, k = x[0].shape

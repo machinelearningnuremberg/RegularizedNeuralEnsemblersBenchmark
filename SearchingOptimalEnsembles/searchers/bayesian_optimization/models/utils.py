@@ -1,9 +1,15 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
 from functools import wraps
+from pathlib import Path
 
 import numpy as np
 import torch
 from scipy.optimize import differential_evolution
 from scipy.stats import norm
+
+from ....utils.logger import get_logger
 
 
 def input_to_torch(method):
@@ -65,3 +71,70 @@ def continuous_maximization(dim, bounds, acqf):
         init="sobol",
     )
     return result.x.reshape(-1, dim)
+
+
+class ConfigurableMeta(type):
+    def __new__(mcs, name, bases, dct):
+        if "default_config" not in dct:
+            raise ValueError(f"{name} must have a default_config")
+        return super().__new__(mcs, name, bases, dct)
+
+
+class Checkpointer(ABC):
+    def __init__(
+        self,
+        checkpoint_path: Path | None = None,
+    ):
+        self.logger = get_logger(name="SEO-CHECKPOINT", logging_level="debug")
+
+        if checkpoint_path is None:
+            self.logger.info("No checkpoint specified. Setting locally...")
+            self.checkpoint_path = Path("checkpoints")  # TODO: fix it
+        else:
+            self.checkpoint_path = checkpoint_path
+
+    def _checkpoint_exists(self, checkpoint_name: str = "checkpoint.pth") -> bool:
+        """Checks if the checkpoint exists.
+
+        Args:
+            checkpoint_name (str, optional): Name of the checkpoint. Defaults to "checkpoint.pth".
+
+        Returns:
+            bool: True if the checkpoint exists.
+        """
+        if self.checkpoint_path is None:
+            self.logger.info("No checkpoint specified. Skipping...")
+            return False
+        return (self.checkpoint_path / checkpoint_name).exists()
+
+    def load_checkpoint(self, checkpoint_name: str = "checkpoint.pth"):
+        """Loads the checkpoint from the checkpoint path."""
+        if self._checkpoint_exists(checkpoint_name):
+            checkpoint = self.checkpoint_path / checkpoint_name
+            self.logger.info(f"Loading Checkpoint from {checkpoint_name}...")
+
+            self._load_checkpoint(checkpoint)
+        else:
+            self.logger.info(f"Checkpoint {checkpoint_name} does not exist. Skipping...")
+            return
+
+    @abstractmethod
+    def _load_checkpoint(self, checkpoint: Path = Path("surrogate.pth")):
+        """Loads the checkpoint from the checkpoint path."""
+        raise NotImplementedError
+
+    def save_checkpoint(self, checkpoint_name: str = "checkpoint.pth"):
+        """Saves the checkpoint to the checkpoint path."""
+
+        if self.checkpoint_path is None:
+            self.logger.info("No checkpoint specified. Skipping...")
+            return
+
+        checkpoint = self.checkpoint_path / checkpoint_name
+        self.logger.info(f"Saving Checkpoint to {checkpoint_name}...")
+        self._save_checkpoint(checkpoint)
+
+    @abstractmethod
+    def _save_checkpoint(self, path: Path = Path("surrogate.pth")):
+        """Saves the checkpoint to the checkpoint path."""
+        raise NotImplementedError

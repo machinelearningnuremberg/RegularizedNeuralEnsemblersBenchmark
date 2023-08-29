@@ -35,3 +35,6 @@ results
 
 # MacOS
 *.DS_Store
+
+# WandB
+SearchingOptimalEnsembles_experiments/wandb/

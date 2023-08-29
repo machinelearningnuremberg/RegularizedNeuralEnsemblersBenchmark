@@ -1,38 +1,58 @@
-import os
+from __future__ import annotations
+
+from pathlib import Path
 
 import torch
 import torch.nn as nn
 
+from ....samplers.base_sampler import BaseSampler
 from ..modules.rank_loss import RankLoss
 from ..modules.set_transformer import SetTransformer
 from .base_model import BaseModel
+from .utils import ConfigurableMeta
 
 
-class DRE(BaseModel):
+class DRE(BaseModel, metaclass=ConfigurableMeta):
+    default_config = {
+        "hidden_dim": 64,
+        "hidden_dim_ff": 32,
+        "num_heads": 4,
+        "num_seeds": 1,
+        "out_dim": 32,
+        "out_dim_ff": 1,
+        "num_encoders": 2,
+        "num_layers_ff": 1,
+        "add_y": False,
+        "criterion_type": "listwise",
+        "lr": 1e-3,
+    }
+
     def __init__(
         self,
-        sampler,
-        checkpoint_path,
-        device,
-        dim_in,
-        hidden_dim=64,
-        hidden_dim_ff=32,
-        num_heads=4,
-        num_seeds=1,
-        out_dim=32,
-        out_dim_ff=1,
-        num_encoders=2,
-        num_layers_ff=1,
-        add_y=False,
-        criterion_type="listwise",
-        lr=1e-3,
+        sampler: BaseSampler,
+        checkpoint_path: Path | None = None,
+        device: torch.device = torch.device("cpu"),
+        #############################################
+        hidden_dim: int = 64,
+        hidden_dim_ff: int = 32,
+        num_heads: int = 4,
+        num_seeds: int = 1,
+        out_dim: int = 32,
+        out_dim_ff: int = 1,
+        num_encoders: int = 2,
+        num_layers_ff: int = 1,
+        add_y: bool = False,
+        criterion_type: str = "listwise",
+        lr: float = 1e-3,
     ):
-        super().__init__(sampler, checkpoint_path, device)
+        super().__init__(sampler=sampler, checkpoint_path=checkpoint_path, device=device)
 
         assert num_encoders > 0, "num_encoders must be greater than 0"
         assert num_layers_ff > 0, "num_layers_ff must be greater than 1"
 
         self.add_y = add_y
+        dim_in = self.sampler.metadataset.feature_dim
+        assert dim_in is not None, "Feature dimension is None"
         if add_y:
             dim_in += 1
 
@@ -43,18 +63,18 @@ class DRE(BaseModel):
         self.hidden_layers.append(
             nn.Linear(in_features=out_dim * num_encoders, out_features=hidden_dim_ff)
         )
-        for i in range(1, num_layers_ff):
+        for _ in range(1, num_layers_ff):
             self.hidden_layers.append(
                 nn.Linear(in_features=hidden_dim_ff, out_features=hidden_dim_ff)
             )
 
         self.out_layer = nn.ModuleList()
-        for i in range(num_encoders):
+        for _ in range(num_encoders):
             self.out_layer.append(
                 nn.Linear(in_features=hidden_dim_ff, out_features=out_dim_ff)
             )
 
-        self.device = sampler.device
+        self.device = sampler.device  # Why is it needed?
         self.criterion = RankLoss(type=criterion_type)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         self.to(self.device)
@@ -80,7 +100,7 @@ class DRE(BaseModel):
         pipeline_hps: torch.Tensor,
         metric_per_pipeline: torch.Tensor,
         metric: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> torch.Tensor:
         batch_size, num_pipelines, _ = pipeline_hps.shape
         batches = [
             self.sampler.sample(fixed_num_pipelines=num_pipelines, batch_size=batch_size)
@@ -107,7 +127,7 @@ class DRE(BaseModel):
         loss.backward()
         self.optimizer.step()
 
-        return loss.item()
+        return loss
 
     def forward(self, x, y):
         assert len(x) == self.num_encoders
@@ -198,15 +218,19 @@ class DRE(BaseModel):
         loss = self.criterion(y_pred[0].reshape(metric.shape), metric)
         self.train()
 
-        return loss.item()
+        return loss
 
-    def save_checkpoint(self, checkpoint_name: str = "checkpoint.pth"):
-        torch.save(self.state_dict(), os.path.join(self.checkpoint_path, checkpoint_name))
-
-    def load_checkpoint(self, checkpoint_name: str = "checkpoint.pth"):
-        self.load_state_dict(
-            torch.load(os.path.join(self.checkpoint_path, checkpoint_name))
+    def save_checkpoint(self, checkpoint: Path = Path("surrogate.pth")):
+        torch.save(
+            {
+                "model": self.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+            },
+            checkpoint,
         )
 
-    def checkpoint_exists(self, checkpoint_name="checkpoint.pth") -> bool:
-        return os.path.exists(os.path.join(self.checkpoint_path, checkpoint_name))
+    def load_checkpoint(self, checkpoint: Path = Path("surrogate.pth")):
+        ckpt = torch.load(checkpoint, map_location=torch.device(self.device))
+
+        self.load_state_dict(ckpt["model"])
+        self.optimizer.load_state_dict(ckpt["optimizer"])
