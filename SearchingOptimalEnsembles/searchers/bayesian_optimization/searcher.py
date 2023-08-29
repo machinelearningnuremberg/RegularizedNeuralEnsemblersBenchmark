@@ -27,7 +27,7 @@ class BayesianOptimization(BaseOptimizer):
         initial_design_size: int = 5,
         checkpoint_path: str
         | None = "/work/dlclarge2/janowski-quicktune/SearchingOptimalEnsembles/SearchingOptimalEnsembles_experiments/checkpoints",
-        surrogate_args: dict = None,
+        surrogate_args: dict | None = None,
     ):
         """
         Initialize the Bayesian Optimization class.
@@ -62,22 +62,22 @@ class BayesianOptimization(BaseOptimizer):
             kwargs=sampler_args,
         )
 
-        if surrogate_args is None:
-            surrogate_args = {}
-
-        surrogate_args.update({
-            "sampler": self.sampler,
-            "checkpoint_path": self.checkpoint_path,
-            "device": self.device,
-        })
-
-
+        default_args = ModelMapping[surrogate_name].default_config.copy()
+        surrogate_args = {**default_args, **(surrogate_args or {})}
+        surrogate_args.update(
+            {
+                "sampler": self.sampler,
+                "checkpoint_path": self.checkpoint_path,
+                "device": self.device,
+            }
+        )
         self.surrogate = instance_from_map(
             ModelMapping,
             surrogate_name,
             name="surrogate",
             kwargs=surrogate_args,
         )
+
         acquisition_args = {
             "device": self.device,
         }
@@ -122,9 +122,7 @@ class BayesianOptimization(BaseOptimizer):
         """
 
         # Initialize the surrogate model
-        if self.surrogate.checkpoint_exists(checkpoint_name = "surrogate.pth"):
-            self.logger.debug("Loading surrogate model from checkpoint...")
-            self.surrogate.load_checkpoint(checkpoint_name="surrogate.pth")
+        self.surrogate.checkpointer.load_checkpoint(checkpoint_name="surrogate.pth")
 
         # Initialize the learning rate optimizer
         optimizer = self.surrogate.optimizer
@@ -147,13 +145,8 @@ class BayesianOptimization(BaseOptimizer):
                 break
 
             # Set sampler, i.e. meta-train to random dataset
-            start_time = time.time()
-            #self.sampler.set_state(dataset_name="kr-vs-kp", meta_split="meta-train")
+            # self.sampler.set_state(dataset_name="kr-vs-kp", meta_split="meta-train")
             self.sampler.set_state(dataset_name=None, meta_split="meta-train")
-            set_sampler_time = time.time() - start_time
-            self.logger.debug(
-                f"Epoch {epoch+1}/{num_epochs} - Setting sampler - Time: {set_sampler_time:.2f}s"
-            )
 
             start_time = time.time()
             meta_train_loss = self.surrogate.fit(
@@ -168,16 +161,14 @@ class BayesianOptimization(BaseOptimizer):
             # Logging the time and loss for this epoch
             meta_train_time = time.time() - start_time
             self.logger.debug(
-                f"Epoch {epoch+1}/{num_epochs} - Meta-train - Loss: {meta_train_loss:.5f}"
-            )
-            self.logger.debug(
-                f"Epoch {epoch+1}/{num_epochs} - Meta-train - Time: {meta_train_time:.2f}s"
+                f"Epoch {epoch+1}/{num_epochs} - Meta-train - Loss: {meta_train_loss:.5f} - Time: {meta_train_time:.2f}s"
             )
 
             # Meta-validation phase
             if (epoch + 1) % valid_frequency == 0:
                 # Perform meta-validation, which is just eval pass on the meta-valid split,
                 # using all datasets in the split
+                start_time = time.time()
                 _meta_valid_losses = []
                 for dataset_name in self.sampler.metadataset.meta_splits["meta-valid"]:
                     self.sampler.set_state(
@@ -200,15 +191,12 @@ class BayesianOptimization(BaseOptimizer):
                     _meta_valid_losses.append(meta_valid_loss)
 
                 # Calculate the average loss across all datasets
-                meta_valid_loss = np.mean(_meta_valid_losses)
+                meta_valid_loss = np.mean([loss.item() for loss in _meta_valid_losses])
                 meta_valid_losses.append(meta_valid_loss)
 
                 # Logging meta-validation information
                 self.logger.info(
-                    f"Epoch {epoch+1}/{num_epochs} - Meta-valid - Loss: {meta_valid_loss:.5f}"
-                )
-                self.logger.debug(
-                    f"Epoch {epoch+1}/{num_epochs} - Meta-valid - Time: {time.time() - meta_train_time:.2f}s"
+                    f"Epoch {epoch+1}/{num_epochs} - Meta-valid - Loss: {meta_valid_loss:.5f} - Time: {time.time() - start_time:.2f}s"
                 )
 
                 # Check for improvement and update best weights if needed
@@ -230,12 +218,12 @@ class BayesianOptimization(BaseOptimizer):
 
         # Load the best model weights and save them to a checkpoint file
         self.surrogate.load_state_dict(weights)
-        self.surrogate.save_checkpoint(checkpoint_name="surrogate.pth")
+        self.surrogate.checkpointer.save_checkpoint(checkpoint_name="surrogate.pth")
 
     def run(
         self,
         loss_tol: float = 0.0001,
-        meta_num_epochs: int = 3,
+        meta_num_epochs: int = 10,
         meta_num_inner_epochs: int = 10,
         meta_valid_frequency: int = 100,
     ):
