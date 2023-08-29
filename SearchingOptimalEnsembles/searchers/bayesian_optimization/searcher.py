@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+import wandb
 from typing_extensions import Literal
 
 from ...samplers import SamplerMapping
@@ -163,6 +164,8 @@ class BayesianOptimization(BaseOptimizer):
             self.logger.debug(
                 f"Epoch {epoch+1}/{num_epochs} - Meta-train - Loss: {meta_train_loss:.5f} - Time: {meta_train_time:.2f}s"
             )
+            if wandb.run is not None:
+                wandb.log({"epoch": epoch, "meta_train_loss": meta_train_loss})
 
             # Meta-validation phase
             if (epoch + 1) % valid_frequency == 0:
@@ -192,6 +195,8 @@ class BayesianOptimization(BaseOptimizer):
 
                 # Calculate the average loss across all datasets
                 meta_valid_loss = np.mean([loss.item() for loss in _meta_valid_losses])
+                if wandb.run is not None:
+                    wandb.log({"epoch": epoch, "meta_valid_loss": meta_valid_loss})
                 meta_valid_losses.append(meta_valid_loss)
 
                 # Logging meta-validation information
@@ -223,8 +228,8 @@ class BayesianOptimization(BaseOptimizer):
     def run(
         self,
         loss_tol: float = 0.0001,
-        meta_num_epochs: int = 10,
-        meta_num_inner_epochs: int = 10,
+        meta_num_epochs: int = 10000,
+        meta_num_inner_epochs: int = 1,
         meta_valid_frequency: int = 100,
     ):
         # Meta-train the surrogate model if num_epochs > 0,
