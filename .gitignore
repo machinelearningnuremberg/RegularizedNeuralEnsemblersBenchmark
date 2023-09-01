@@ -11,7 +11,7 @@ LOGS/
 
 # slurm scripts
 slurm_scripts/*
-cluster_scripts/slurm/all_experiments.txt
+SearchingOptimalEnsembles_experiments/cluster_scripts/slurm/all_experiments.txt
 
 # Documentation
 site/*
