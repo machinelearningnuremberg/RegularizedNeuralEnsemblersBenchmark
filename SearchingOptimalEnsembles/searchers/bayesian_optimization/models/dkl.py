@@ -124,17 +124,21 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         self.encoder.eval()
         self.likelihood.eval()
 
-        z = self.encoder(pipeline_hps)
-        self.model.set_train_data(inputs=z, targets=metric, strict=False)
-        predictions = self.model(z)
+        with torch.no_grad():
+            z = self.encoder(pipeline_hps)
+            predictions = self.model(z)
 
-        loss = torch.mean((predictions.mean - metric) ** 2)
+            mse = torch.nn.MSELoss()
+            loss = mse(predictions.mean, metric)
 
         return loss
 
     def predict(
-        self, x: torch.Tensor, sampler: BaseSampler, max_num_pipelines: int = 10,
-            y_per_pipeline: torch.Tensor = None
+        self,
+        x: torch.Tensor,
+        sampler: BaseSampler,
+        max_num_pipelines: int = 10,
+        y_per_pipeline: torch.Tensor = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         self.model.eval()
         self.encoder.eval()

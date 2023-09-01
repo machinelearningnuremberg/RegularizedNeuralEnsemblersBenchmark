@@ -6,6 +6,7 @@ from typing import Any
 
 import torch
 import torch.nn as nn
+import wandb
 
 from ....samplers.base_sampler import BaseSampler
 from ....utils.logger import get_logger
@@ -47,18 +48,6 @@ class BaseModel(nn.Module):
         self.optimizer: torch.optim.Optimizer
         self.default_config: dict[str, Any]
         self.checkpointer = self.ModelCheckpointer(self, checkpoint_path)
-
-    @abstractmethod
-    def checkpoint_exists(self, checkpoint_name="checkpoint.pth") -> bool:
-        """Checks if the checkpoint exists.
-
-        Args:
-            checkpoint_name (str, optional): Name of the checkpoint. Defaults to "checkpoint.pth".
-
-        Returns:
-            bool: True if the checkpoint exists.
-        """
-        raise NotImplementedError
 
     def _observe(self, x: torch.Tensor, y: torch.Tensor):
         self.x_obs.append(x)
@@ -111,6 +100,9 @@ class BaseModel(nn.Module):
                     f"Epoch {epoch+1}/{num_epochs} - Exception during training: {e}"
                 )
                 continue
+
+            if wandb.run is not None:
+                wandb.log({"meta_meta_train_loss": loss})
 
         return loss.item() if loss is not None else None
 
@@ -167,8 +159,11 @@ class BaseModel(nn.Module):
 
     @abstractmethod
     def predict(
-        self, x: torch.Tensor, sampler: BaseSampler,
-            max_num_pipelines: int = 10, y_per_pipeline: torch.Tensor = None
+        self,
+        x: torch.Tensor,
+        sampler: BaseSampler,
+        max_num_pipelines: int = 10,
+        y_per_pipeline: torch.Tensor = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Returns the mean and standard deviation of the predictive distribution
 
