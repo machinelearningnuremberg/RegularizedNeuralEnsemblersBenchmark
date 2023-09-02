@@ -36,7 +36,7 @@ def run(
         "sampler_name": sampler_name,
         "acquisition_name": acquisition_name,
         "initial_design_size": 5,
-        "patience": 50,
+        "patience": 500,
     }
 
     searcher = instance_from_map(

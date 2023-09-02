@@ -1,4 +1,4 @@
-#based on NES: https://github.com/arberzela/nes-bo/blob/main/nes/nasbench201/scripts/run_nes_bo_sls_evo.py
+# based on NES: https://github.com/arberzela/nes-bo/blob/main/nes/nasbench201/scripts/run_nes_bo_sls_evo.py
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ import numpy as np
 import torch
 
 from ..metadatasets.base_metadataset import BaseMetaDataset
-from ..utils.common import move_to_device
 from .base_sampler import BaseSampler
 
 
@@ -21,8 +20,11 @@ class LocalSearchSampler(BaseSampler):
         super().__init__(metadataset=metadataset, patience=patience, device=device)
         self.ls_iter = ls_iter
 
-    def search_ensemble(self, candidates, num_pipelines):
-
+    def search_ensemble(
+        self,
+        candidates: np.ndarray,
+        num_pipelines: int = 10,
+    ) -> list[int]:
         choices_idx = np.random.choice(len(candidates), num_pipelines, replace=False)
         best_X = choices_idx.tolist()
         best_y = self.metadataset.evaluate_ensembles(ensembles=[best_X])[1]
@@ -35,6 +37,7 @@ class LocalSearchSampler(BaseSampler):
             new_choices_idx[random_id] = new_sampled_pipeline
             ens_to_evaluate = [candidates[i] for i in new_choices_idx]
 
+            # pylint: disable=unused-variable
             (
                 pipeline_hps,
                 metric,
@@ -49,12 +52,12 @@ class LocalSearchSampler(BaseSampler):
 
         return best_X
 
-    def generate_ensembles(self, candidates, num_pipelines, batch_size):
-
+    def generate_ensembles(
+        self, candidates: np.ndarray, num_pipelines: int = 10, batch_size: int = 16
+    ) -> list[list[int]]:
         ensembles = []
         for _ in range(batch_size):
             new_ensemble = self.search_ensemble(candidates, num_pipelines)
             ensembles.append(new_ensemble)
 
         return ensembles
-

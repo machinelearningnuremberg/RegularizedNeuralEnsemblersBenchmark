@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+import torch
 import wandb
 from typing_extensions import Literal
 
@@ -147,7 +148,9 @@ class BayesianOptimization(BaseOptimizer):
 
             # Set sampler, i.e. meta-train to random dataset
             # self.sampler.set_state(dataset_name="kr-vs-kp", meta_split="meta-train")
+            start_time = time.time()
             self.sampler.set_state(dataset_name=None, meta_split="meta-train")
+            sampler_time = time.time() - start_time
 
             start_time = time.time()
             meta_train_loss = self.surrogate.fit(
@@ -162,7 +165,7 @@ class BayesianOptimization(BaseOptimizer):
             # Logging the time and loss for this epoch
             meta_train_time = time.time() - start_time
             self.logger.debug(
-                f"Epoch {epoch+1}/{num_epochs} - Meta-train - Loss: {meta_train_loss:.5f} - Time: {meta_train_time:.2f}s"
+                f"Epoch {epoch+1}/{num_epochs} - Meta-train - Loss: {meta_train_loss:.5f} - Time: load: {sampler_time:.2f}s, pass {meta_train_time:.2f}s"
             )
             if wandb.run is not None:
                 wandb.log({"epoch": epoch, "meta_train_loss": meta_train_loss})
@@ -184,7 +187,7 @@ class BayesianOptimization(BaseOptimizer):
                         metric_per_pipeline,
                         time_per_pipeline,
                         ensembles,
-                    ) = self.sampler.sample()
+                    ) = self.sampler.sample(batch_size=512)
                     meta_valid_loss = self.surrogate.validate(
                         pipeline_hps=pipeline_hps,
                         metric_per_pipeline=metric_per_pipeline,
@@ -228,24 +231,110 @@ class BayesianOptimization(BaseOptimizer):
     def run(
         self,
         loss_tol: float = 0.0001,
-        meta_num_epochs: int = 10000,
+        meta_num_epochs: int = 50,
         meta_num_inner_epochs: int = 1,
         meta_valid_frequency: int = 100,
-    ):
+        num_epochs: int = 100,
+        num_inner_epochs: int = 1,
+    ) -> None:
         # Meta-train the surrogate model if num_epochs > 0,
         # otherwise load the checkpoint if exists
 
-        if meta_num_epochs > 0:
-            self.meta_train_surrogate(
-                num_epochs=meta_num_epochs,
-                num_inner_epochs=meta_num_inner_epochs,
-                loss_tol=loss_tol,
-                valid_frequency=meta_valid_frequency,
+        self.meta_train_surrogate(
+            num_epochs=meta_num_epochs,
+            num_inner_epochs=meta_num_inner_epochs,
+            loss_tol=loss_tol,
+            valid_frequency=meta_valid_frequency,
+        )
+
+        # Set sampler, i.e. meta-test to random dataset
+        self.sampler.set_state(dataset_name=None, meta_split="meta-test")
+
+        # Sample initial design points
+        self.logger.debug(f"Sampling {self.initial_design_size} initial design points")
+        # pylint: disable=unused-variable
+        (
+            pipeline_hps,
+            metric,
+            metric_per_pipeline,
+            time_per_pipeline,
+            ensembles,
+        ) = self.sampler.sample(
+            max_num_pipelines=1,
+            batch_size=self.initial_design_size,
+            observed_pipeline_ids=None,
+        )
+
+        # Bookkeeping variables
+        X_obs = np.unique(ensembles)
+        X_pending = np.array(self.metadataset.hp_candidates_ids)
+        incumbent = torch.min(metric).item()
+
+        # Main loop for Bayesian optimization
+        for epoch in range(num_epochs):
+            # max_num_pipelines += 1
+
+            # Fine-tune the surrogate model based on the observed data
+            self.surrogate.fit(
+                num_epochs=num_inner_epochs,
+                observed_pipeline_ids=X_obs,
             )
-        # self.acquisition.set_state(surrogate_model=self.surrogate)
 
-        # generate candidates
-        # score candidates
-        # select best candidate
-        # observe best candidate
+            self.acquisition.set_state(
+                surrogate_model=self.surrogate, incumbent=incumbent
+            )
 
+            # Sample candidates, TODO: use two samplers for initial design and for candidates
+            ensembles_from_observed = self.sampler.generate_ensembles(
+                candidates=X_obs,
+                num_pipelines=3,
+            )
+            pipeline_hps, _, metric_per_pipeline, _ = self.metadataset.evaluate_ensembles(
+                ensembles_from_observed
+            )
+
+            ensembles_from_pending = self.sampler.generate_ensembles(
+                candidates=np.array(X_pending),
+                num_pipelines=1,
+            )
+            new_pipeline_hps, _, _, _ = self.metadataset.evaluate_ensembles(
+                ensembles_from_pending
+            )
+
+            query_pipeline_hps = torch.cat((pipeline_hps, new_pipeline_hps), dim=1).to(
+                self.device
+            )
+
+            # for DRE, ideally should be in DRE
+            new_metric_per_pipeline = torch.zeros(len(new_pipeline_hps), 1)
+            metric_per_pipeline = torch.cat(
+                (metric_per_pipeline, new_metric_per_pipeline), dim=1
+            ).to(self.device)
+
+            # Evaluate the acquisition function
+            score = self.acquisition.eval(
+                x=query_pipeline_hps,
+                metric_per_pipeline=metric_per_pipeline,
+            )
+
+            # Select the best candidate
+            best_idx = torch.argmin(score)
+            best_pipeline = ensembles_from_pending[best_idx][0]
+
+            # Append best candidate to generated candidates
+            query_ensembles = [
+                ensemble + [best_pipeline] for ensemble in ensembles_from_observed
+            ]
+
+            # Evaluate candidates
+            _, metric, _, _ = self.metadataset.evaluate_ensembles(query_ensembles)
+            best_metric = torch.min(metric).item()
+
+            # Update bookkeeping variables
+            X_obs = np.concatenate((X_obs, [best_pipeline]))
+            X_pending = np.setdiff1d(X_pending, [best_pipeline])
+            if best_metric < incumbent:
+                incumbent = best_metric
+                self.logger.info(
+                    f"Epoch {epoch+1}/{num_epochs} - New incumbent: {incumbent:.5f}"
+                )

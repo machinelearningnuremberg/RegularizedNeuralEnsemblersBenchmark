@@ -11,8 +11,7 @@ python "$basedir"cluster_scripts/slurm/slurm_helper.py \
     --startup "$basedir"cluster_scripts/slurm/startup.sh \
     --array_min 1 \
     --array_max 10 \
-    --cores 8 \
-    --memory_per_job "10000mb" \
+    --memory_per_job "30000mb" \
     -o "$workdir"LOGS/ \
     -l "$workdir"LOGS/ \
     "$basedir"cluster_scripts/slurm/all_experiments.txt

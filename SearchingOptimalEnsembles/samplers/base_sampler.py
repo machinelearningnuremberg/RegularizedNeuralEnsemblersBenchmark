@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from abc import abstractmethod
-
 import numpy as np
 import torch
 
 from ..metadatasets.base_metadataset import BaseMetaDataset
-from ..utils.logger import get_logger
 from ..utils.common import move_to_device
+from ..utils.logger import get_logger
 
 
 class BaseSampler:
@@ -33,12 +31,9 @@ class BaseSampler:
         self.device = device
         self.logger = get_logger(name="SEO-SAMPLER", logging_level="debug")
 
-    @abstractmethod
-    def generate_ensembles(self,
-                            candidates: np.ndarray,
-                            num_pipelines: int,
-                            batch_size: int) -> list[list[int]]:
-
+    def generate_ensembles(
+        self, candidates: np.ndarray, num_pipelines: int = 10, batch_size: int = 16
+    ) -> list[list[int]]:
         """Generate ensembles of pipelines.
 
         Args:
@@ -97,20 +92,19 @@ class BaseSampler:
 
         return pipeline_hps, metric, metric_per_pipeline, time_per_pipeline, ensembles
 
-
     def set_state(
-            self, dataset_name: str | None = None, meta_split: str = "meta-train"
-        ) -> None:
-            """Set the state of the sampler. This includes populating the dataset name.
-            If dataset_name is None, a random dataset is chosen from the specified
-            meta-split.
+        self, dataset_name: str | None = None, meta_split: str = "meta-train"
+    ) -> None:
+        """Set the state of the sampler. This includes populating the dataset name.
+        If dataset_name is None, a random dataset is chosen from the specified
+        meta-split.
 
-            Args:
-                dataset_name (str, optional): Name of the dataset. Defaults to None.
-                meta_split (str, optional): Meta-split name. Defaults to "meta-train".
-            """
+        Args:
+            dataset_name (str, optional): Name of the dataset. Defaults to None.
+            meta_split (str, optional): Meta-split name. Defaults to "meta-train".
+        """
 
-            if dataset_name is None:
-                dataset_name = np.random.choice(self.metadataset.meta_splits[meta_split])
+        if dataset_name is None:
+            dataset_name = np.random.choice(self.metadataset.meta_splits[meta_split])
 
-            self.metadataset.set_state(dataset_name=dataset_name)
+        self.metadataset.set_state(dataset_name=dataset_name)

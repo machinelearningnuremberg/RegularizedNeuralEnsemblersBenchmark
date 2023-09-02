@@ -5,7 +5,7 @@ ARGS_PATH = Path(__file__).parent
 EXP_PATH = ARGS_PATH.parent.parent
 OUTPUT_DIR = "/work/dlclarge2/janowski-quicktune/SearchingOptimalEnsembles/SearchingOptimalEnsembles_experiments/"
 
-SURROGATE_NAMES = ["dkl"]
+SURROGATE_NAMES = ["dkl", "dre"]
 METADATA_NAMES = ["scikit-learn"]
 # SURROGATE_NAMES = ["dkl", "dre"]
 # METADATA_NAMES = ["quicktune", "scikit-learn", "nasbench201"]
