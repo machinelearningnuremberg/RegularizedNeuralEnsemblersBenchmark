@@ -7,10 +7,7 @@ import wandb
 
 import SearchingOptimalEnsembles as SOE
 
-# fmt: off
-from .utils.util import set_seed
-
-# fmt: on
+from SearchingOptimalEnsembles_experiments.utils.util import set_seed 
 
 
 def run(
