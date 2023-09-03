@@ -15,6 +15,7 @@ class LocalSearchSampler(BaseSampler):
         metadataset: BaseMetaDataset,
         patience: int = 50,
         device: torch.device = torch.device("cpu"),
+        #############################
         ls_iter: int = 10,
     ):
         super().__init__(metadataset=metadataset, patience=patience, device=device)
