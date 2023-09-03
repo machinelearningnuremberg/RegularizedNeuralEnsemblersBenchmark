@@ -49,6 +49,8 @@ class BaseModel(nn.Module):
         self,
         num_epochs: int = 100,
         observed_pipeline_ids: list[int] | None = None,
+        max_num_pipelines: int = 10,
+        batch_size: int = 16,
     ) -> float | None:
         """
         Trains or evaluates the model based on a dataset.
@@ -56,6 +58,9 @@ class BaseModel(nn.Module):
 
         Args:
             num_epochs (int, optional): Number of training epochs for each dataset. Defaults to 100.
+            observed_pipeline_ids (list[int], optional): List of pipeline ids that have been observed. Defaults to None.
+            max_num_pipelines (int, optional): Maximum number of pipelines to sample. Defaults to 10.
+            batch_size (int, optional): Batch size for training. Defaults to 16.
         Returns:
             float: The average loss across all the batches and datasets.
 
@@ -73,7 +78,11 @@ class BaseModel(nn.Module):
                 metric_per_pipeline,
                 time_per_pipeline,
                 ensembles,
-            ) = self.sampler.sample(observed_pipeline_ids=observed_pipeline_ids)
+            ) = self.sampler.sample(
+                observed_pipeline_ids=observed_pipeline_ids,
+                max_num_pipelines=max_num_pipelines,
+                batch_size=batch_size,
+            )
 
             try:
                 loss = self._fit_batch(
