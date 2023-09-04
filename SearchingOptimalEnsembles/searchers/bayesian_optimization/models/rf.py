@@ -6,6 +6,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 
 from ....samplers.base_sampler import BaseSampler
+from ....utils.common import move_to_device
 from .base_model import BaseModel
 from .utils import ConfigurableMeta
 
@@ -54,6 +55,7 @@ class BootstrapRandomForest(BaseModel, metaclass=ConfigurableMeta):
             num_epochs, observed_pipeline_ids, max_num_pipelines, batch_size
         )
 
+    @move_to_device
     def _fit_batch(
         self,
         pipeline_hps: torch.Tensor,
@@ -65,8 +67,9 @@ class BootstrapRandomForest(BaseModel, metaclass=ConfigurableMeta):
         self.model.fit(X, y)
         pred = self.model.predict(X)
         loss = mean_squared_error(y, pred)
-        return torch.tensor(loss, dtype=torch.float32).to(self.device)
+        return torch.tensor(loss, dtype=torch.float32)
 
+    @move_to_device
     def validate(
         self,
         pipeline_hps: torch.Tensor,
@@ -77,8 +80,9 @@ class BootstrapRandomForest(BaseModel, metaclass=ConfigurableMeta):
         y = metric.cpu().numpy()
         pred = self.model.predict(X)
         loss = mean_squared_error(y, pred)
-        return torch.tensor(loss, dtype=torch.float32).to(self.device)
+        return torch.tensor(loss, dtype=torch.float32)
 
+    @move_to_device
     def predict(self, x: torch.Tensor, **kwargs) -> tuple[torch.Tensor, torch.Tensor]:
         X = x.squeeze(dim=1).cpu().numpy()
         pred = np.array([tree.predict(X) for tree in self.model.estimators_]).T
@@ -86,6 +90,6 @@ class BootstrapRandomForest(BaseModel, metaclass=ConfigurableMeta):
         pred_var = (pred - pred_mean.reshape(-1, 1)) ** 2
         pred_std = np.sqrt(np.mean(pred_var, axis=1))
 
-        return torch.tensor(pred_mean, dtype=torch.float32).to(self.device), torch.tensor(
+        return torch.tensor(pred_mean, dtype=torch.float32), torch.tensor(
             pred_std, dtype=torch.float32
-        ).to(self.device)
+        )
