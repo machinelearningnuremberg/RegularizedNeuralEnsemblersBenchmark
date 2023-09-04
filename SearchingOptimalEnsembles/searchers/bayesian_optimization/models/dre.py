@@ -167,18 +167,17 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
 
         return out
 
-    def predict(self, x, sampler: BaseSampler = None,
-            max_num_pipelines: int = 10, y_per_pipeline: torch.Tensor = None):
-
+    def predict(self, x, metric_per_pipeline: torch.Tensor = None, **kwargs):
         with torch.no_grad():
-
             batch_size, num_pipelines, _ = x.shape
             batches = [
-                self.sampler.sample(fixed_num_pipelines=num_pipelines, batch_size=batch_size)
+                self.sampler.sample(
+                    fixed_num_pipelines=num_pipelines, batch_size=batch_size
+                )
                 for _ in range(self.num_encoders - 1)
             ]
             X = [x]
-            y_p = [y_per_pipeline]
+            y_p = [metric_per_pipeline]
 
             for batch in batches:
                 X.append(batch[0])
@@ -191,7 +190,9 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
                 y_temp[i] = y_p[0]
                 x_temp[0] = X[i]
                 y_temp[0] = y_p[i]
-                ranks = self.get_rank(self.forward(x_temp, y_temp)[i].squeeze(-1).squeeze(-1))
+                ranks = self.get_rank(
+                    self.forward(x_temp, y_temp)[i].squeeze(-1).squeeze(-1)
+                )
                 out_list.append(ranks)
 
             out_mean = torch.mean(torch.stack(out_list), axis=0)

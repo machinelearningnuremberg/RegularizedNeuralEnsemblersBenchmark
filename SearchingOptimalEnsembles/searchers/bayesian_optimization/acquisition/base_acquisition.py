@@ -22,7 +22,7 @@ class BaseAcquisition(ABC):
         self.logger = get_logger(name="SEO-ACQUISITION", logging_level="debug")
 
     @abstractmethod
-    def eval(self, x: torch.Tensor):
+    def eval(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
         """
         Evaluate the acquisition function at a given point x.
 

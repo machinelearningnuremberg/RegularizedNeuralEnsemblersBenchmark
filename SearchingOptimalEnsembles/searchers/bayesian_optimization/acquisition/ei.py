@@ -12,28 +12,23 @@ class ExpectedImprovement(BaseAcquisition):
         self,
         device: torch.device = torch.device("cpu"),
         beta: float = 0.0,
-        in_fill: str = "best",
     ):
         """
         Expected Improvement (EI) acquisition function.
 
         Args:
             beta: manual exploration-exploitation trade-off parameter.
-            in_fill: the criterion to be used for in-fill for the determination of incumbent value
-                'best' means the empirical best observation so far (but could be
-                susceptible to noise).
         """
         super().__init__(device=device)
 
-        if in_fill not in ["best"]:
-            raise ValueError(f"Invalid value for in_fill ({in_fill})")
-
         self.beta = beta
-        self.in_fill = in_fill
         self.incumbent = None
 
-    def eval(self, x: torch.Tensor,
-             y_per_pipeline: torch.Tensor = None,) -> torch.Tensor:
+    def eval(
+        self,
+        x: torch.Tensor,
+        metric_per_pipeline: torch.Tensor = None,
+    ) -> torch.Tensor:
         """
         Evaluate the acquisition function at a given point x.
 
@@ -61,7 +56,9 @@ class ExpectedImprovement(BaseAcquisition):
         assert self.incumbent is not None, "EI not fitted on model!!!"
 
         try:
-            mean, stddev = self.surrogate_model.predict(x, y_per_pipeline=y_per_pipeline)
+            mean, stddev = self.surrogate_model.predict(
+                x=x, metric_per_pipeline=metric_per_pipeline
+            )
         except ValueError as e:
             raise e
 
@@ -77,7 +74,7 @@ class ExpectedImprovement(BaseAcquisition):
 
         return ei
 
-    def set_state(self, surrogate_model, **kwargs):
+    def set_state(self, surrogate_model, incumbent, **kwargs):
         """
         Set the state of the acquisition function.
 
@@ -86,15 +83,4 @@ class ExpectedImprovement(BaseAcquisition):
 
         """
         super().set_state(surrogate_model)
-
-        # TODO: verify min/max
-        # Compute incumbent
-        if self.in_fill == "best":
-            _incumbent = [torch.min(y).item() for y in self.surrogate_model.y_obs]
-
-            if len(_incumbent) == 0:
-                self.incumbent = 1.0 # TODO: verify,  assuming minimization
-            else:
-                self.incumbent = min(_incumbent)
-        else:
-            raise NotImplementedError
+        self.incumbent = incumbent

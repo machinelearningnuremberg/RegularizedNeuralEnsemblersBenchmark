@@ -17,11 +17,12 @@ class RandomSampler(BaseSampler):
     ):
         super().__init__(metadataset=metadataset, patience=patience, device=device)
 
-    def generate_ensembles(self,
-                            candidates: np.ndarray,
-                            num_pipelines: int,
-                            batch_size: int) -> list[list[int]]:
-
+    def generate_ensembles(
+        self,
+        candidates: np.ndarray,
+        num_pipelines: int = 10,
+        batch_size: int = 16,
+    ) -> list[list[int]]:
         ensembles = np.random.randint(0, len(candidates), (batch_size, num_pipelines))
         return candidates[ensembles].tolist()
 

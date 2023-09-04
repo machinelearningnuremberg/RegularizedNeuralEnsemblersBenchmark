@@ -7,9 +7,11 @@ dist
 *.err
 *.log
 *.json
+LOGS/
 
 # slurm scripts
 slurm_scripts/*
+SearchingOptimalEnsembles_experiments/cluster_scripts/slurm/all_experiments.txt
 
 # Documentation
 site/*
@@ -38,3 +40,4 @@ results
 
 # WandB
 SearchingOptimalEnsembles_experiments/wandb/
+**/wandb/

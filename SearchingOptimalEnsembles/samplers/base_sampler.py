@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from abc import abstractmethod
-
 import numpy as np
 import torch
 
 from ..metadatasets.base_metadataset import BaseMetaDataset
+from ..utils.common import move_to_device
 from ..utils.logger import get_logger
 from ..utils.common import move_to_device
 
@@ -33,12 +32,9 @@ class BaseSampler:
         self.device = device
         self.logger = get_logger(name="SEO-SAMPLER", logging_level="debug")
 
-    @abstractmethod
-    def generate_ensembles(self,
-                            candidates: np.ndarray,
-                            num_pipelines: int,
-                            batch_size: int) -> list[list[int]]:
-
+    def generate_ensembles(
+        self, candidates: np.ndarray, num_pipelines: int = 10, batch_size: int = 16
+    ) -> list[list[int]]:
         """Generate ensembles of pipelines.
 
         Args:
@@ -96,7 +92,6 @@ class BaseSampler:
         ) = self.metadataset.evaluate_ensembles(ensembles=ensembles)
 
         return pipeline_hps, metric, metric_per_pipeline, time_per_pipeline, ensembles
-
 
     def set_state(
             self, dataset_name: str | None = None, meta_split: str = "meta-train"

@@ -53,19 +53,11 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
     def set_state(self, dataset_name: str):
         self.logger.debug(f"Setting dataset: {dataset_name}")
 
-        # TODO: clean it up
-        try:
-            name = self.dataset_name
-        except Exception as e:
-            self.logger.debug(f"Exception: {e}")
-            name = None
-
         # Scikit-learn specific attributes
         task_id = self.task_ids[self.dataset_names.index(dataset_name)]
-        if name != dataset_name:
-            self.benchmark = pipeline_bench.Benchmark(
-                task_id=task_id, worker_dir=self.data_dir, mode="table", lazy=False
-            )
+        self.benchmark = pipeline_bench.Benchmark(
+            task_id=task_id, worker_dir=self.data_dir, mode="table", lazy=False
+        )
         super().set_state(dataset_name=dataset_name)
 
     def _get_hp_candidates_and_indices(
