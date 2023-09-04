@@ -262,14 +262,15 @@ class BayesianOptimization(BaseOptimizer):
         # Meta-train the surrogate model if num_epochs > 0,
         # otherwise load the checkpoint if exists
 
-        self.meta_train_surrogate(
-            num_epochs=meta_num_epochs,
-            num_inner_epochs=meta_num_inner_epochs,
-            loss_tol=loss_tolerance,
-            valid_frequency=meta_valid_frequency,
-            max_num_pipelines=max_num_pipelines,
-            batch_size=batch_size,
-        )
+        if meta_num_epochs > 0:
+            self.meta_train_surrogate(
+                num_epochs=meta_num_epochs,
+                num_inner_epochs=meta_num_inner_epochs,
+                loss_tol=loss_tolerance,
+                valid_frequency=meta_valid_frequency,
+                max_num_pipelines=max_num_pipelines,
+                batch_size=batch_size,
+            )
 
         # Set sampler, i.e. meta-test to random dataset
         self.sampler.set_state(dataset_name=None, meta_split="meta-test")
