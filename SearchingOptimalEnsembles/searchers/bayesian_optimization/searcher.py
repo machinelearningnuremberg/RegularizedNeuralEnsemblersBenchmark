@@ -235,13 +235,17 @@ class BayesianOptimization(BaseOptimizer):
         # Meta-train the surrogate model if num_epochs > 0,
         # otherwise load the checkpoint if exists
 
-        self.meta_train_surrogate(
-            num_epochs=meta_num_epochs,
-            num_inner_epochs=meta_num_inner_epochs,
-            loss_tol=loss_tol,
-            valid_frequency=meta_valid_frequency,
-        )
+        if meta_num_epochs > 0:
+            self.meta_train_surrogate(
+                num_epochs=meta_num_epochs,
+                num_inner_epochs=meta_num_inner_epochs,
+                loss_tol=loss_tol,
+                valid_frequency=meta_valid_frequency,
+            )
         # self.acquisition.set_state(surrogate_model=self.surrogate)
 
-        # TODO: generate candidates with another sampler
-        # use acquisition to select candidate
+        # generate candidates
+        # score candidates
+        # select best candidate
+        # observe best candidate
+

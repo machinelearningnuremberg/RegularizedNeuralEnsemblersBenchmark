@@ -133,7 +133,8 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         return loss
 
     def predict(
-        self, x: torch.Tensor, sampler: BaseSampler, max_num_pipelines: int = 10
+        self, x: torch.Tensor, sampler: BaseSampler, max_num_pipelines: int = 10,
+            y_per_pipeline: torch.Tensor = None
     ) -> tuple[torch.Tensor, torch.Tensor]:
         self.model.eval()
         self.encoder.eval()

@@ -1,15 +1,9 @@
 # pylint: disable=all
-
 import os
-
-import numpy as np
 import torch
-
 import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
 import SearchingOptimalEnsembles.samplers.random_sampler as rs
-
-from ..searchers.bayesian_optimization.models.dre import DRE
-
+from SearchingOptimalEnsembles.searchers.bayesian_optimization.models.dre import DRE
 
 def test_DRE():
     current_dir = os.path.dirname(os.path.abspath(__file__))
