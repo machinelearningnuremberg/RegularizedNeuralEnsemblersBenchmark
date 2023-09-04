@@ -120,6 +120,10 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         metric_per_pipeline: torch.Tensor,
         metric: torch.Tensor,
     ) -> torch.Tensor:
+        X_obs, y_obs = self._create_support()
+
+        self.model.set_train_data(inputs=X_obs, targets=y_obs, strict=False)
+
         self.model.eval()
         self.encoder.eval()
         self.likelihood.eval()
@@ -138,6 +142,10 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         x: torch.Tensor,
         **kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        X_obs, y_obs = self._create_support()
+
+        self.model.set_train_data(inputs=X_obs, targets=y_obs, strict=False)
+
         self.model.eval()
         self.encoder.eval()
         self.likelihood.eval()
@@ -147,3 +155,32 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
             pred = self.likelihood(self.model(z_query))
 
         return pred.mean, pred.stddev
+
+    def _create_support(self) -> tuple[torch.Tensor, torch.Tensor]:
+        assert (
+            self.max_num_pipelines is not None and self.observed_pipeline_ids is not None
+        ), "Model not properly fitted!!!"
+
+        # Initialize lists to collect the tensors
+        X_obs_list = []
+        y_obs_list = []
+        for num_pipelines in range(1, self.max_num_pipelines + 1):
+            (
+                pipeline_hps,
+                metric,
+                _,
+                _,
+                _,
+            ) = self.sampler.sample(
+                observed_pipeline_ids=self.observed_pipeline_ids,
+                max_num_pipelines=num_pipelines,
+            )
+            y_obs_list.append(metric)
+            z_support = self.encoder(pipeline_hps).detach()
+            X_obs_list.append(z_support)
+
+        # Concatenate the lists to form tensors
+        y_obs = torch.cat(y_obs_list, dim=0)
+        X_obs = torch.cat(X_obs_list, dim=0)
+
+        return X_obs, y_obs

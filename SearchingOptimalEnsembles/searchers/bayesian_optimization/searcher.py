@@ -308,22 +308,22 @@ class BayesianOptimization(BaseOptimizer):
             )
 
             self.acquisition.set_state(
-                surrogate_model=self.surrogate, incumbent=incumbent
+                surrogate_model=self.surrogate,
+                incumbent=incumbent,
             )
 
-            if num_pipelines > 1:
-                # Sample candidates
-                ensembles_from_observed = self.sampler.generate_ensembles(
-                    candidates=X_obs,
-                    num_pipelines=num_pipelines,
-                    batch_size=batch_size,
-                )
-                (
-                    pipeline_hps,
-                    _,
-                    metric_per_pipeline,
-                    _,
-                ) = self.metadataset.evaluate_ensembles(ensembles_from_observed)
+            # Sample candidates
+            ensembles_from_observed = self.sampler.generate_ensembles(
+                candidates=X_obs,
+                num_pipelines=num_pipelines,
+                batch_size=batch_size,
+            )
+            (
+                pipeline_hps,
+                _,
+                metric_per_pipeline,
+                _,
+            ) = self.metadataset.evaluate_ensembles(ensembles_from_observed)
 
             ensembles_from_pending = self.sampler.generate_ensembles(
                 candidates=X_pending,
