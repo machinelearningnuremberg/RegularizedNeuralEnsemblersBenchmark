@@ -210,6 +210,7 @@ class BayesianOptimization(BaseOptimizer):
                         pipeline_hps=pipeline_hps,
                         metric_per_pipeline=metric_per_pipeline,
                         metric=metric,
+                        max_num_pipelines=max_num_pipelines,
                     )
 
                     _meta_valid_losses.append(meta_valid_loss)
@@ -261,6 +262,10 @@ class BayesianOptimization(BaseOptimizer):
     ) -> None:
         # Meta-train the surrogate model if num_epochs > 0,
         # otherwise load the checkpoint if exists
+
+        if wandb.run is not None:
+            wandb.run.name += f"_{meta_num_epochs}_{max_num_pipelines}"
+            wandb.run.save()
 
         if meta_num_epochs > 0:
             self.meta_train_surrogate(
@@ -354,6 +359,7 @@ class BayesianOptimization(BaseOptimizer):
             score = self.acquisition.eval(
                 x=query_pipeline_hps,
                 metric_per_pipeline=metric_per_pipeline,
+                max_num_pipelines=max_num_pipelines,
             )
 
             # Select the best candidate

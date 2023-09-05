@@ -45,7 +45,7 @@ def run(
     searcher = instance_from_map(
         SearcherMapping,
         searcher_name,
-        name="optimizer",
+        name="searcher",
         kwargs=searcher_args,
     )
 
