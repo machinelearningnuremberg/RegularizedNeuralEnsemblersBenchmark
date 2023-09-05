@@ -119,8 +119,9 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         pipeline_hps: torch.Tensor,
         metric_per_pipeline: torch.Tensor,
         metric: torch.Tensor,
+        max_num_pipelines: int = 10,
     ) -> torch.Tensor:
-        X_obs, y_obs = self._create_support()
+        X_obs, y_obs = self._create_support(max_num_pipelines=max_num_pipelines)
 
         self.model.set_train_data(inputs=X_obs, targets=y_obs, strict=False)
 
@@ -140,9 +141,10 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
     def predict(
         self,
         x: torch.Tensor,
+        max_num_pipelines: int = 10,
         **kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        X_obs, y_obs = self._create_support()
+        X_obs, y_obs = self._create_support(max_num_pipelines=max_num_pipelines)
 
         self.model.set_train_data(inputs=X_obs, targets=y_obs, strict=False)
 
@@ -156,15 +158,13 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
 
         return pred.mean, pred.stddev
 
-    def _create_support(self) -> tuple[torch.Tensor, torch.Tensor]:
-        assert (
-            self.max_num_pipelines is not None and self.observed_pipeline_ids is not None
-        ), "Model not properly fitted!!!"
-
+    def _create_support(
+        self, max_num_pipelines: int = 10
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         # Initialize lists to collect the tensors
         X_obs_list = []
         y_obs_list = []
-        for num_pipelines in range(1, self.max_num_pipelines + 1):
+        for num_pipelines in range(1, max_num_pipelines + 1):
             (
                 pipeline_hps,
                 metric,

@@ -45,8 +45,7 @@ class BaseModel(nn.Module):
         self.default_config: dict[str, Any]
         self.checkpointer = self.ModelCheckpointer(self, checkpoint_path)
 
-        self.observed_pipeline_ids = None
-        self.max_num_pipelines = None
+        self.observed_pipeline_ids: list[int] | None = None
 
     def fit(
         self,
@@ -72,7 +71,6 @@ class BaseModel(nn.Module):
         """
 
         self.observed_pipeline_ids = observed_pipeline_ids
-        self.max_num_pipelines = max_num_pipelines
 
         loss = None
 
