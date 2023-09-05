@@ -17,7 +17,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         meta_split_ids=((0, 1, 2), (3,), (4,)),
         seed: int = 42,
         split: str = "val",
-        metric_name: str = "error",
+        metric_name: str = "nll",
         ensemble_type: str = "soft",
         data_version: str = "micro",
     ):
