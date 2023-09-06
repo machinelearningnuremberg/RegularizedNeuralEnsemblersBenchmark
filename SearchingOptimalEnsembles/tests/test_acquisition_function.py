@@ -1,17 +1,22 @@
+# pylint: disable=all
+# mypy: ignore-errors
+
 import os
+
 import torch
+
 import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
 import SearchingOptimalEnsembles.samplers.random_sampler as rs
 import SearchingOptimalEnsembles.searchers.bayesian_optimization.acquisition as acqf
 
 from ..searchers.bayesian_optimization.models.dre import DRE
 
-def test_acquisition_function(acqf):
 
+def test_acquisition_function(acqf):
     pass
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     os.makedirs(os.path.join(current_dir, "test_logs"), exist_ok=True)
 

@@ -6,6 +6,7 @@ from typing import Any
 
 import torch
 import torch.nn as nn
+import wandb
 
 from ....samplers.base_sampler import BaseSampler
 from ....utils.logger import get_logger
@@ -39,34 +40,17 @@ class BaseModel(nn.Module):
         self.device = device
         self.logger = get_logger(name="SEO-MODEL", logging_level="debug")
 
-        self.observed_ids = None
-        self.x_obs: list[torch.Tensor] = []
-        self.y_obs: list[torch.Tensor] = []
-
         self.model: torch.nn.Module
         self.optimizer: torch.optim.Optimizer
         self.default_config: dict[str, Any]
         self.checkpointer = self.ModelCheckpointer(self, checkpoint_path)
 
-    @abstractmethod
-    def checkpoint_exists(self, checkpoint_name="checkpoint.pth") -> bool:
-        """Checks if the checkpoint exists.
-
-        Args:
-            checkpoint_name (str, optional): Name of the checkpoint. Defaults to "checkpoint.pth".
-
-        Returns:
-            bool: True if the checkpoint exists.
-        """
-        raise NotImplementedError
-
-    def _observe(self, x: torch.Tensor, y: torch.Tensor):
-        self.x_obs.append(x)
-        self.y_obs.append(y)
-
     def fit(
         self,
         num_epochs: int = 100,
+        observed_pipeline_ids: list[int] | None = None,
+        max_num_pipelines: int = 10,
+        batch_size: int = 16,
     ) -> float | None:
         """
         Trains or evaluates the model based on a dataset.
@@ -74,6 +58,9 @@ class BaseModel(nn.Module):
 
         Args:
             num_epochs (int, optional): Number of training epochs for each dataset. Defaults to 100.
+            observed_pipeline_ids (list[int], optional): List of pipeline ids that have been observed. Defaults to None.
+            max_num_pipelines (int, optional): Maximum number of pipelines to sample. Defaults to 10.
+            batch_size (int, optional): Batch size for training. Defaults to 16.
         Returns:
             float: The average loss across all the batches and datasets.
 
@@ -91,7 +78,11 @@ class BaseModel(nn.Module):
                 metric_per_pipeline,
                 time_per_pipeline,
                 ensembles,
-            ) = self.sampler.sample(observed_pipeline_ids=self.observed_ids)
+            ) = self.sampler.sample(
+                observed_pipeline_ids=observed_pipeline_ids,
+                max_num_pipelines=max_num_pipelines,
+                batch_size=batch_size,
+            )
 
             try:
                 loss = self._fit_batch(
@@ -111,6 +102,9 @@ class BaseModel(nn.Module):
                     f"Epoch {epoch+1}/{num_epochs} - Exception during training: {e}"
                 )
                 continue
+
+            if wandb.run is not None:
+                wandb.log({"meta_meta_train_loss": loss})
 
         return loss.item() if loss is not None else None
 
@@ -167,8 +161,9 @@ class BaseModel(nn.Module):
 
     @abstractmethod
     def predict(
-        self, x: torch.Tensor, sampler: BaseSampler,
-            max_num_pipelines: int = 10, y_per_pipeline: torch.Tensor = None
+        self,
+        x: torch.Tensor,
+        **kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Returns the mean and standard deviation of the predictive distribution
 
@@ -179,9 +174,6 @@ class BaseModel(nn.Module):
                     - B is the batch size
                     - N is the number of pipelines
                     - F is the number of features
-            sampler (BaseSampler): Sampler to generate candidates.
-            max_num_pipelines (int, optional): Maximum number of pipelines in the
-                ensemble. Defaults to 10.
 
         Returns:
             tuple[torch.Tensor, torch.Tensor]: Mean and standard deviation of the

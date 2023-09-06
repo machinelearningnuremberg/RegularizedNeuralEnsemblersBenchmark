@@ -124,46 +124,23 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         self.encoder.eval()
         self.likelihood.eval()
 
-        z = self.encoder(pipeline_hps)
-        self.model.set_train_data(inputs=z, targets=metric, strict=False)
-        predictions = self.model(z)
+        with torch.no_grad():
+            z = self.encoder(pipeline_hps)
+            predictions = self.model(z)
 
-        loss = torch.mean((predictions.mean - metric) ** 2)
+            mse = torch.nn.MSELoss()
+            loss = mse(predictions.mean, metric)
 
         return loss
 
     def predict(
-        self, x: torch.Tensor, sampler: BaseSampler, max_num_pipelines: int = 10,
-            y_per_pipeline: torch.Tensor = None
+        self,
+        x: torch.Tensor,
+        **kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         self.model.eval()
         self.encoder.eval()
         self.likelihood.eval()
-
-        # Initialize lists to collect the tensors
-        X_obs_list = []
-        y_obs_list = []
-        for num_pipelines in range(1, max_num_pipelines + 1):
-            # pylint: disable=unused-variable
-            (
-                pipeline_hps,
-                metric,
-                metric_per_pipeline,
-                time_per_pipeline,
-                ensembles,
-            ) = sampler.sample(
-                observed_pipeline_ids=self.observed_ids,
-                max_num_pipelines=num_pipelines,
-            )
-            y_obs_list.append(metric)
-            z_support = self.encoder(pipeline_hps).detach()
-            X_obs_list.append(z_support)
-
-        # Concatenate the lists to form tensors
-        y_obs = torch.cat(y_obs_list, dim=0)
-        X_obs = torch.cat(X_obs_list, dim=0)
-
-        self.model.set_train_data(inputs=X_obs, targets=y_obs, strict=False)
 
         with torch.no_grad():
             z_query = self.encoder(x).detach()

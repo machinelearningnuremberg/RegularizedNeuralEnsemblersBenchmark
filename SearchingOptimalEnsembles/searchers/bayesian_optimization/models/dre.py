@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
+from scipy.stats import kendalltau
 
 from ....samplers.base_sampler import BaseSampler
 from ..modules.rank_loss import RankLoss
@@ -20,10 +22,10 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
         "num_seeds": 1,
         "out_dim": 32,
         "out_dim_ff": 1,
-        "num_encoders": 2,
+        "num_encoders": 4,
         "num_layers_ff": 1,
-        "add_y": False,
-        "criterion_type": "listwise",
+        "add_y": True,
+        "criterion_type": "weighted_listwise",
         "lr": 1e-3,
     }
 
@@ -42,7 +44,8 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
         num_encoders: int = 2,
         num_layers_ff: int = 1,
         add_y: bool = False,
-        criterion_type: str = "listwise",
+        num_context_pipelines: int = 10,
+        criterion_type: str = "weighted_listwise",
         lr: float = 1e-3,
     ):
         super().__init__(sampler=sampler, checkpoint_path=checkpoint_path, device=device)
@@ -58,6 +61,7 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
 
         self.encoder = SetTransformer(dim_in, hidden_dim, num_heads, num_seeds, out_dim)
         self.num_encoders = num_encoders
+        self.num_context_pipelines = num_context_pipelines
 
         self.hidden_layers = nn.ModuleList()
         self.hidden_layers.append(
@@ -103,7 +107,9 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
     ) -> torch.Tensor:
         batch_size, num_pipelines, _ = pipeline_hps.shape
         batches = [
-            self.sampler.sample(fixed_num_pipelines=num_pipelines, batch_size=batch_size)
+            self.sampler.sample(
+                fixed_num_pipelines=self.num_context_pipelines, batch_size=batch_size
+            )
             for _ in range(self.num_encoders - 1)
         ]
         X = [pipeline_hps]
@@ -116,14 +122,20 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
             y_p.append(batch[2])
 
         self.optimizer.zero_grad()
-        y_pred = self.forward(X, y_e)
+        y_pred = self.forward(X, y_p)
         loss = torch.Tensor([0]).cuda()
-
+        k = 0
         for y_pred_, y_e_ in zip(y_pred, y_e):
             loss += (
                 self.criterion(y_pred_.reshape(y_e_.shape), y_e_)
             ) / self.num_encoders
 
+            k += kendalltau(y_pred_.detach().cpu().numpy(), y_e_.detach().cpu().numpy())[
+                0
+            ]
+            if np.isnan(k):
+                print("k is nan")
+        print(k / len(y_pred))
         loss.backward()
         self.optimizer.step()
 
@@ -163,22 +175,23 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
             x = layer(x)
         x = nn.ReLU()(x)
         # x = nn.Sigmoid()(x)
-        out = [f(x) for f in self.out_layer]
-
+        # out = [f(x) for f in self.out_layer]
+        out = [nn.Sigmoid()(f(x)) for f in self.out_layer]
         return out
 
-    def predict(self, x, sampler: BaseSampler = None,
-            max_num_pipelines: int = 10, y_per_pipeline: torch.Tensor = None):
-
+    def predict(
+        self, x, metric_per_pipeline: torch.Tensor = None, score_with_rank: bool = False
+    ):
         with torch.no_grad():
-
             batch_size, num_pipelines, _ = x.shape
             batches = [
-                self.sampler.sample(fixed_num_pipelines=num_pipelines, batch_size=batch_size)
+                self.sampler.sample(
+                    fixed_num_pipelines=self.num_context_pipelines, batch_size=batch_size
+                )
                 for _ in range(self.num_encoders - 1)
             ]
             X = [x]
-            y_p = [y_per_pipeline]
+            y_p = [metric_per_pipeline]
 
             for batch in batches:
                 X.append(batch[0])
@@ -191,19 +204,25 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
                 y_temp[i] = y_p[0]
                 x_temp[0] = X[i]
                 y_temp[0] = y_p[i]
-                ranks = self.get_rank(self.forward(x_temp, y_temp)[i].squeeze(-1).squeeze(-1))
-                out_list.append(ranks)
+
+                pred = self.forward(x_temp, y_temp)[i].squeeze(-1).squeeze(-1)
+
+                if score_with_rank:
+                    scores = self.get_rank(pred)
+                else:
+                    scores = pred
+                out_list.append(scores)
 
             out_mean = torch.mean(torch.stack(out_list), axis=0)
             out_std = torch.std(torch.stack(out_list), axis=0)
 
         return out_mean, out_std
 
-    def get_rank(self, x):
+    def get_rank(self, x, descending=False):
         # x += torch.rand(x.shape).to(x.device) * 1e-5
 
         # x += torch.rand(x.shape).to(x.device) * 1e-5
-        sorted_indices = torch.argsort(x)  #
+        sorted_indices = torch.argsort(x, descending=descending)  #
         ranks = torch.zeros_like(x).to(x.device)
         # Assign ranks to each element based on their sorted indices
         ranks[sorted_indices] = torch.arange(len(x)).to(x.device).float()
@@ -229,7 +248,7 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
             y_p.append(batch[2])
 
         self.eval()
-        y_pred = self.forward(X, y_e)
+        y_pred = self.forward(X, y_p)
         loss = self.criterion(y_pred[0].reshape(metric.shape), metric)
         self.train()
 

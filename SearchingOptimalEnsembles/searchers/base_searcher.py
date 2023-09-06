@@ -4,6 +4,7 @@ from abc import abstractmethod
 
 import torch
 
+from ..metadatasets.base_metadataset import BaseMetaDataset
 from ..utils.logger import get_logger
 
 
@@ -12,7 +13,8 @@ class BaseOptimizer:
 
     def __init__(
         self,
-        metadataset,
+        metadataset: BaseMetaDataset,
+        worker_dir: str,
         patience: int = 50,
         **kwargs,  # pylint: disable=unused-argument
     ):
@@ -30,6 +32,7 @@ class BaseOptimizer:
             raise ValueError("Patience should be at least 1")
 
         self.metadataset = metadataset
+        self.worker_dir = worker_dir
         self.patience = patience
         self.logger = get_logger(name="SEO-SEARCHER", logging_level="debug")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -37,5 +40,5 @@ class BaseOptimizer:
         self.logger.debug(f"Using device: {self.device}")
 
     @abstractmethod
-    def run(self):
+    def run(self, **kwargs):
         raise NotImplementedError

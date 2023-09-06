@@ -13,7 +13,7 @@ from ..base_metadataset import BaseMetaDataset
 class QuicktuneMetaDataset(BaseMetaDataset):
     def __init__(
         self,
-        data_dir: str,
+        data_dir: str = "/work/dlclarge2/janowski-quicktune/predictions",
         meta_split_ids=((0, 1, 2), (3,), (4,)),
         seed: int = 42,
         split: str = "val",

@@ -21,6 +21,7 @@ class RankLoss(nn.Module):
     def pairwise_loss(self, predictions, targets):
         loss = 0
         count = 0
+        targets = -targets
         for i in range(len(predictions)):
             for j in range(len(predictions)):
                 if targets[i] > targets[j]:
@@ -30,13 +31,13 @@ class RankLoss(nn.Module):
 
     def pointwise_loss(self, predictions, targets):
         # return nn.MSELoss()(predictions, -targets)
-        return nn.L1Loss()(predictions, -targets)
+        return nn.L1Loss()(predictions, targets)
 
     def listwise_loss(self, predictions, targets):
-        return -self.listMLE(predictions.reshape(1, -1), targets.reshape(1, -1))
+        return -self.listMLE(predictions.reshape(1, -1), -targets.reshape(1, -1))
 
     def weighted_listwise_loss(self, predictions, targets):
-        return -self.listMLE_weighted(predictions.reshape(1, -1), targets.reshape(1, -1))
+        return -self.listMLE_weighted(predictions.reshape(1, -1), -targets.reshape(1, -1))
 
     def listMLE(self, y_pred, y_true, eps=1e-10, padded_value_indicator=-1):
         """
