@@ -23,7 +23,7 @@ class BaseMetaDataset:
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         seed: int = 42,
         split: str = "valid",
-        metric_name: str = "error",
+        metric_name: str = "nll",
     ):
         """Initialize the BaseMetaDataset.
 
@@ -34,7 +34,7 @@ class BaseMetaDataset:
                 Defaults to (0.6, 0.2, 0.2).
             seed (int, optional): Random seed. Defaults to 42.
             split (str, optional): Dataset split name. Defaults to "valid".
-            metric_name (str, optional): Name of the metric. Defaults to "error".
+            metric_name (str, optional): Name of the metric. Defaults to "nll".
 
         Attributes:
             data_dir (str): Directory path for the dataset.

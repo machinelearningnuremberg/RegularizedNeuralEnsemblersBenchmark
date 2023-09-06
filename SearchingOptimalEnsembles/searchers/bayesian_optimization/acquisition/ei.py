@@ -28,6 +28,7 @@ class ExpectedImprovement(BaseAcquisition):
         self,
         x: torch.Tensor,
         metric_per_pipeline: torch.Tensor = None,
+        max_num_pipelines: int = 10,
     ) -> torch.Tensor:
         """
         Evaluate the acquisition function at a given point x.
@@ -39,6 +40,11 @@ class ExpectedImprovement(BaseAcquisition):
                 - B is the batch size
                 - N is the number of pipelines
                 - F is the number of features
+            metric_per_pipeline : torch.Tensor
+                Metric of the pipelines, shape (B, N) where B is the batch size and N is
+                the number of pipelines.
+            max_num_pipelines : int
+                Maximum number of pipelines to use for the acquisition function.
 
         Returns:
             torch.Tensor
@@ -57,7 +63,9 @@ class ExpectedImprovement(BaseAcquisition):
 
         try:
             mean, stddev = self.surrogate_model.predict(
-                x=x, metric_per_pipeline=metric_per_pipeline
+                x=x,
+                metric_per_pipeline=metric_per_pipeline,
+                max_num_pipelines=max_num_pipelines,
             )
         except ValueError as e:
             raise e
