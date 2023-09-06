@@ -15,7 +15,7 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         seed: int = 42,
         split: str = "valid",
-        metric_name: str = "error",
+        metric_name: str = "nll",
     ):
         super().__init__(
             data_dir=data_dir,

@@ -45,7 +45,7 @@ def run(
     searcher = instance_from_map(
         SearcherMapping,
         searcher_name,
-        name="optimizer",
+        name="searcher",
         kwargs=searcher_args,
     )
 
@@ -54,10 +54,10 @@ def run(
         "batch_size": 16,
         "meta_num_epochs": 50,
         "meta_num_inner_epochs": 1,
-        "meta_valid_frequency": 100,
+        "meta_valid_frequency": 10,
         "num_iterations": 1000,
         "num_inner_epochs": 1,
-        "max_num_pipelines": 10,
+        "max_num_pipelines": 1,
     }
 
     searcher.run(**run_args)

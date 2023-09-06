@@ -45,6 +45,8 @@ class BaseModel(nn.Module):
         self.default_config: dict[str, Any]
         self.checkpointer = self.ModelCheckpointer(self, checkpoint_path)
 
+        self.observed_pipeline_ids: list[int] | None = None
+
     def fit(
         self,
         num_epochs: int = 100,
@@ -67,6 +69,9 @@ class BaseModel(nn.Module):
         Raises:
             Exception: Catches any exception that occurs during batch training and logs it.
         """
+
+        self.observed_pipeline_ids = observed_pipeline_ids
+
         loss = None
 
         # Loop for each epoch
