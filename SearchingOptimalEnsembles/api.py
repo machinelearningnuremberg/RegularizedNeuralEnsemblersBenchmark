@@ -14,6 +14,9 @@ def run(
     surrogate_name: Literal["dkl", "dre"] = "dkl",
     sampler_name: Literal["random"] = "random",
     acquisition_name: Literal["ei"] = "ei",
+    meta_num_epochs: int = 0,
+    max_num_pipelines: int = 1,
+    dataset_id: int = 0,
 ) -> None:
     """Runs the optimizer on the metadataset.
 
@@ -52,12 +55,13 @@ def run(
     run_args = {
         "loss_tolerance": 1e-4,
         "batch_size": 16,
-        "meta_num_epochs": 50,
+        "meta_num_epochs": meta_num_epochs,
         "meta_num_inner_epochs": 1,
         "meta_valid_frequency": 10,
-        "num_iterations": 1000,
+        "num_iterations": 100,
         "num_inner_epochs": 1,
-        "max_num_pipelines": 1,
+        "max_num_pipelines": max_num_pipelines,
+        "dataset_id": dataset_id,
     }
 
     searcher.run(**run_args)

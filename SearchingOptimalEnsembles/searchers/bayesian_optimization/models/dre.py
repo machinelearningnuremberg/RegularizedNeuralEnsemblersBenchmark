@@ -134,8 +134,8 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
                 0
             ]
             if np.isnan(k):
-                print("k is nan")
-        print(k / len(y_pred))
+                self.logger.debug("Kendall tau is nan!!!")
+        self.logger.debug(f"Avg. Kendall tau: {k / len(y_pred)}")
         loss.backward()
         self.optimizer.step()
 
@@ -180,7 +180,11 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
         return out
 
     def predict(
-        self, x, metric_per_pipeline: torch.Tensor = None, score_with_rank: bool = False
+        self,
+        x,
+        metric_per_pipeline: torch.Tensor = None,
+        score_with_rank: bool = False,
+        max_num_pipelines: int | None = None,
     ):
         with torch.no_grad():
             batch_size, num_pipelines, _ = x.shape
