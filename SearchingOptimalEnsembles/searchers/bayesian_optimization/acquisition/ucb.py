@@ -11,7 +11,7 @@ class UpperConfidenceBound(BaseAcquisition):
         self,
         device: torch.device = torch.device("cpu"),
         beta: float = 1.0,
-        beta_decay: float = 0.95,
+        beta_decay: float = 1.0,
     ):
         """Calculates vanilla UCB over the candidate set.
 
@@ -21,7 +21,7 @@ class UpperConfidenceBound(BaseAcquisition):
         """
         super().__init__(device=device)
 
-        self.beta = beta
+        self.beta = torch.FloatTensor([beta]).to(device)
         self.beta_decay = beta_decay
         self.t = 0  # optimization trace size
         self.incumbent = None

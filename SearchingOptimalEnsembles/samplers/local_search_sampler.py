@@ -46,7 +46,7 @@ class LocalSearchSampler(BaseSampler):
                 time_per_pipeline,
             ) = self.metadataset.evaluate_ensembles(ensembles=[ens_to_evaluate])
 
-            if metric > best_y:
+            if metric < best_y:
                 best_y = metric
                 best_X = ens_to_evaluate
                 choices_idx = new_choices_idx
