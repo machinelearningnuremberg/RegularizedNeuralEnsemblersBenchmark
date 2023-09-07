@@ -29,7 +29,7 @@ class BayesianOptimization(BaseOptimizer):
         surrogate_args: dict | None = None,
         acquisition_args: dict | None = None,
         sampler_name: Literal["random", "local_search"] = "random",
-        acquisition_name: Literal["ei", "ucb"] = "ei",
+        acquisition_name: Literal["ei", "lcb"] = "ei",
         initial_design_size: int = 5,
         checkpoint_path: str | None = None,
     ):

@@ -6,14 +6,14 @@ import torch
 from .base_acquisition import BaseAcquisition
 
 
-class UpperConfidenceBound(BaseAcquisition):
+class LowerConfidenceBound(BaseAcquisition):
     def __init__(
         self,
         device: torch.device = torch.device("cpu"),
         beta: float = 1.0,
         beta_decay: float = 1.0,
     ):
-        """Calculates vanilla UCB over the candidate set.
+        """Calculates vanilla LCB over the candidate set.
 
         Args:
             beta: manual exploration-exploitation trade-off parameter.
@@ -50,7 +50,7 @@ class UpperConfidenceBound(BaseAcquisition):
 
         Returns:
             torch.Tensor
-                Upper Confidence Bounds (UCB) at point x.
+                Lower Confidence Bounds (LCB) at point x.
 
         Raises:
             AssertionError
@@ -60,7 +60,7 @@ class UpperConfidenceBound(BaseAcquisition):
                 If there's an error when predicting using the surrogate model.
 
         """
-        assert self.incumbent is not None, "UCB not fitted on model!!!"
+        assert self.incumbent is not None, "LCB not fitted on model!!!"
 
         try:
             mean, stddev = self.surrogate_model.predict(
@@ -71,12 +71,12 @@ class UpperConfidenceBound(BaseAcquisition):
         except ValueError as e:
             raise e
 
-        ucb = mean + torch.sqrt(self.beta) * stddev
+        lcb = mean - torch.sqrt(self.beta) * stddev
         # with each round/batch of evaluation the exploration factor is reduced
         self.t += 1
         self.beta *= self.beta_decay**self.t
 
-        return ucb
+        return lcb
 
     def set_state(self, surrogate_model, incumbent, **kwargs):
         """
