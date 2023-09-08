@@ -7,25 +7,26 @@ import wandb
 
 import SearchingOptimalEnsembles as SOE
 
-from SearchingOptimalEnsembles_experiments.utils.util import set_seed 
+from .utils.util import set_seed
 
 
 def run(
-    worker_dir: str, metadataset_name: str, searcher_name: str, surrogate_name: str
+    worker_dir: str,
+    metadataset_name: str,
+    searcher_name: str,
+    surrogate_name: str,
+    meta_num_epochs: int,
+    max_num_pipelines: int,
+    dataset_id: int,
 ) -> None:
-    try:
-        wandb.init(
-            project="SearchingOptimalEnsembles",
-            group=f"{searcher_name}_{metadataset_name}_{surrogate_name}",
-        )
-    except wandb.errors.UsageError:
-        print("Wandb is not available")
-
     SOE.run(
         worker_dir=worker_dir,
         metadataset_name=metadataset_name,
         searcher_name=searcher_name,
         surrogate_name=surrogate_name,
+        dataset_id=dataset_id,
+        meta_num_epochs=meta_num_epochs,
+        max_num_pipelines=max_num_pipelines,
     )
 
 
@@ -40,15 +41,38 @@ if __name__ == "__main__":
     parser.add_argument("--searcher_name", type=str, default="bo")
     parser.add_argument("--surrogate_name", type=str, default="dkl")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--dataset_id", type=int, default=0)
     parser.add_argument("--log_level", type=str, default="debug")
+    parser.add_argument("--experiment_group", type=str, default="debug")
+    parser.add_argument("--meta_num_epochs", type=int, default=0)
+    parser.add_argument("--max_num_pipelines", type=int, default=1)
     args = parser.parse_args()
 
     set_seed(args.seed)
     logging.basicConfig(level=args.log_level.upper())
+
+    try:
+        wandb.init(
+            project="SearchingOptimalEnsembles",
+            group=args.experiment_group,
+        )
+        wandb.run.tags += (f"seed={args.seed}",)
+        wandb.run.tags += (f"metadataset_name={args.metadataset_name}",)
+        wandb.run.tags += (f"searcher_name={args.searcher_name}",)
+        wandb.run.tags += (f"surrogate_name={args.surrogate_name}",)
+        wandb.run.tags += (f"meta_num_epochs={args.meta_num_epochs}",)
+        wandb.run.tags += (f"max_num_pipelines={args.max_num_pipelines}",)
+    except wandb.errors.UsageError:
+        print("Wandb is not available")
+
+    args.worker_dir = f"{args.worker_dir}/{args.experiment_group}"
 
     run(
         worker_dir=args.worker_dir,
         metadataset_name=args.metadataset_name,
         searcher_name=args.searcher_name,
         surrogate_name=args.surrogate_name,
+        dataset_id=args.dataset_id,
+        meta_num_epochs=args.meta_num_epochs,
+        max_num_pipelines=args.max_num_pipelines,
     )

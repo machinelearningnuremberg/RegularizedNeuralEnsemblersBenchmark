@@ -48,7 +48,7 @@ class ExpectedImprovement(BaseAcquisition):
 
         Returns:
             torch.Tensor
-                Expected Improvement (EI) at point x.
+                Expected Improvement (EI) at point x (actually negative EI as we always minimize!!).
 
         Raises:
             AssertionError
@@ -80,7 +80,7 @@ class ExpectedImprovement(BaseAcquisition):
         updf = torch.exp(gauss.log_prob(u))
         ei = stddev * updf + (imp - self.beta) * ucdf
 
-        return ei
+        return -ei
 
     def set_state(self, surrogate_model, incumbent, **kwargs):
         """

@@ -6,7 +6,6 @@ import torch
 from ..metadatasets.base_metadataset import BaseMetaDataset
 from ..utils.common import move_to_device
 from ..utils.logger import get_logger
-from ..utils.common import move_to_device
 
 
 class BaseSampler:
@@ -94,18 +93,18 @@ class BaseSampler:
         return pipeline_hps, metric, metric_per_pipeline, time_per_pipeline, ensembles
 
     def set_state(
-            self, dataset_name: str | None = None, meta_split: str = "meta-train"
-        ) -> None:
-            """Set the state of the sampler. This includes populating the dataset name.
-            If dataset_name is None, a random dataset is chosen from the specified
-            meta-split.
+        self, dataset_name: str | None = None, meta_split: str = "meta-train"
+    ) -> None:
+        """Set the state of the sampler. This includes populating the dataset name.
+        If dataset_name is None, a random dataset is chosen from the specified
+        meta-split.
 
-            Args:
-                dataset_name (str, optional): Name of the dataset. Defaults to None.
-                meta_split (str, optional): Meta-split name. Defaults to "meta-train".
-            """
+        Args:
+            dataset_name (str, optional): Name of the dataset. Defaults to None.
+            meta_split (str, optional): Meta-split name. Defaults to "meta-train".
+        """
 
-            if dataset_name is None:
-                dataset_name = np.random.choice(self.metadataset.meta_splits[meta_split])
+        if dataset_name is None:
+            dataset_name = np.random.choice(self.metadataset.meta_splits[meta_split])
 
-            self.metadataset.set_state(dataset_name=dataset_name)
+        self.metadataset.set_state(dataset_name=dataset_name)

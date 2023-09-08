@@ -2,16 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
+from scipy.stats import kendalltau
 
 from ....samplers.base_sampler import BaseSampler
 from ..modules.rank_loss import RankLoss
 from ..modules.set_transformer import SetTransformer
 from .base_model import BaseModel
 from .utils import ConfigurableMeta
-from scipy.stats import kendalltau
-import numpy as np
+
 
 class DRE(BaseModel, metaclass=ConfigurableMeta):
     default_config = {
@@ -111,7 +112,9 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
     ) -> torch.Tensor:
         batch_size, num_pipelines, _ = pipeline_hps.shape
         batches = [
-            self.sampler.sample(fixed_num_pipelines=self.num_context_pipelines, batch_size=batch_size)
+            self.sampler.sample(
+                fixed_num_pipelines=self.num_context_pipelines, batch_size=batch_size
+            )
             for _ in range(self.num_encoders - 1)
         ]
         X = [pipeline_hps]
@@ -132,10 +135,12 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
                 self.criterion(y_pred_.reshape(y_e_.shape), y_e_)
             ) / self.num_encoders
 
-            k += kendalltau(y_pred_.detach().cpu().numpy(), y_e_.detach().cpu().numpy())[0]
+            k += kendalltau(y_pred_.detach().cpu().numpy(), y_e_.detach().cpu().numpy())[
+                0
+            ]
             if np.isnan(k):
-                print("k is nan")
-        print(k/len(y_pred))
+                self.logger.debug("Kendall tau is nan!!!")
+        self.logger.debug(f"Avg. Kendall tau: {k / len(y_pred)}")
         loss.backward()
         self.optimizer.step()
 
@@ -182,7 +187,14 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
             out = [f(x) for f in self.out_layer]
         return out
 
-    def predict(self, x, metric_per_pipeline: torch.Tensor = None, **args):
+
+    def predict(
+        self,
+        x,
+        metric_per_pipeline: torch.Tensor = None,
+        score_with_rank: bool = False,
+        max_num_pipelines: int | None = None,
+    ):
         with torch.no_grad():
             batch_size, num_pipelines, _ = x.shape
             batches = [
