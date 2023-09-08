@@ -14,6 +14,7 @@ def run(
     surrogate_name: Literal["dkl", "dre"] = "dkl",
     sampler_name: Literal["random"] = "random",
     acquisition_name: Literal["ei"] = "ei",
+    run_args: dict = None
 ) -> None:
     """Runs the optimizer on the metadataset.
 
@@ -38,6 +39,8 @@ def run(
         "surrogate_name": surrogate_name,
         "sampler_name": sampler_name,
         "acquisition_name": acquisition_name,
+        "surrogate_args": run_args.pop("surrogate_args", None),
+        "acquisition_args": run_args.pop("acquisition_args", None),
         "initial_design_size": 5,
         "patience": 500,
     }
@@ -49,7 +52,7 @@ def run(
         kwargs=searcher_args,
     )
 
-    run_args = {
+    default_run_args = {
         "loss_tolerance": 1e-4,
         "batch_size": 16,
         "meta_num_epochs": 50,
@@ -60,4 +63,11 @@ def run(
         "max_num_pipelines": 1,
     }
 
+    if run_args is None:
+        run_args = default_run_args
+    else:
+        default_run_args.update(run_args)
+        run_args = default_run_args
+
+    print(run_args)
     searcher.run(**run_args)

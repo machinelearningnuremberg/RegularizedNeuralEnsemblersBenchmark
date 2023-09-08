@@ -35,7 +35,6 @@ if __name__ == "__main__":
     dataset_names = metadataset.get_dataset_names()
     metadataset.set_state(dataset_names[0])
     sampler = RandomSampler(metadataset=metadataset, device=torch.device(device))
-    sampler = LocalSearchSampler(metadataset=metadataset, device=torch.device(device))
 
     dim_in = sampler.metadataset.hp_candidates.shape[1]
 

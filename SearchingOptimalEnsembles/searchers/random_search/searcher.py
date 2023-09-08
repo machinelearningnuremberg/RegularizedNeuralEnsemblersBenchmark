@@ -47,13 +47,13 @@ class RandomSearch(BaseOptimizer):
         # Set sampler, i.e. meta-test to random dataset
         self.sampler.set_state(dataset_name=None, meta_split="meta-test")
 
-        num_pipelines = 1
 
         # Bookkeeping variables
         X_pending = np.array(self.metadataset.hp_candidates_ids)
         incumbent = np.inf
 
         for iteration in range(num_iterations):
+            num_pipelines = np.random.randint(1, max_num_pipelines + 1)
             # pylint: disable=unused-variable
             (
                 pipeline_hps,
@@ -76,14 +76,16 @@ class RandomSearch(BaseOptimizer):
                 )
 
             if wandb.run is not None:
-                wandb.log({"iteration": iteration, "incumbent": incumbent})
+                wandb.log({"searcher_iteration": iteration, "incumbent": incumbent})
+                wandb.log({"searcher_iteration": iteration,
+                           "incumbent (norm)": self.compute_normalized_score(torch.tensor(incumbent))})
 
             # Increase the number of pipelines to sample if they are not exceeding the maximum
-            if num_pipelines < max_num_pipelines:
-                num_pipelines += 1
-                self.logger.debug(
-                    f"Increasing ensemble size to {num_pipelines} pipelines"
-                )
+            #if num_pipelines < max_num_pipelines:
+            #    num_pipelines += 1
+            #    self.logger.debug(
+            #        f"Increasing ensemble size to {num_pipelines} pipelines"
+            #    )
 
             if X_pending.size == 0:
                 self.logger.debug("No more pending pipelines. Stopping early...")

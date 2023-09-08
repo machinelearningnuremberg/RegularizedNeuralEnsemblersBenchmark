@@ -39,6 +39,21 @@ class BaseOptimizer:
 
         self.logger.debug(f"Using device: {self.device}")
 
+    def compute_normalized_score(self, score: torch.Tensor) -> torch.Tensor:
+        """Compute the normalized score.
+
+        Args:
+            score (torch.Tensor): The score tensor.
+
+        Returns:
+            torch.Tensor: The normalized score tensor.
+        """
+        if self.metadataset.best_performance is not None\
+                and self.metadataset.worst_performance is not None:
+            score = (score - self.metadataset.best_performance) / (self.metadataset.worst_performance - self.metadataset.best_performance)
+
+        return score
+
     @abstractmethod
     def run(self, **kwargs):
         raise NotImplementedError

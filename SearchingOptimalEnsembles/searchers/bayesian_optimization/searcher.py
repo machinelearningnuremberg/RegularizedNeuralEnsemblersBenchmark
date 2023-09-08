@@ -251,11 +251,11 @@ class BayesianOptimization(BaseOptimizer):
             checkpoint_name=f"{self.surrogate.__class__.__name__}_{self.metadataset.__class__.__name__}.pth"
         )
 
-    def post_hoc_ensemble(self, num_batches: int = 5, num_suggestions_per_batch: int = 1000):
+    def post_hoc_ensemble(self, num_suggestion_batches: int = 5, num_suggestions_per_batch: int = 1000):
 
         best_score = np.inf
         best_ensemble = None
-        for iterations in range(num_batches):
+        for iterations in range(num_suggestion_batches):
             num_pipelines = np.random.randint(1, self.max_num_pipelines+1)
             ensembles  = self.sampler.generate_ensembles(
                 candidates=self.X_obs,
@@ -276,13 +276,13 @@ class BayesianOptimization(BaseOptimizer):
         return best_ensemble, best_score
 
 
-    def suggest(self, num_batches: int = 5, num_suggestions_per_batch: int = 1000):
+    def suggest(self, num_suggestion_batches: int = 5, num_suggestions_per_batch: int = 1000):
 
         suggested_ensemble = None
         suggested_pipeline = None
         best_score = np.inf
 
-        for iterations in range(num_batches):
+        for iterations in range(num_suggestion_batches):
             num_pipelines = np.random.randint(1, self.max_num_pipelines+1)
 
             if num_pipelines > 1:
@@ -352,6 +352,7 @@ class BayesianOptimization(BaseOptimizer):
 
 
 
+
     def run(
         self,
         loss_tolerance: float = 1e-4,
@@ -362,6 +363,8 @@ class BayesianOptimization(BaseOptimizer):
         num_iterations: int = 1000,
         num_inner_epochs: int = 1,
         max_num_pipelines: int = 1,
+        num_suggestions_per_batch: int = 1000,
+        num_suggestion_batches: int = 5,
     ) -> None:
         # Meta-train the surrogate model if num_epochs > 0,
         # otherwise load the checkpoint if exists
@@ -422,11 +425,11 @@ class BayesianOptimization(BaseOptimizer):
             )
 
             # Evaluate candidates
-            suggested_ensemble, suggested_pipeline = self.suggest()
+            suggested_ensemble, suggested_pipeline = self.suggest(num_suggestion_batches, num_suggestions_per_batch)
             _, observed_metric, _, _ = self.metadataset.evaluate_ensembles([suggested_ensemble])
 
             if max_num_pipelines > 1:
-                post_hoc_ensemble, post_hoc_ensemble_metric = self.post_hoc_ensemble()
+                post_hoc_ensemble, post_hoc_ensemble_metric = self.post_hoc_ensemble(num_suggestion_batches, num_suggestions_per_batch)
                 if post_hoc_ensemble_metric < observed_metric:
                     suggested_ensemble = post_hoc_ensemble
                     observed_metric = post_hoc_ensemble_metric
@@ -442,9 +445,11 @@ class BayesianOptimization(BaseOptimizer):
                     f"Iteration {iteration + 1}/{num_iterations} - New incumbent: {self.incumbent:.5f}"
                 )
 
-
             if wandb.run is not None:
-                wandb.log({"iteration": iteration, "incumbent": self.incumbent})
+                wandb.log({"searcher_iteration": iteration, "incumbent": self.incumbent})
+                wandb.log({"searcher_iteration": iteration, "incumbent (norm)": self.compute_normalized_score(torch.tensor(self.incumbent))})
+
+
 
             # Increase the number of pipelines to sample if they are not exceeding the maximum
             #if self.num_pipelines < max_num_pipelines:

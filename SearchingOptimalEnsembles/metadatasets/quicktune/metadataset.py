@@ -85,10 +85,10 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         n_candidates = len(self.hp_candidates)
         pipeline_ids = np.arange(n_candidates).reshape(-1, 1).tolist()
         _, metric_per_pipeline, _, _ = self.evaluate_ensembles(pipeline_ids)
-        self.best_performance = torch.max(metric_per_pipeline)
-        self.best_performance_idx = torch.argmax(metric_per_pipeline)
-        self.worst_performance = torch.min(metric_per_pipeline)
-        self.worst_performance_idx = torch.argmin(metric_per_pipeline)
+        self.best_performance = torch.min(metric_per_pipeline)
+        self.best_performance_idx = torch.argmin(metric_per_pipeline)
+        self.worst_performance = torch.max(metric_per_pipeline)
+        self.worst_performance_idx = torch.argmax(metric_per_pipeline)
 
         return (
             self.best_performance,
@@ -141,7 +141,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         if dataset_name != self.dataset_name:
             self.dataset_name = dataset_name
             self.get_dataset_info(dataset_name)
-            # self.get_statistics_dataset()
+            self.get_statistics_dataset()
 
     def get_dataset_names(self) -> list[str]:
         return self.dataset_names
