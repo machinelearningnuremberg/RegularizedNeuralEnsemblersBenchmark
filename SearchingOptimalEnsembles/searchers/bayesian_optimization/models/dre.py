@@ -46,6 +46,8 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
         add_y: bool = False,
         num_context_pipelines: int = 10,
         criterion_type: str = "weighted_listwise",
+        activation_output: str = "sigmoid",
+        score_with_rank: bool = False,
         lr: float = 1e-3,
     ):
         super().__init__(sampler=sampler, checkpoint_path=checkpoint_path, device=device)
@@ -54,6 +56,9 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
         assert num_layers_ff > 0, "num_layers_ff must be greater than 1"
 
         self.add_y = add_y
+        self.activation_output = activation_output
+        self.score_with_rank = score_with_rank
+
         dim_in = self.sampler.metadataset.feature_dim
         assert dim_in is not None, "Feature dimension is None"
         if add_y:
@@ -175,13 +180,14 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
             x = layer(x)
         x = nn.ReLU()(x)
         # x = nn.Sigmoid()(x)
-        # out = [f(x) for f in self.out_layer]
-        out = [nn.Sigmoid()(f(x)) for f in self.out_layer]
+
+        if self.activation_output == "sigmoid":
+            out = [nn.Sigmoid()(f(x)) for f in self.out_layer]
+        else:
+            out = [f(x) for f in self.out_layer]
         return out
 
-    def predict(
-        self, x, metric_per_pipeline: torch.Tensor = None, score_with_rank: bool = False
-    ):
+    def predict(self, x, metric_per_pipeline: torch.Tensor = None, **args):
         with torch.no_grad():
             batch_size, num_pipelines, _ = x.shape
             batches = [
@@ -207,7 +213,7 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
 
                 pred = self.forward(x_temp, y_temp)[i].squeeze(-1).squeeze(-1)
 
-                if score_with_rank:
+                if self.score_with_rank:
                     scores = self.get_rank(pred)
                 else:
                     scores = pred

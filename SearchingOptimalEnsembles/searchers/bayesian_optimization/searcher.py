@@ -29,7 +29,7 @@ class BayesianOptimization(BaseOptimizer):
         surrogate_args: dict | None = None,
         acquisition_args: dict | None = None,
         sampler_name: Literal["random", "local_search"] = "random",
-        acquisition_name: Literal["ei", "ucb"] = "ei",
+        acquisition_name: Literal["ei", "lcb"] = "ei",
         initial_design_size: int = 5,
         checkpoint_path: str | None = None,
     ):
@@ -54,6 +54,8 @@ class BayesianOptimization(BaseOptimizer):
             self.checkpoint_path = Path(worker_dir) / "checkpoints"
         else:
             self.checkpoint_path = Path(checkpoint_path)
+        # Create the checkpoint directory if it does not exist
+        self.checkpoint_path.mkdir(parents=True, exist_ok=True)
 
         sampler_args = {
             "metadataset": self.metadataset,
@@ -318,8 +320,6 @@ class BayesianOptimization(BaseOptimizer):
                     (metric_per_pipeline, new_metric_per_pipeline), dim=1
                 ).to(self.device)
             else:
-                # TODO: FIX add metric_per_pipeline for DRE
-
                 query_pipeline_hps = new_pipeline_hps.to(self.device)
                 metric_per_pipeline = torch.zeros(len(new_pipeline_hps), 1).to(
                     self.device
@@ -359,6 +359,9 @@ class BayesianOptimization(BaseOptimizer):
         num_iterations: int = 1000,
         num_inner_epochs: int = 1,
         max_num_pipelines: int = 1,
+        num_suggestions_per_batch: int = 1000,
+        num_suggestion_batches: int = 5,
+        dataset_id: int = 0,
     ) -> None:
         # Meta-train the surrogate model if num_epochs > 0,
         # otherwise load the checkpoint if exists
@@ -374,7 +377,10 @@ class BayesianOptimization(BaseOptimizer):
         )
 
         # Set sampler, i.e. meta-test to random dataset
-        self.sampler.set_state(dataset_name=None, meta_split="meta-test")
+        dataset_name = self.metadataset.meta_splits["meta-test"][dataset_id]
+        if wandb.run is not None:
+            wandb.run.tags += (f"dataset={dataset_name}",)
+        self.sampler.set_state(dataset_name=dataset_name, meta_split="meta-test")
 
         # Sample initial design points
         self.logger.debug(f"Sampling {self.initial_design_size} initial design points")
@@ -390,7 +396,6 @@ class BayesianOptimization(BaseOptimizer):
             batch_size=self.initial_design_size,
             observed_pipeline_ids=None,
         )
-
         # Bookkeeping variables
         self.X_obs = np.unique(ensembles)
         X_pending = np.array(self.metadataset.hp_candidates_ids)
@@ -419,13 +424,17 @@ class BayesianOptimization(BaseOptimizer):
             )
 
             # Evaluate candidates
-            suggested_ensemble, suggested_pipeline = self.suggest()
+            suggested_ensemble, suggested_pipeline = self.suggest(
+                num_suggestion_batches, num_suggestions_per_batch
+            )
             _, observed_metric, _, _ = self.metadataset.evaluate_ensembles(
                 [suggested_ensemble]
             )
 
             if max_num_pipelines > 1:
-                post_hoc_ensemble, post_hoc_ensemble_metric = self.post_hoc_ensemble()
+                post_hoc_ensemble, post_hoc_ensemble_metric = self.post_hoc_ensemble(
+                    num_suggestion_batches, num_suggestions_per_batch
+                )
                 if post_hoc_ensemble_metric < observed_metric:
                     suggested_ensemble = post_hoc_ensemble
                     observed_metric = post_hoc_ensemble_metric
@@ -442,7 +451,15 @@ class BayesianOptimization(BaseOptimizer):
                 )
 
             if wandb.run is not None:
-                wandb.log({"iteration": iteration, "incumbent": self.incumbent})
+                wandb.log({"searcher_iteration": iteration, "incumbent": self.incumbent})
+                wandb.log(
+                    {
+                        "searcher_iteration": iteration,
+                        "incumbent (norm)": self.compute_normalized_score(
+                            torch.tensor(self.incumbent)
+                        ),
+                    }
+                )
 
             # Increase the number of pipelines to sample if they are not exceeding the maximum
             # if self.num_pipelines < max_num_pipelines:

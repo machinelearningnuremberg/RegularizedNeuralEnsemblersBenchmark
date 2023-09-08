@@ -10,10 +10,16 @@ from .utils.common import instance_from_map
 def run(
     worker_dir: str,
     metadataset_name: Literal["scikit-learn", "nasbench201", "quicktune"],
+    run_args: dict | None = None,
     searcher_name: Literal["random", "bo"] = "bo",
     surrogate_name: Literal["dkl", "dre"] = "dkl",
+    surrogate_args: dict | None = None,
     sampler_name: Literal["random"] = "random",
-    acquisition_name: Literal["ei"] = "ei",
+    acquisition_name: Literal["ei", "lcb"] = "ei",
+    acquisition_args: dict | None = None,
+    meta_num_epochs: int = 0,
+    max_num_pipelines: int = 1,
+    dataset_id: int = 0,
 ) -> None:
     """Runs the optimizer on the metadataset.
 
@@ -38,6 +44,8 @@ def run(
         "surrogate_name": surrogate_name,
         "sampler_name": sampler_name,
         "acquisition_name": acquisition_name,
+        "surrogate_args": surrogate_args,
+        "acquisition_args": acquisition_args,
         "initial_design_size": 5,
         "patience": 500,
     }
@@ -49,15 +57,21 @@ def run(
         kwargs=searcher_args,
     )
 
-    run_args = {
+    default_run_args = {
         "loss_tolerance": 1e-4,
         "batch_size": 16,
-        "meta_num_epochs": 50,
+        "meta_num_epochs": meta_num_epochs,
         "meta_num_inner_epochs": 1,
         "meta_valid_frequency": 10,
-        "num_iterations": 1000,
+        "num_iterations": 100,
         "num_inner_epochs": 1,
-        "max_num_pipelines": 1,
+        "max_num_pipelines": max_num_pipelines,
+        "dataset_id": dataset_id,
     }
 
+    if run_args is not None:
+        default_run_args.update(run_args)
+    run_args = default_run_args
+
+    print(run_args)
     searcher.run(**run_args)
