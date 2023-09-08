@@ -98,14 +98,8 @@ class RandomSearch(BaseOptimizer):
 
             if wandb.run is not None:
                 wandb.log({"searcher_iteration": iteration, "incumbent": incumbent})
-                wandb.log(
-                    {
-                        "searcher_iteration": iteration,
-                        "incumbent (norm)": self.compute_normalized_score(
-                            torch.tensor(incumbent)
-                        ),
-                    }
-                )
+                wandb.log({"searcher_iteration": iteration,
+                           "incumbent (norm)": self.compute_normalized_score(torch.tensor(incumbent))})
 
             # Increase the number of pipelines to sample if they are not exceeding the maximum
             # if num_pipelines < max_num_pipelines:

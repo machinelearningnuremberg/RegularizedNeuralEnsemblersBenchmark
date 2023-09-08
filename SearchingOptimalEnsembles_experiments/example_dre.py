@@ -7,7 +7,7 @@ import wandb
 
 import SearchingOptimalEnsembles as SOE
 
-from .utils.util import set_seed
+from SearchingOptimalEnsembles_experiments.utils.util import set_seed
 
 
 def run(
@@ -15,40 +15,34 @@ def run(
     metadataset_name: str,
     searcher_name: str,
     surrogate_name: str,
-    acquisition_name: str,
-    surrogate_args: dict | None,
-    acquisition_args: dict | None,
-    experiment_id: str | None = None,
-    group_id: str | None = None,
+    surrogate_args: dict | None = None,
+    acquisition_args: dict | None = None,
+    experiment_id: str = None,
+    group_id: str = None,
     **run_args,  # pylint: disable=unused-argument
 ) -> None:
-    config = {
-        "worker_dir": worker_dir,
-        "metadataset_name": metadataset_name,
-        "searcher_name": searcher_name,
-        "surrogate_name": surrogate_name,
-        "experiment_id": experiment_id,
-        "group_id": group_id,
-        "num_iterations": run_args["num_iterations"],
-        "num_inner_epochs": run_args["num_inner_epochs"],
-        "num_suggestion_batches": run_args["num_suggestion_batches"],
-        "num_suggestions_per_batch": run_args["num_suggestions_per_batch"],
-        "meta_num_epochs": run_args["meta_num_epochs"],
-        "max_num_pipelines": run_args["max_num_pipelines"],
-    }
 
-    if surrogate_args is not None:
-        config.update(surrogate_args)
-
-    if acquisition_args is not None:
-        config.update(acquisition_args)
-
+    config = {"worker_dir": worker_dir,
+            "metadataset_name": metadataset_name,
+            "searcher_name": searcher_name,
+            "surrogate_name": surrogate_name,
+            "experiment_id": experiment_id,
+            "group_id": group_id,
+            "num_iterations": run_args["num_iterations"],
+            "num_inner_epochs": run_args["num_inner_epochs"],
+            "num_suggestion_batches": run_args["num_suggestion_batches"],
+            "num_suggestions_per_batch": run_args["num_suggestions_per_batch"],
+            "meta_num_epochs": run_args["meta_num_epochs"],
+            "max_num_pipelines": run_args["max_num_pipelines"],
+            **run_args["surrogate_args"],
+            **run_args["acquisition_args"],
+            }
     try:
         wandb.init(
             name=experiment_id,
             project="SearchingOptimalEnsembles",
             group=group_id,
-            config=config,
+            config=config
         )
     except wandb.errors.UsageError:
         print("Wandb is not available")
@@ -58,7 +52,6 @@ def run(
         metadataset_name=metadataset_name,
         searcher_name=searcher_name,
         surrogate_name=surrogate_name,
-        acquisition_name=acquisition_name,
         surrogate_args=surrogate_args,
         acquisition_args=acquisition_args,
         run_args=run_args,
@@ -89,10 +82,11 @@ if __name__ == "__main__":
     parser.add_argument("--experiment_id", type=str, default=None)
     parser.add_argument("--score_with_rank", type=int, default=0)
     parser.add_argument("--group_id", type=str, default="exp0")
-    parser.add_argument("--acquisition_name", type=str, default="ei")
+
 
     args = parser.parse_args()
 
+    set_seed(args.seed)
     logging.basicConfig(level=args.log_level.upper())
 
     surrogate_args = None
@@ -119,7 +113,6 @@ if __name__ == "__main__":
         metadataset_name=args.metadataset_name,
         searcher_name=args.searcher_name,
         surrogate_name=args.surrogate_name,
-        acquisition_name=args.acquisition_name,
         surrogate_args=surrogate_args,
         acquisition_args=acquisition_args,
         experiment_id=args.experiment_id,

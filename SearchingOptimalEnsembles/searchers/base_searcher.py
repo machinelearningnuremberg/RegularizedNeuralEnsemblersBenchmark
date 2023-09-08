@@ -48,13 +48,9 @@ class BaseOptimizer:
         Returns:
             torch.Tensor: The normalized score tensor.
         """
-        if (
-            self.metadataset.best_performance is not None
-            and self.metadataset.worst_performance is not None
-        ):
-            score = (score - self.metadataset.best_performance) / (
-                self.metadataset.worst_performance - self.metadataset.best_performance
-            )
+        if self.metadataset.best_performance is not None\
+                and self.metadataset.worst_performance is not None:
+            score = (score - self.metadataset.best_performance) / (self.metadataset.worst_performance - self.metadataset.best_performance)
 
         return score
 

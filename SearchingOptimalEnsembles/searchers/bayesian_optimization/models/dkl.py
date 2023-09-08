@@ -121,6 +121,7 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         metric: torch.Tensor,
         max_num_pipelines: int = 10,
     ) -> torch.Tensor:
+        self.observed_pipeline_ids = None
         X_obs, y_obs = self._create_support(max_num_pipelines=max_num_pipelines)
 
         self.model.set_train_data(inputs=X_obs, targets=y_obs, strict=False)

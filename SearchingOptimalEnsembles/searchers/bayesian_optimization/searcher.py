@@ -349,6 +349,7 @@ class BayesianOptimization(BaseOptimizer):
 
         return suggested_ensemble, suggested_pipeline
 
+
     def run(
         self,
         loss_tolerance: float = 1e-4,
@@ -424,17 +425,13 @@ class BayesianOptimization(BaseOptimizer):
             )
 
             # Evaluate candidates
-            suggested_ensemble, suggested_pipeline = self.suggest(
-                num_suggestion_batches, num_suggestions_per_batch
-            )
+            suggested_ensemble, suggested_pipeline = self.suggest(num_suggestion_batches, num_suggestions_per_batch)
             _, observed_metric, _, _ = self.metadataset.evaluate_ensembles(
                 [suggested_ensemble]
             )
 
             if max_num_pipelines > 1:
-                post_hoc_ensemble, post_hoc_ensemble_metric = self.post_hoc_ensemble(
-                    num_suggestion_batches, num_suggestions_per_batch
-                )
+                post_hoc_ensemble, post_hoc_ensemble_metric = self.post_hoc_ensemble(num_suggestion_batches, num_suggestions_per_batch)
                 if post_hoc_ensemble_metric < observed_metric:
                     suggested_ensemble = post_hoc_ensemble
                     observed_metric = post_hoc_ensemble_metric
@@ -452,14 +449,9 @@ class BayesianOptimization(BaseOptimizer):
 
             if wandb.run is not None:
                 wandb.log({"searcher_iteration": iteration, "incumbent": self.incumbent})
-                wandb.log(
-                    {
-                        "searcher_iteration": iteration,
-                        "incumbent (norm)": self.compute_normalized_score(
-                            torch.tensor(self.incumbent)
-                        ),
-                    }
-                )
+                wandb.log({"searcher_iteration": iteration, "incumbent (norm)": self.compute_normalized_score(torch.tensor(self.incumbent))})
+
+
 
             # Increase the number of pipelines to sample if they are not exceeding the maximum
             # if self.num_pipelines < max_num_pipelines:
