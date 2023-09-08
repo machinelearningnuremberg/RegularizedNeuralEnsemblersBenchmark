@@ -11,17 +11,35 @@ from SearchingOptimalEnsembles_experiments.utils.util import set_seed
 
 
 def run(
-    worker_dir: str, metadataset_name: str, searcher_name: str, surrogate_name: str,
+    worker_dir: str, metadataset_name: str, searcher_name: str,
+    surrogate_name: str, experiment_id: str, group_id: str,
     **run_args,  # pylint: disable=unused-argument
 ) -> None:
+
+    config = {"worker_dir": worker_dir,
+            "metadataset_name": metadataset_name,
+            "searcher_name": searcher_name,
+            "surrogate_name": surrogate_name,
+            "experiment_id": experiment_id,
+            "group_id": group_id,
+            "num_iterations": run_args["num_iterations"],
+            "num_inner_epochs": run_args["num_inner_epochs"],
+            "num_suggestion_batches": run_args["num_suggestion_batches"],
+            "num_suggestions_per_batch": run_args["num_suggestions_per_batch"],
+            "meta_num_epochs": run_args["meta_num_epochs"],
+            "max_num_pipelines": run_args["max_num_pipelines"],
+            **run_args["surrogate_args"],
+            **run_args["acquisition_args"],
+            }
     try:
         wandb.init(
+            name=experiment_id,
             project="SearchingOptimalEnsembles",
-            group=f"{searcher_name}_{metadataset_name}_{surrogate_name}",
+            group=group_id,
+            config=config
         )
     except wandb.errors.UsageError:
         print("Wandb is not available")
-
 
     SOE.run(
         worker_dir=worker_dir,
@@ -52,6 +70,10 @@ if __name__ == "__main__":
     parser.add_argument("--num_suggestions_per_batch", type=int, default=1000)
     parser.add_argument("--beta", type=float, default=0.)
     parser.add_argument("--activation_output", type=str, default="sigmoid")
+    parser.add_argument("--experiment_id", type=str, default="test")
+    parser.add_argument("--score_with_rank", type=int, default=0)
+    parser.add_argument("--group_id", type=str, default="exp0")
+
 
     args = parser.parse_args()
 
@@ -62,6 +84,7 @@ if __name__ == "__main__":
         surrogate_args = {
             "criterion_type": args.criterion_type,
             "activation_output": args.activation_output,
+            "score_with_rank": bool(args.score_with_rank),
         }
     else:
         surrogate_args = None
@@ -81,5 +104,7 @@ if __name__ == "__main__":
         metadataset_name=args.metadataset_name,
         searcher_name=args.searcher_name,
         surrogate_name=args.surrogate_name,
+        experiment_id=args.experiment_id,
+        group_id=args.group_id,
         **run_args
     )
