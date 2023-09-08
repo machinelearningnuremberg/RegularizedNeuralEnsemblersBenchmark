@@ -15,6 +15,9 @@ def run(
     metadataset_name: str,
     searcher_name: str,
     surrogate_name: str,
+    surrogate_args: dict | None,
+    acquisition_name: str,
+    acquisition_args: dict | None,
     meta_num_epochs: int,
     max_num_pipelines: int,
     dataset_id: int,
@@ -24,6 +27,9 @@ def run(
         metadataset_name=metadataset_name,
         searcher_name=searcher_name,
         surrogate_name=surrogate_name,
+        surrogate_args=surrogate_args,
+        acquisition_name=acquisition_name,
+        acquisition_args=acquisition_args,
         dataset_id=dataset_id,
         meta_num_epochs=meta_num_epochs,
         max_num_pipelines=max_num_pipelines,
@@ -40,6 +46,7 @@ if __name__ == "__main__":
     parser.add_argument("--metadataset_name", type=str, default="quicktune")
     parser.add_argument("--searcher_name", type=str, default="bo")
     parser.add_argument("--surrogate_name", type=str, default="dkl")
+    parser.add_argument("--acquisition_name", type=str, default="ei")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dataset_id", type=int, default=0)
     parser.add_argument("--log_level", type=str, default="debug")
@@ -60,6 +67,7 @@ if __name__ == "__main__":
         wandb.run.tags += (f"metadataset_name={args.metadataset_name}",)
         wandb.run.tags += (f"searcher_name={args.searcher_name}",)
         wandb.run.tags += (f"surrogate_name={args.surrogate_name}",)
+        wandb.run.tags += (f"acquisition_name={args.acquisition_name}",)
         wandb.run.tags += (f"meta_num_epochs={args.meta_num_epochs}",)
         wandb.run.tags += (f"max_num_pipelines={args.max_num_pipelines}",)
     except wandb.errors.UsageError:
@@ -67,11 +75,17 @@ if __name__ == "__main__":
 
     args.worker_dir = f"{args.worker_dir}/{args.experiment_group}"
 
+    surrogate_args = None
+    acquisition_args = None
+
     run(
         worker_dir=args.worker_dir,
         metadataset_name=args.metadataset_name,
         searcher_name=args.searcher_name,
         surrogate_name=args.surrogate_name,
+        surrogate_args=surrogate_args,
+        acquisition_name=args.acquisition_name,
+        acquisition_args=acquisition_args,
         dataset_id=args.dataset_id,
         meta_num_epochs=args.meta_num_epochs,
         max_num_pipelines=args.max_num_pipelines,
