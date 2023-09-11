@@ -105,6 +105,13 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         self.predictions = torch.FloatTensor(
             self.aggregated_info[dataset_name]["predictions"]
         )
+
+        imputation_value_posinf = self.predictions[~torch.isposinf(self.predictions)].max()
+        imputation_value_neginf = self.predictions[~torch.isposinf(self.predictions)].min()
+
+        self.predictions[torch.isposinf(self.predictions)] = imputation_value_posinf
+        self.predictions[torch.isneginf(self.predictions)] = imputation_value_neginf
+
         self.is_test_id = np.array(self.aggregated_info[dataset_name]["split_indicator"])
         # self.time_info = self.aggregated_info[dataset_name]["time_info"]
         self.time = torch.FloatTensor(

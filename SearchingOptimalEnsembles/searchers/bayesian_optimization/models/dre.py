@@ -129,6 +129,7 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
         self.optimizer.zero_grad()
         y_pred = self.forward(X, y_p)
         loss = torch.Tensor([0]).cuda()
+
         k = 0
         for y_pred_, y_e_ in zip(y_pred, y_e):
             loss += (
