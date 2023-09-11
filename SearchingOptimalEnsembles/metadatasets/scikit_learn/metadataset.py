@@ -11,11 +11,12 @@ from ..base_metadataset import BaseMetaDataset
 class ScikitLearnMetaDataset(BaseMetaDataset):
     def __init__(
         self,
-        data_dir: str = "/work/dlclarge2/janowski-quicktune/ask",
+        data_dir: str = "/work/dlclarge2/janowski-quicktune/pipeline_bench",
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         seed: int = 42,
         split: str = "valid",
         metric_name: str = "nll",
+        data_version: str = "micro",
     ):
         super().__init__(
             data_dir=data_dir,
@@ -28,6 +29,7 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         self.feature_dim = 196
 
         # Scikit-learn specific attributes
+        self.data_version = data_version
         self.benchmark: pipeline_bench.Benchmark
         self.task_ids = (
             pd.read_csv(
@@ -56,7 +58,11 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         # Scikit-learn specific attributes
         task_id = self.task_ids[self.dataset_names.index(dataset_name)]
         self.benchmark = pipeline_bench.Benchmark(
-            task_id=task_id, worker_dir=self.data_dir, mode="table", lazy=False
+            task_id=task_id,
+            worker_dir=self.data_dir,
+            mode="table",
+            lazy=False,
+            data_version=self.data_version,
         )
         super().set_state(dataset_name=dataset_name)
 
@@ -88,13 +94,8 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         batch_size = len(ensembles)
 
-        pipeline_hps = np.array(
-            self.benchmark.get_pipeline_features(ensembles=ensembles), dtype=np.float32
-        )
-        pipeline_hps[np.isnan(pipeline_hps)] = 0
-        pipeline_hps = torch.from_numpy(pipeline_hps)
+        pipeline_hps = self.benchmark.get_pipeline_features(ensembles=ensembles)
 
-        # TODO: optimize it on benchmark's side
         splits_ids = self.benchmark.get_splits(return_array=False)
         splits = self.benchmark.get_splits(return_array=True)
 
