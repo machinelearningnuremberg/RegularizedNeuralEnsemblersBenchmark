@@ -16,6 +16,7 @@ def run(
     surrogate_args: dict | None = None,
     sampler_name: Literal["random"] = "random",
     acquisition_name: Literal["ei", "lcb"] = "ei",
+    checkpoint_path: str | None = None,
     acquisition_args: dict | None = None,
     meta_num_epochs: int = 0,
     max_num_pipelines: int = 1,
@@ -47,6 +48,7 @@ def run(
         "surrogate_args": surrogate_args,
         "acquisition_args": acquisition_args,
         "initial_design_size": 5,
+        "checkpoint_path": checkpoint_path,
         "patience": 500,
     }
 

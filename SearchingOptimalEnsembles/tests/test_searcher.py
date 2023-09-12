@@ -10,6 +10,7 @@ from ..samplers.local_search_sampler import LocalSearchSampler
 from ..samplers.random_sampler import RandomSampler
 from ..searchers.bayesian_optimization.models.dre import DRE
 from ..searchers.bayesian_optimization.searcher import BayesianOptimization as BO
+from ..searchers.random_search.searcher import RandomSearch
 
 # from ..metadatasets.quicktune.metadataset import QuicktuneMetaDataset
 # from ..samplers.random_sampler import RandomSampler
@@ -26,6 +27,8 @@ if __name__ == "__main__":
     surrogate_args = {"criterion_type": "weighted_listwise", "add_y": 1}
     acquisition_args = {"beta": 0.0}
     acquisition_name = "ucb"
+    searcher_name = "random"
+    num_iterations = 100
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     worker_dir = os.path.join(current_dir, "test_logs", experiment_id)
@@ -38,17 +41,22 @@ if __name__ == "__main__":
 
     dim_in = sampler.metadataset.hp_candidates.shape[1]
 
-    bo_searcher = BO(
-        metadataset=metadataset,
-        surrogate_name=surrogate_name,
-        acquisition_name=acquisition_name,
-        acquisition_args=acquisition_args,
-        surrogate_args=surrogate_args,
-        worker_dir=worker_dir,
-        checkpoint_path=worker_dir,
-    )
-
+    if searcher_name == "bo":
+        searcher = BO(
+            metadataset=metadataset,
+            surrogate_name=surrogate_name,
+            acquisition_name=acquisition_name,
+            acquisition_args=acquisition_args,
+            surrogate_args=surrogate_args,
+            worker_dir=worker_dir,
+            checkpoint_path=worker_dir,
+        )
+        searcher.run(
+            max_num_pipelines=max_num_pipelines, meta_num_epochs=0, num_inner_epochs=100
+        )
+    elif searcher_name == "random":
+        searcher = RandomSearch(metadataset=metadataset, worker_dir=worker_dir)
+        searcher.run(num_iterations=num_iterations, max_num_pipelines=max_num_pipelines)
     # bo_searcher.meta_train_surrogate(num_epochs=1000, valid_frequency=50)
-    bo_searcher.run(max_num_pipelines=1, meta_num_epochs=0, num_inner_epochs=100)
 
     print("Done!")
