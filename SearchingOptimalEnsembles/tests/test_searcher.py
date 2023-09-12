@@ -26,7 +26,7 @@ if __name__ == "__main__":
     max_num_pipelines = 4
     surrogate_args = {"criterion_type": "weighted_listwise", "add_y": 1}
     acquisition_args = {"beta": 0.0}
-    acquisition_name = "ucb"
+    acquisition_name = "lcb"
     searcher_name = "random"
     num_iterations = 100
 
@@ -56,6 +56,5 @@ if __name__ == "__main__":
         searcher = RandomSearch(metadataset=metadataset, worker_dir=worker_dir)
         searcher.run(num_iterations=num_iterations, max_num_pipelines=max_num_pipelines)
     # bo_searcher.meta_train_surrogate(num_epochs=1000, valid_frequency=50)
-
 
     print("Done!")

@@ -67,6 +67,8 @@ class BaseMetaDataset:
         self.dataset_name: str
         self.hp_candidates: torch.Tensor
         self.hp_candidates_ids: torch.Tensor
+        self.best_performance: torch.Tensor
+        self.worst_performance: torch.Tensor
 
     def _initialize(self):
         """Initialize the meta-dataset. This method should be called in the child class."""
@@ -102,6 +104,21 @@ class BaseMetaDataset:
 
         Raises:
             NotImplementedError: This method should be overridden by the child class.
+
+        """
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def _get_worst_and_best_performance(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """Fetch the worst and best performance for a given dataset.
+
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]:
+            A tuple of tensors, namely:
+                - worst_performance
+                - best_performance
 
         """
 
@@ -154,6 +171,10 @@ class BaseMetaDataset:
 
         self.dataset_name = dataset_name
         self.hp_candidates, self.hp_candidates_ids = self._get_hp_candidates_and_indices()
+        (
+            self.worst_performance,
+            self.best_performance,
+        ) = self._get_worst_and_best_performance()
 
     @abstractmethod
     def evaluate_ensembles(
