@@ -64,10 +64,10 @@ class RandomSearch(BaseOptimizer):
 
         return best_ensemble, best_score
 
-    def suggest(
-        self,
-    ):
-        num_pipelines = np.random.randint(1, self.max_num_pipelines + 1)
+
+    def suggest(self,):
+
+        num_pipelines = np.random.randint(1, self.max_num_pipelines+1)
         # Sample candidates
 
         ensembles_from_pending = self.sampler.generate_ensembles(
@@ -82,13 +82,13 @@ class RandomSearch(BaseOptimizer):
                 num_pipelines=num_pipelines - 1,
                 batch_size=1,
             )
-            suggested_ensemble = np.concatenate(
-                (ensembles_from_observed, ensembles_from_pending), axis=1
-            ).tolist()[0]
+            suggested_ensemble = np.concatenate((ensembles_from_observed, ensembles_from_pending), axis=1).tolist()[0]
         else:
             suggested_ensemble = ensembles_from_pending[0]
 
+
         return suggested_ensemble, ensembles_from_pending[0][0]
+
 
     def run(
         self,
@@ -137,9 +137,8 @@ class RandomSearch(BaseOptimizer):
                 [suggested_ensemble]
             )
 
-            post_hoc_ensemble, post_hoc_ensemble_metric = self.post_hoc_ensemble(
-                num_suggestion_batches, num_suggestions_per_batch
-            )
+            post_hoc_ensemble, post_hoc_ensemble_metric = self.post_hoc_ensemble(num_suggestion_batches,
+                                                                                 num_suggestions_per_batch)
             if post_hoc_ensemble_metric < observed_metric:
                 suggested_ensemble = post_hoc_ensemble
                 observed_metric = post_hoc_ensemble_metric
@@ -158,14 +157,8 @@ class RandomSearch(BaseOptimizer):
 
             if wandb.run is not None:
                 wandb.log({"searcher_iteration": iteration, "incumbent": self.incumbent})
-                wandb.log(
-                    {
-                        "searcher_iteration": iteration,
-                        "incumbent (norm)": self.compute_normalized_score(
-                            torch.tensor(self.incumbent)
-                        ),
-                    }
-                )
+                wandb.log({"searcher_iteration": iteration,
+                           "incumbent (norm)": self.compute_normalized_score(torch.tensor(self.incumbent))})
 
             # Increase the number of pipelines to sample if they are not exceeding the maximum
             # if num_pipelines < max_num_pipelines:

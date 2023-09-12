@@ -11,11 +11,12 @@ from ..base_metadataset import BaseMetaDataset
 class ScikitLearnMetaDataset(BaseMetaDataset):
     def __init__(
         self,
-        data_dir: str = "/work/dlclarge2/janowski-quicktune/ask",
+        data_dir: str = "/work/dlclarge2/janowski-quicktune/pipeline_bench",
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         seed: int = 42,
         split: str = "valid",
         metric_name: str = "nll",
+        data_version: str = "mini",
     ):
         super().__init__(
             data_dir=data_dir,
@@ -28,6 +29,7 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         self.feature_dim = 196
 
         # Scikit-learn specific attributes
+        self.data_version = data_version
         self.benchmark: pipeline_bench.Benchmark
         self.task_ids = (
             pd.read_csv(
@@ -56,14 +58,22 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         # Scikit-learn specific attributes
         task_id = self.task_ids[self.dataset_names.index(dataset_name)]
         self.benchmark = pipeline_bench.Benchmark(
-            task_id=task_id, worker_dir=self.data_dir, mode="table", lazy=False
+            task_id=task_id,
+            worker_dir=self.data_dir,
+            mode="table",
+            lazy=False,
+            data_version=self.data_version,
         )
-        super().set_state(dataset_name=dataset_name)
+        super().set_state(
+            dataset_name=dataset_name,
+        )
 
     def _get_hp_candidates_and_indices(
         self, return_only_ids: bool = True
     ) -> tuple[torch.Tensor | None, torch.Tensor]:
-        hp_candidates_ids = torch.Tensor(self.benchmark.get_hp_candidates_ids())
+        hp_candidates_ids = torch.tensor(
+            self.benchmark.get_hp_candidates_ids(), dtype=torch.int32
+        )
 
         if not return_only_ids:
             # pylint: disable=protected-access
@@ -81,6 +91,12 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
             hp_candidates_ids,
         )  # TODO: eleminate indices (future work), edit: depned only on ids
 
+    def _get_worst_and_best_performance(self) -> tuple[torch.Tensor, torch.Tensor]:
+        return self.benchmark.get_worst_and_best_performance(
+            split=self.split,
+            metric_name=self.metric_name,
+        )
+
     # TODO: add time info
     def evaluate_ensembles(
         self,
@@ -88,18 +104,14 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         batch_size = len(ensembles)
 
-        pipeline_hps = np.array(
-            self.benchmark.get_pipeline_features(ensembles=ensembles), dtype=np.float32
-        )
-        pipeline_hps[np.isnan(pipeline_hps)] = 0
+        pipeline_hps = self.benchmark.get_pipeline_features(ensembles=ensembles)
+        pipeline_hps = pipeline_hps.astype(np.float32)
         pipeline_hps = torch.from_numpy(pipeline_hps)
 
-        # TODO: optimize it on benchmark's side
         splits_ids = self.benchmark.get_splits(return_array=False)
         splits = self.benchmark.get_splits(return_array=True)
 
         y_true = np.repeat(splits[f"y_{self.split}"].reshape(1, -1), batch_size, axis=0)
-        # del splits  # free memory
 
         # Retieve the predictions for each pipeline in each ensemble
         y_proba = self.benchmark(
@@ -112,11 +124,9 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         if self.metric_name == "error":
             # Step 1: Reshape the predictions and the true labels to have the same shape
             predictions = np.round(y_proba.reshape(batch_size, -1, y_true.shape[1]))
-            # del y_proba  # free memory
 
             # Step 2: Compute the accuracy for each pipeline and each ensemble
             acc_per_pipeline = (predictions == y_true[:, None, :]).mean(axis=2)
-            # del predictions  # free memory
             acc_per_ensemble = acc_per_pipeline.mean(axis=1)
 
             # Step 3: Compute the error rate

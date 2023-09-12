@@ -45,6 +45,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         self.best_performance = None
         self.worst_performance_idx = None
         self.worst_performance = None
+        self.hp_candidates_ids: torch.Tensor = None
         self.hp_candidates: torch.Tensor = None
         self.targets: torch.Tensor = None
         self.time: torch.Tensor = None
@@ -96,6 +97,9 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             self.worst_performance,
             self.worst_performance_idx,
         )
+
+    def _get_worst_and_best_performance(self) -> tuple[torch.Tensor, torch.Tensor]:
+        return self.worst_performance, self.best_performance
 
     def get_dataset_info(
         self,
@@ -153,6 +157,8 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             self.dataset_name = dataset_name
             self.get_dataset_info(dataset_name)
             self.get_statistics_dataset()
+
+            super().set_state(dataset_name=dataset_name)
 
     def get_dataset_names(self) -> list[str]:
         return self.dataset_names

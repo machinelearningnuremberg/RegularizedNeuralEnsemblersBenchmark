@@ -26,7 +26,7 @@ if __name__ == "__main__":
     max_num_pipelines = 4
     surrogate_args = {"criterion_type": "weighted_listwise", "add_y": 1}
     acquisition_args = {"beta": 0.0}
-    acquisition_name = "ucb"
+    acquisition_name = "lcb"
     searcher_name = "random"
     num_iterations = 100
 
@@ -51,9 +51,7 @@ if __name__ == "__main__":
             worker_dir=worker_dir,
             checkpoint_path=worker_dir,
         )
-        searcher.run(
-            max_num_pipelines=max_num_pipelines, meta_num_epochs=0, num_inner_epochs=100
-        )
+        searcher.run(max_num_pipelines=max_num_pipelines, meta_num_epochs=0, num_inner_epochs=100)
     elif searcher_name == "random":
         searcher = RandomSearch(metadataset=metadataset, worker_dir=worker_dir)
         searcher.run(num_iterations=num_iterations, max_num_pipelines=max_num_pipelines)

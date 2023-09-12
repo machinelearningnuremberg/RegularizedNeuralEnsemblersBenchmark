@@ -143,7 +143,9 @@ class BayesianOptimization(BaseOptimizer):
         """
 
         # Initialize the surrogate model
-        self.surrogate.checkpointer.load_checkpoint(checkpoint_name=self.checkpoint_name)
+        self.surrogate.checkpointer.load_checkpoint(
+            checkpoint_name=self.checkpoint_name
+        )
 
         # Initialize the learning rate optimizer
         optimizer = self.surrogate.optimizer
@@ -249,7 +251,9 @@ class BayesianOptimization(BaseOptimizer):
 
         # Load the best model weights and save them to a checkpoint file
         self.surrogate.load_state_dict(weights)
-        self.surrogate.checkpointer.save_checkpoint(checkpoint_name=self.checkpoint_name)
+        self.surrogate.checkpointer.save_checkpoint(
+            checkpoint_name=self.checkpoint_name
+        )
 
     def post_hoc_ensemble(
         self, num_batches: int = 5, num_suggestions_per_batch: int = 1000

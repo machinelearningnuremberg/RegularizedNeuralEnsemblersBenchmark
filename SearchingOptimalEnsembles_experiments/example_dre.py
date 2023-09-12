@@ -7,6 +7,7 @@ from pathlib import Path
 import wandb
 
 import SearchingOptimalEnsembles as SOE
+from pathlib import Path
 
 from .utils.util import set_seed
 
@@ -42,6 +43,21 @@ def run(
         "dataset_id": dataset_id,
     }
 
+    config = {"worker_dir": worker_dir,
+            "metadataset_name": metadataset_name,
+            "searcher_name": searcher_name,
+            "surrogate_name": surrogate_name,
+            "experiment_id": experiment_id,
+            "group_id": group_id,
+            "num_iterations": run_args["num_iterations"],
+            "num_inner_epochs": run_args["num_inner_epochs"],
+            "num_suggestion_batches": run_args["num_suggestion_batches"],
+            "num_suggestions_per_batch": run_args["num_suggestions_per_batch"],
+            "meta_num_epochs": run_args["meta_num_epochs"],
+            "max_num_pipelines": run_args["max_num_pipelines"],
+            "dataset_id": dataset_id
+            }
+
     if surrogate_args is not None:
         config.update(surrogate_args)
 
@@ -54,7 +70,7 @@ def run(
                 name=experiment_id,
                 project="SearchingOptimalEnsembles",
                 group=group_id,
-                config=config,
+                config=config
             )
         except wandb.errors.UsageError:
             print("Wandb is not available")
@@ -78,8 +94,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--worker_dir",
         type=str,
-        default="/home/pineda/SearchingOptimalEnsembles/SearchingOptimalEnsembles_experiments",
-        # default="/work/dlclarge2/janowski-quicktune/SearchingOptimalEnsembles/SearchingOptimalEnsembles_experiments",
+         default="/home/pineda/SearchingOptimalEnsembles/SearchingOptimalEnsembles_experiments",
+        #default="/work/dlclarge2/janowski-quicktune/SearchingOptimalEnsembles/SearchingOptimalEnsembles_experiments",
     )
     parser.add_argument("--metadataset_name", type=str, default="quicktune")
     parser.add_argument("--searcher_name", type=str, default="bo")

@@ -5,9 +5,9 @@ import pickle
 from collections import defaultdict
 
 import torch
-from containers import Baselearner, get_arch_filename, get_arch_str
 
 from ..base_metadataset import BaseMetaDataset
+from .containers import Baselearner, get_arch_filename, get_arch_str
 
 
 class NASBench201MetaDataset(BaseMetaDataset):
