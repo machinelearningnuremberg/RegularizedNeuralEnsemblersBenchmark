@@ -6,6 +6,7 @@ import logging
 import wandb
 
 import SearchingOptimalEnsembles as SOE
+from pathlib import Path
 
 from SearchingOptimalEnsembles_experiments.utils.util import set_seed
 
@@ -22,6 +23,7 @@ def run(
     group_id: str | None = None,
     dataset_id: int = 0,
     log_wandb: bool = True,
+    checkpoint_path: str | None = None,
     **run_args,  # pylint: disable=unused-argument
 ) -> None:
 
@@ -66,6 +68,7 @@ def run(
         surrogate_args=surrogate_args,
         acquisition_args=acquisition_args,
         dataset_id=dataset_id,
+        checkpoint_path=checkpoint_path,
         run_args=run_args,
     )
 
@@ -112,6 +115,7 @@ if __name__ == "__main__":
         }
 
     acquisition_args = {"beta": args.beta}
+    checkpoint_path = Path(args.worker_dir) / "checkpoints" / args.group_id
 
     run_args = {
         "num_iterations": args.num_iterations,
@@ -134,5 +138,6 @@ if __name__ == "__main__":
         group_id=args.group_id,
         dataset_id=args.dataset_id,
         log_wandb=args.log_wandb,
+        checkpoint_path=checkpoint_path,
         **run_args,
     )

@@ -41,3 +41,6 @@ results
 # WandB
 SearchingOptimalEnsembles_experiments/wandb/
 **/wandb/
+
+# Plots
+SearchingOptimalEnsembles_experiments/plots/saved_plots/

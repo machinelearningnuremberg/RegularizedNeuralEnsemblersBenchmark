@@ -52,7 +52,7 @@ if __name__ == "__main__":
             checkpoint_path=worker_dir,
         )
         searcher.run(max_num_pipelines=max_num_pipelines, meta_num_epochs=0, num_inner_epochs=100)
-    elif searcher_name == "bo":
+    elif searcher_name == "random":
         searcher = RandomSearch(metadataset=metadataset, worker_dir=worker_dir)
         searcher.run(num_iterations=num_iterations, max_num_pipelines=max_num_pipelines)
     # bo_searcher.meta_train_surrogate(num_epochs=1000, valid_frequency=50)
