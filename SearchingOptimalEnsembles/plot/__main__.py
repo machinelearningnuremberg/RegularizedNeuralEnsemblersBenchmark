@@ -2,7 +2,7 @@
 
 Usage:
     python -m SearchingOptimalEnsembles.plot [--metadatasets] [--algorithms] [--x_range] [--log_x]
-    [--log_y] [--filename] [--extension] [--dpi] [--output_dir] [--plot_type] user_name project_name group_name
+    [--log_y] [--plot_name] [--extension] [--dpi] [--output_dir] [--plot_type] user_name project_name group_name
 
 Positional arguments:
     user_name                   Wandb user name
@@ -16,7 +16,7 @@ Optional arguments:
     --x_range                   Bound x-axis (e.g. 1 10)
     --log_x                     If true, toggle logarithmic scale on the x-axis
     --log_y                     If true, toggle logarithmic scale on the y-axis
-    --filename                  Filename
+    --plot_name                 Plot name
     --extension                 Image format
     --dpi                       Image resolution
     --output_dir                Output directory
@@ -70,9 +70,9 @@ parser.add_argument(
     "--log_y", action="store_true", help="If true, toggle logarithmic scale on the y-axis"
 )
 parser.add_argument(
-    "--filename",
-    default="incumbent_trajectory",
-    help="Filename",
+    "--plot_name",
+    default="plot",
+    help="Name for the plot",
 )
 parser.add_argument(
     "--extension",
@@ -94,8 +94,13 @@ parser.add_argument(
 parser.add_argument(
     "--plot_type",
     default="incumbent",
-    choices=["incumbent"],
+    choices=["regret", "aggregated_regret"],
     help="Type of plot to generate",
+)
+parser.add_argument(
+    "--normalize",
+    action="store_true",
+    help="If true, normalize the regret",
 )
 args = parser.parse_args()
 
@@ -111,9 +116,10 @@ plot(
     x_range=args.x_range,
     log_x=args.log_x,
     log_y=args.log_y,
-    filename=args.filename,
+    plot_name=args.plot_name,
     extension=args.extension,
     dpi=args.dpi,
     output_dir=Path(args.output_dir),
     plot_type=args.plot_type,
+    normalize=args.normalize,
 )
