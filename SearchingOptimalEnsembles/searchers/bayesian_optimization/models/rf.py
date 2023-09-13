@@ -43,7 +43,7 @@ class BootstrapRandomForest(BaseModel, metaclass=ConfigurableMeta):
 
     def fit(
         self,
-        num_epochs: int = 100,
+        num_epochs: int = 1,
         observed_pipeline_ids: list[int] | None = None,
         max_num_pipelines: int = 10,
         batch_size: int = 16,
@@ -51,8 +51,12 @@ class BootstrapRandomForest(BaseModel, metaclass=ConfigurableMeta):
         assert (
             max_num_pipelines == 1
         ), "RandomForestModel only supports max_num_pipelines=1"
+        num_epochs = 1
         return super().fit(
-            num_epochs, observed_pipeline_ids, max_num_pipelines, batch_size
+            num_epochs=num_epochs,
+            observed_pipeline_ids=observed_pipeline_ids,
+            max_num_pipelines=max_num_pipelines,
+            batch_size=batch_size,
         )
 
     @move_to_device

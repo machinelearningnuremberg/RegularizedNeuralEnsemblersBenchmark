@@ -70,7 +70,7 @@ with open(
         for key, value in selected_hps.items():
             run_name += f"{value}_"
 
-        cmd = f"python {EXP_PATH}/example.py --max_num_pipelines 5"
+        cmd = f"python {EXP_PATH}/main.py --max_num_pipelines 5"
         cmd += " --surrogate_name dkl"
 
         for key, value in selected_hps.items():
