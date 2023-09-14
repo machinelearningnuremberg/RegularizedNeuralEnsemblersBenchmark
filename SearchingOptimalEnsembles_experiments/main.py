@@ -67,21 +67,23 @@ if __name__ == "__main__":
     parser.add_argument("--ensembler_name", type=str, default="random")
     ##############################################################################
     parser.add_argument("--dataset_id", type=int, default=0)
+    parser.add_argument("--no_wandb", action="store_true")
     args = parser.parse_args()
 
     set_seed(args.seed)
     logging.basicConfig(level=args.log_level.upper())
 
-    try:
-        wandb.init(
-            project="SearchingOptimalEnsembles",
-            group=args.experiment_group,
-            name=args.run_name,
-        )
-        for tag_key in TAG_KEYS:
-            wandb.run.tags += (f"{tag_key}={vars(args)[tag_key]}",)
-    except wandb.errors.UsageError:
-        print("Wandb is not available")
+    if not args.no_wandb:
+        try:
+            wandb.init(
+                project="SearchingOptimalEnsembles",
+                group=args.experiment_group,
+                name=args.run_name,
+            )
+            for tag_key in TAG_KEYS:
+                wandb.run.tags += (f"{tag_key}={vars(args)[tag_key]}",)
+        except wandb.errors.UsageError:
+            print("Wandb is not available")
 
     args.worker_dir = f"{args.worker_dir}/{args.experiment_group}"
 
