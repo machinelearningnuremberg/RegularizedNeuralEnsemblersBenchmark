@@ -28,6 +28,7 @@ poetry.lock
 *.model
 *.pth
 *.png
+*.txt
 
 # Results
 results
