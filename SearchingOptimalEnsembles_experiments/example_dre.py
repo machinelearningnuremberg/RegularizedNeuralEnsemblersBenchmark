@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import argparse
 import logging
-from pathlib import Path
 
 import wandb
 
 import SearchingOptimalEnsembles as SOE
 from pathlib import Path
 
-from .utils.util import set_seed
-
+from SearchingOptimalEnsembles_experiments.utils.util import set_seed
 
 def run(
     worker_dir: str,
@@ -27,21 +25,6 @@ def run(
     checkpoint_path: str | None = None,
     **run_args,  # pylint: disable=unused-argument
 ) -> None:
-    config = {
-        "worker_dir": worker_dir,
-        "metadataset_name": metadataset_name,
-        "searcher_name": searcher_name,
-        "surrogate_name": surrogate_name,
-        "experiment_id": experiment_id,
-        "group_id": group_id,
-        "num_iterations": run_args["num_iterations"],
-        "num_inner_epochs": run_args["num_inner_epochs"],
-        "num_suggestion_batches": run_args["num_suggestion_batches"],
-        "num_suggestions_per_batch": run_args["num_suggestions_per_batch"],
-        "meta_num_epochs": run_args["meta_num_epochs"],
-        "max_num_pipelines": run_args["max_num_pipelines"],
-        "dataset_id": dataset_id,
-    }
 
     config = {"worker_dir": worker_dir,
             "metadataset_name": metadataset_name,
@@ -119,6 +102,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    set_seed(args.seed)
     logging.basicConfig(level=args.log_level.upper())
 
     surrogate_args = None
