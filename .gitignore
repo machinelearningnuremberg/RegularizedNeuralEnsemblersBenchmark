@@ -45,3 +45,4 @@ SearchingOptimalEnsembles_experiments/wandb/
 
 # Plots
 SearchingOptimalEnsembles_experiments/plots/saved_plots/
+SearchingOptimalEnsembles_experiments/cluster_scripts/slurm_pineda/bash_args/
