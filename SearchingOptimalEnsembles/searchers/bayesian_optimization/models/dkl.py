@@ -18,7 +18,11 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         "kernel_name": "matern",
         "ard": False,
         "nu": 2.5,
+        "hidden_dim": 64,
+        "num_heads": 4,
+        "num_seeds": 1,
         "lr": 1e-3,
+        # "optional_dim": None,
     }
 
     def __init__(
@@ -30,14 +34,24 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         kernel_name: str = "matern",
         ard: bool = False,
         nu: float = 2.5,
+        hidden_dim: int = 64,
+        num_heads: int = 4,
+        num_seeds: int = 1,
         lr: float = 1e-3,
+        # optional_dim: int | None = None,
     ):
         super().__init__(sampler=sampler, checkpoint_path=checkpoint_path, device=device)
 
         dim_in = self.sampler.metadataset.feature_dim
         if dim_in is None:
             raise ValueError("Feature dimension is None")
-        self.encoder = SetTransformer(dim_in=dim_in).to(self.device)
+        self.encoder = SetTransformer(
+            dim_in=dim_in,
+            hidden_dim=hidden_dim,
+            num_heads=num_heads,
+            num_seeds=num_seeds,
+            # optional_dim=optional_dim,
+        ).to(self.device)
 
         self.model, self.likelihood, self.mll = self._get_model_likelihood_mll(
             kernel_name=kernel_name, ard=ard, nu=nu

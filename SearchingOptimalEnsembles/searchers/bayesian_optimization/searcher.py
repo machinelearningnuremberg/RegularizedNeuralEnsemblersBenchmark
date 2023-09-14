@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import time
 from pathlib import Path
 
 import numpy as np
@@ -12,26 +11,25 @@ from typing_extensions import Literal
 from ...metadatasets.base_metadataset import BaseMetaDataset
 from ...samplers import SamplerMapping
 from ...utils.common import instance_from_map
-from ..base_searcher import BaseOptimizer
+from ..base_searcher import BaseSearcher
 from .acquisition import AcquisitionMapping
 from .models import ModelMapping
 
 
-class BayesianOptimization(BaseOptimizer):
+class BayesianOptimization(BaseSearcher):
     """Bayesian optimization class."""
 
     def __init__(
         self,
         metadataset: BaseMetaDataset,
-        worker_dir: str,
         patience: int = 50,
+        #################################################
         surrogate_name: Literal["dkl", "dre"] = "dkl",
         surrogate_args: dict | None = None,
+        checkpoint_dir: Path = Path(__file__).parent / "checkpoints",
+        acquisition_name: Literal["ei", "lcb"] = "ei",
         acquisition_args: dict | None = None,
         sampler_name: Literal["random", "local_search"] = "random",
-        acquisition_name: Literal["ei", "lcb"] = "ei",
-        initial_design_size: int = 5,
-        checkpoint_path: str | None = None,
     ):
         """
         Initialize the Bayesian Optimization class.
@@ -46,16 +44,7 @@ class BayesianOptimization(BaseOptimizer):
             checkpoint_path (str, optional): The path to the checkpoint directory. Defaults to the specified path.
 
         """
-        super().__init__(
-            metadataset=metadataset, worker_dir=worker_dir, patience=patience
-        )
-
-        if checkpoint_path is None:
-            self.checkpoint_path = Path(worker_dir) / "checkpoints"
-        else:
-            self.checkpoint_path = Path(checkpoint_path)
-        # Create the checkpoint directory if it does not exist
-        self.checkpoint_path.mkdir(parents=True, exist_ok=True)
+        super().__init__(metadataset=metadataset, patience=patience)
 
         sampler_args = {
             "metadataset": self.metadataset,
@@ -80,7 +69,7 @@ class BayesianOptimization(BaseOptimizer):
         surrogate_args.update(
             {
                 "sampler": self.sampler,
-                "checkpoint_path": self.checkpoint_path,
+                "checkpoint_path": checkpoint_dir,
                 "device": self.device,
             }
         )
@@ -105,7 +94,7 @@ class BayesianOptimization(BaseOptimizer):
         )
 
         self.checkpoint_name = f"{self.surrogate.__class__.__name__}_{self.metadataset.__class__.__name__}.pth"
-        self.initial_design_size = initial_design_size
+        self.incumbent = np.inf
 
         self.logger.debug("Initialized Bayesian optimization")
         self.logger.debug(f"Surrogate name: {surrogate_name}")
@@ -143,9 +132,7 @@ class BayesianOptimization(BaseOptimizer):
         """
 
         # Initialize the surrogate model
-        self.surrogate.checkpointer.load_checkpoint(
-            checkpoint_name=self.checkpoint_name
-        )
+        self.surrogate.checkpointer.load_checkpoint(checkpoint_name=self.checkpoint_name)
 
         # Initialize the learning rate optimizer
         optimizer = self.surrogate.optimizer
@@ -168,12 +155,8 @@ class BayesianOptimization(BaseOptimizer):
                 break
 
             # Set sampler, i.e. meta-train to random dataset
-            # self.sampler.set_state(dataset_name="kr-vs-kp", meta_split="meta-train")
-            start_time = time.time()
             self.sampler.set_state(dataset_name=None, meta_split="meta-train")
-            sampler_time = time.time() - start_time
 
-            start_time = time.time()
             meta_train_loss = self.surrogate.fit(
                 num_epochs=num_inner_epochs,
                 max_num_pipelines=max_num_pipelines,
@@ -185,10 +168,9 @@ class BayesianOptimization(BaseOptimizer):
                 patience -= 1  # Reduce patience
                 continue
 
-            # Logging the time and loss for this epoch
-            meta_train_time = time.time() - start_time
+            # Logging the loss for this epoch
             self.logger.debug(
-                f"Epoch {epoch+1}/{num_epochs} - Meta-train - Loss: {meta_train_loss:.5f} - Time: load: {sampler_time:.2f}s, pass {meta_train_time:.2f}s"
+                f"Epoch {epoch+1}/{num_epochs} - Meta-train - Loss: {meta_train_loss:.5f}"
             )
             if wandb.run is not None:
                 wandb.log({"epoch": epoch, "meta_train_loss": meta_train_loss})
@@ -197,7 +179,6 @@ class BayesianOptimization(BaseOptimizer):
             if (epoch + 1) % valid_frequency == 0:
                 # Perform meta-validation, which is just eval pass on the meta-valid split,
                 # using all datasets in the split
-                start_time = time.time()
                 _meta_valid_losses = []
                 for dataset_name in self.sampler.metadataset.meta_splits["meta-valid"]:
                     self.sampler.set_state(
@@ -229,7 +210,7 @@ class BayesianOptimization(BaseOptimizer):
 
                 # Logging meta-validation information
                 self.logger.info(
-                    f"Epoch {epoch+1}/{num_epochs} - Meta-valid - Loss: {meta_valid_loss:.5f} - Time: {time.time() - start_time:.2f}s"
+                    f"Epoch {epoch+1}/{num_epochs} - Meta-valid - Loss: {meta_valid_loss:.5f}"
                 )
 
                 # Check for improvement and update best weights if needed
@@ -251,40 +232,36 @@ class BayesianOptimization(BaseOptimizer):
 
         # Load the best model weights and save them to a checkpoint file
         self.surrogate.load_state_dict(weights)
-        self.surrogate.checkpointer.save_checkpoint(
-            checkpoint_name=self.checkpoint_name
+        self.surrogate.checkpointer.save_checkpoint(checkpoint_name=self.checkpoint_name)
+
+    def suggest(
+        self,
+        max_num_pipelines: int = 1,
+        num_inner_epochs: int = 1,
+        batch_size: int = 16,
+        num_suggestion_batches: int = 5,
+        num_suggestions_per_batch: int = 1000,
+        **kwargs,  # pylint: disable=unused-argument
+    ) -> tuple[list, list]:
+        # Fit the model to the observation
+        self.surrogate.fit(
+            num_epochs=num_inner_epochs,
+            observed_pipeline_ids=self.X_obs,
+            max_num_pipelines=max_num_pipelines,
+            batch_size=batch_size,
         )
 
-    def post_hoc_ensemble(
-        self, num_batches: int = 5, num_suggestions_per_batch: int = 1000
-    ):
-        best_score = np.inf
-        best_ensemble = None
-        for iterations in range(num_batches):
-            num_pipelines = np.random.randint(1, self.max_num_pipelines + 1)
-            ensembles = self.sampler.generate_ensembles(
-                candidates=self.X_obs,
-                num_pipelines=num_pipelines,
-                batch_size=num_suggestions_per_batch,
-            )
+        # Set the state of the acquisition function
+        self.acquisition.set_state(
+            surrogate_model=self.surrogate, incumbent=self.incumbent
+        )
 
-            _, metric, _, _ = self.metadataset.evaluate_ensembles(ensembles)
-            temp_best_metric = metric.min()
-            temp_best_id = metric.argmin()
-
-            if temp_best_metric < best_score:
-                best_score = temp_best_metric
-                best_ensemble = ensembles[temp_best_id]
-
-        return best_ensemble, best_score
-
-    def suggest(self, num_batches: int = 5, num_suggestions_per_batch: int = 1000):
         suggested_ensemble = None
         suggested_pipeline = None
         best_score = np.inf
 
-        for iterations in range(num_batches):
-            num_pipelines = np.random.randint(1, self.max_num_pipelines + 1)
+        for _ in range(num_suggestion_batches):
+            num_pipelines = np.random.randint(1, max_num_pipelines + 1)
 
             if num_pipelines > 1:
                 # Sample candidates
@@ -348,127 +325,7 @@ class BayesianOptimization(BaseOptimizer):
                 suggested_ensemble += ensembles_from_pending[iter_best_idx]
                 suggested_pipeline = ensembles_from_pending[iter_best_idx][0]
 
+        assert suggested_ensemble is not None, "Suggested ensemble is None"
+        assert suggested_pipeline is not None, "Suggested pipeline is None"
+
         return suggested_ensemble, suggested_pipeline
-
-    def run(
-        self,
-        loss_tolerance: float = 1e-4,
-        batch_size: int = 16,
-        meta_num_epochs: int = 50,
-        meta_num_inner_epochs: int = 1,
-        meta_valid_frequency: int = 100,
-        num_iterations: int = 1000,
-        num_inner_epochs: int = 1,
-        max_num_pipelines: int = 1,
-        num_suggestions_per_batch: int = 1000,
-        num_suggestion_batches: int = 5,
-        dataset_id: int = 0,
-    ) -> None:
-        # Meta-train the surrogate model if num_epochs > 0,
-        # otherwise load the checkpoint if exists
-
-        self.batch_size = batch_size
-        self.meta_train_surrogate(
-            num_epochs=meta_num_epochs,
-            num_inner_epochs=meta_num_inner_epochs,
-            loss_tol=loss_tolerance,
-            valid_frequency=meta_valid_frequency,
-            max_num_pipelines=max_num_pipelines,
-            batch_size=batch_size,
-        )
-
-        # Set sampler, i.e. meta-test to random dataset
-        dataset_name = self.metadataset.meta_splits["meta-test"][dataset_id]
-        if wandb.run is not None:
-            wandb.run.tags += (f"dataset={dataset_name}",)
-        self.sampler.set_state(dataset_name=dataset_name, meta_split="meta-test")
-
-        # Sample initial design points
-        self.logger.debug(f"Sampling {self.initial_design_size} initial design points")
-        # pylint: disable=unused-variable
-        (
-            pipeline_hps,
-            metric,
-            metric_per_pipeline,
-            time_per_pipeline,
-            ensembles,
-        ) = self.initial_design_sampler.sample(
-            fixed_num_pipelines=max_num_pipelines,
-            batch_size=self.initial_design_size,
-            observed_pipeline_ids=None,
-        )
-        # Bookkeeping variables
-        self.X_obs = np.unique(ensembles)
-        X_pending = np.array(self.metadataset.hp_candidates_ids)
-        self.X_pending = np.setdiff1d(X_pending, self.X_obs)
-        self.incumbent = torch.min(metric).item()
-        self.incumbent_ensemble = ensembles[torch.argmin(metric).item()]
-        self.num_pipelines = len(self.X_obs)
-        self.max_num_pipelines = max_num_pipelines
-
-        self.logger.debug(f"Number of pending pipelines: {len(X_pending)}")
-        self.logger.info(f"Initial incumbent: {self.incumbent:.5f}")
-
-        # Main loop for Bayesian optimization
-        for iteration in range(num_iterations):
-            # Fine-tune the surrogate model based on the observed data
-            self.iteration = iteration
-            self.surrogate.fit(
-                num_epochs=num_inner_epochs,
-                observed_pipeline_ids=self.X_obs,
-                max_num_pipelines=max_num_pipelines,
-                batch_size=batch_size,
-            )
-
-            self.acquisition.set_state(
-                surrogate_model=self.surrogate, incumbent=self.incumbent
-            )
-
-            # Evaluate candidates
-            suggested_ensemble, suggested_pipeline = self.suggest(
-                num_suggestion_batches, num_suggestions_per_batch
-            )
-            _, observed_metric, _, _ = self.metadataset.evaluate_ensembles(
-                [suggested_ensemble]
-            )
-
-            if max_num_pipelines > 1:
-                post_hoc_ensemble, post_hoc_ensemble_metric = self.post_hoc_ensemble(
-                    num_suggestion_batches, num_suggestions_per_batch
-                )
-                if post_hoc_ensemble_metric < observed_metric:
-                    suggested_ensemble = post_hoc_ensemble
-                    observed_metric = post_hoc_ensemble_metric
-
-            # Update bookkeeping variables
-            self.X_obs = np.concatenate((self.X_obs, [suggested_pipeline]))
-            self.X_pending = np.setdiff1d(self.X_pending, [suggested_pipeline])
-
-            if observed_metric < self.incumbent:
-                self.incumbent = observed_metric.item()
-                self.incumbent_ensemble = suggested_ensemble
-                self.logger.info(
-                    f"Iteration {iteration + 1}/{num_iterations} - New incumbent: {self.incumbent:.5f}"
-                )
-
-            if wandb.run is not None:
-                wandb.log({"searcher_iteration": iteration, "incumbent": self.incumbent})
-                wandb.log(
-                    {
-                        "searcher_iteration": iteration,
-                        "incumbent (norm)": self.compute_normalized_score(
-                            torch.tensor(self.incumbent)
-                        ),
-                    }
-                )
-
-            # Increase the number of pipelines to sample if they are not exceeding the maximum
-            # if self.num_pipelines < max_num_pipelines:
-            #    self.num_pipelines += 1
-            #    self.logger.debug(
-            #        f"Increasing ensemble size to {self.num_pipelines} pipelines"
-            #    )
-
-            if X_pending.size == 0:
-                self.logger.debug("No more pending pipelines. Stopping early...")
-                break
