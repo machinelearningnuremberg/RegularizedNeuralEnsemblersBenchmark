@@ -41,6 +41,7 @@ def run(
     num_inner_epochs: int = 1,
     batch_size: int = 16,
     max_num_pipelines: int = 1,
+    apply_posthoc_ensemble: bool = True,
     #############################################
     dataset_id: int = 0,
 ) -> None:
@@ -137,6 +138,7 @@ def run(
             X_obs=X_obs,
             X_pending=X_pending,
             incumbent=incumbent,
+            incumbent_ensemble=incumbent_ensemble,
         )
 
         # Evaluate candidates
@@ -150,7 +152,7 @@ def run(
 
         _, observed_metric, _, _ = metadataset.evaluate_ensembles([suggested_ensemble])
 
-        if max_num_pipelines > 1:
+        if max_num_pipelines > 1 and apply_posthoc_ensemble:
             post_hoc_ensemble, post_hoc_ensemble_metric = posthoc_ensembler.sample(
                 X_obs=X_obs,
                 max_num_pipelines=max_num_pipelines,
