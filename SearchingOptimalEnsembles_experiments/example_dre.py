@@ -10,7 +10,6 @@ from pathlib import Path
 
 from SearchingOptimalEnsembles_experiments.utils.util import set_seed
 
-
 def run(
     worker_dir: str,
     metadataset_name: str,
@@ -101,9 +100,9 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_id", type=int, default=0)
     parser.add_argument("--log-wandb", action="store_true")
 
-
     args = parser.parse_args()
 
+    set_seed(args.seed)
     logging.basicConfig(level=args.log_level.upper())
 
     surrogate_args = None

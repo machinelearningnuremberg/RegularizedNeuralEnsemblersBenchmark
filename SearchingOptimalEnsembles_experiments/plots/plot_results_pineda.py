@@ -20,7 +20,12 @@ os.makedirs(os.path.join(current_file_path, output_folder), exist_ok=True)
 # Dictionary to hold results
 results = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
 
-group_names = ["RS00", "DRE03", "DRE04", "DRE05"]
+
+
+
+
+group_names = ["RS00", "DRE03", "DRE04", "DRE05", "DRE07"]
+group_names = ["RS00", "DRE06", "DRE03"]
 
 for group_name in group_names:
     print("w")
@@ -44,7 +49,7 @@ until_iteration = 100
 num_datasets = 6
 num_groups = len(group_names)
 max_num_pipelines_values = [1,2,4,6,8,10]
-
+group_names = ["RS00", "DRE06"]
 for max_num_pipelines in max_num_pipelines_values:
     results_matrix = []
 
@@ -79,15 +84,15 @@ for max_num_pipelines in max_num_pipelines_values:
     plt.figure()
     plt.plot(rank.T)
     plt.legend(group_names)
-    plt.savefig(os.path.join(current_file_path, output_folder, f"rank_{max_num_pipelines}.png"))
+    plt.savefig(os.path.join(current_file_path, output_folder, f"rank4_{max_num_pipelines}.png"))
 
     plt.figure()
     plt.plot(regret.T)
     plt.legend(group_names)
-    plt.savefig(os.path.join(current_file_path, output_folder, f"regret_{max_num_pipelines}.png"))
+    plt.savefig(os.path.join(current_file_path, output_folder, f"regret4_{max_num_pipelines}.png"))
 
 
-group_name = "DRE03"
+group_name = "DRE07"
 
 results_matrix = []
 
@@ -127,4 +132,62 @@ plt.legend(max_num_pipelines_values)
 plt.savefig(os.path.join(current_file_path, output_folder, f"{group_name}_max_num_pipelines_regret.png"))
 
 
-#compute rank
+group_name = "DRE02"
+results = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
+runs = api.runs(f"{user_name}/{project_name}",
+                filters={"$and": [{"group": group_name}, {"state": "finished"}]}
+                )
+
+for run in runs:
+    history = run.history(keys=["incumbent (norm)", "searcher_iteration"], pandas=False)
+    max_num_pipelines = run.config["max_num_pipelines"]
+    dataset_id = run.config["dataset_id"]
+    config_id = run.name
+
+    if history:
+        incumbent_values = [record["incumbent (norm)"] for record in history]
+        iteration_values = [record["searcher_iteration"] for record in history]
+
+        results[config_id][dataset_id] = incumbent_values
+
+
+results_matrix = []
+config_ids = list(results.keys())
+config_ids.remove("dre_5")
+config_ids.remove(5)
+config_ids = [config_ids[i] for i in [7, 30, 19, 27, 26, 10]]
+
+for dataset_id in [0,2,3,5]:
+    temp_results = []
+    omit_dataset = False
+    for name in config_ids:
+        if dataset_id in results[name].keys():
+            incumbent_values = results[name][dataset_id]
+        else:
+            omit_dataset = True
+            print("Problem in dataset_id:", dataset_id, "in config_id:", name)
+        if len(incumbent_values) == until_iteration:
+            temp_results.append(incumbent_values)
+        else:
+            print("Problem with dataset_id:", dataset_id, "in group_name:", group_name)
+    if not omit_dataset:
+        results_matrix.append(temp_results)
+    else:
+        print("Omitting dataset_id:", dataset_id)
+
+
+results_matrix = np.array(results_matrix)
+
+regret = results_matrix.mean(axis=0)
+
+rank = rankdata(results_matrix, axis=1).mean(axis=0)
+
+plt.figure()
+plt.plot(rank.T)
+plt.legend(config_ids)
+plt.savefig(os.path.join(current_file_path, output_folder, f"{group_name}_comparison.png"))
+
+plt.figure()
+plt.plot(regret.T)
+plt.legend(config_ids)
+plt.savefig(os.path.join(current_file_path, output_folder, f"{group_name}_comparison.png"))

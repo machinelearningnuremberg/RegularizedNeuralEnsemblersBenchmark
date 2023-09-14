@@ -282,3 +282,4 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
 
         self.load_state_dict(ckpt["model"])
         self.optimizer.load_state_dict(ckpt["optimizer"])
+
