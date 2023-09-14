@@ -73,6 +73,7 @@ if __name__ == "__main__":
     set_seed(args.seed)
     logging.basicConfig(level=args.log_level.upper())
     print(args)
+
     if not args.no_wandb:
         try:
             wandb.init(
