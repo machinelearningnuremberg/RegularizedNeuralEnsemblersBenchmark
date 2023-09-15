@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 
+import numpy as np
 import torch
 import numpy as np
 
@@ -31,10 +32,10 @@ class BaseSearcher:
         if patience < 1:
             raise ValueError("Patience should be at least 1")
 
-        self.X_obs : np.array = None
-        self.X_pending : np.array = None
+        self.X_obs: np.array = None
+        self.X_pending: np.array = None
         self.incumbent = np.inf
-        self.incumbent_ensemble : list[int] | None = None
+        self.incumbent_ensemble: list[int] | None = None
 
         self.metadataset = metadataset
         self.patience = patience

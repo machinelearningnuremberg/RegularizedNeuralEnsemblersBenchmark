@@ -1,10 +1,10 @@
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, Matern
-from sklearn.ensemble import RandomForestRegressor
-import numpy as np
+
 
 class BaseSurrogate:
-
     def __init__(self):
         self.model = None
 
@@ -20,9 +20,8 @@ class BaseSurrogate:
 
 
 class RandomForestWithUncertainty(BaseSurrogate):
-
     def __init__(self, **args):
-        super(RandomForestWithUncertainty, self).__init__()
+        super().__init__()
 
         self.model = RandomForestRegressor(**args)
 
@@ -35,12 +34,9 @@ class RandomForestWithUncertainty(BaseSurrogate):
         return pred_mean, pred_std
 
 
-
 class GaussianProcessSurrogate(BaseSurrogate):
-
     def __init__(self, kernel="matern", **args):
-
-        super(GaussianProcessSurrogate, self).__init__()
+        super().__init__()
 
         length_scale = args.get("length_scale", 1.0)
         nu = args.get("nu", 1.5)
@@ -56,13 +52,11 @@ class GaussianProcessSurrogate(BaseSurrogate):
         self.model = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=500)
 
     def predict(self, X):
-
         pred_mean, pred_std = self.model.predict(X, return_std=True)
         return pred_mean, pred_std
 
 
 def create_surrogate(model_name, **args):
-
     if model_name == "gp":
         model = GaussianProcessSurrogate(**args)
 

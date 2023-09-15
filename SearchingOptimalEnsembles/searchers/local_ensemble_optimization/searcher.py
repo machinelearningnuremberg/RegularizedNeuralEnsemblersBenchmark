@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+from scipy.stats import norm as norm
 from typing_extensions import Literal
 
 from ...metadatasets.base_metadataset import BaseMetaDataset
@@ -8,7 +9,6 @@ from ...samplers import SamplerMapping
 from ...utils.common import instance_from_map
 from ..base_searcher import BaseSearcher
 from .simple_surrogates import create_surrogate
-from scipy.stats import norm as norm
 
 
 class LocalEnsembleOptimization(BaseSearcher):
@@ -16,9 +16,9 @@ class LocalEnsembleOptimization(BaseSearcher):
         self,
         metadataset: BaseMetaDataset,
         patience: int = 50,
-        surrogate_name: Literal[ "rf", "gp"] = "rf",
+        surrogate_name: Literal["rf", "gp"] = "rf",
         surrogate_args: dict | None = None,
-        acquisition_args : dict | None = None,
+        acquisition_args: dict | None = None,
         **kwargs,  # pylint: disable=unused-argument
     ):
         super().__init__(metadataset=metadataset, patience=patience)
@@ -49,7 +49,7 @@ class LocalEnsembleOptimization(BaseSearcher):
             acquisition_args = {}
 
         self.logger.debug("Initialized LocalEnsembleOptimization searcher.")
-        self.ensemble : list[int] = []
+        self.ensemble: list[int] = []
         self.len_first_X_obs = 0
         self.surrogate_args = surrogate_args
         self.surrogate_name = surrogate_name
@@ -64,23 +64,24 @@ class LocalEnsembleOptimization(BaseSearcher):
         if self.surrogate_name == "gp":
             self.surrogate = create_surrogate("gp")
         elif self.surrogate_name == "rf":
-            self.surrogate = create_surrogate("rf", n_estimators=kwargs.get("num_estimators", 100))
+            self.surrogate = create_surrogate(
+                "rf", n_estimators=kwargs.get("num_estimators", 100)
+            )
         else:
             raise NotImplementedError
 
     def _get_observations(self) -> tuple[np.array, np.array]:
-
-        ensemble_ids = np.array(self.ensemble).reshape(1,-1).repeat(len(self.X_obs),0)
-        observed_ids = np.array(self.X_obs).reshape(-1,1)
+        ensemble_ids = np.array(self.ensemble).reshape(1, -1).repeat(len(self.X_obs), 0)
+        observed_ids = np.array(self.X_obs).reshape(-1, 1)
         ensembles = np.concatenate((ensemble_ids, observed_ids), axis=1).tolist()
         pipeline_hps, y, _, _ = self.metadataset.evaluate_ensembles(ensembles)
-        X = pipeline_hps[:,-1,:].cpu().numpy()
+        X = pipeline_hps[:, -1, :].cpu().numpy()
         y = y.cpu().numpy()
 
         return X, y
 
     def EI(self, mean, sigma, incumbent):
-        with np.errstate(divide='warn'):
+        with np.errstate(divide="warn"):
             imp = incumbent - mean - self.beta
             Z = imp / sigma
             ei = imp * norm.cdf(Z) + sigma * norm.pdf(Z)
@@ -89,12 +90,13 @@ class LocalEnsembleOptimization(BaseSearcher):
         return ei
 
     def _get_next_pipeline_to_observe(self) -> np.array:
-
         """Returns the next pipeline to observe.
         The candidate is selected from the observed pipelines.
         Returns: int, the id of the next pipeline to observe."""
 
-        hp_pipelines, _, _, _ = self.metadataset.evaluate_ensembles(self.X_pending.reshape(-1,1).tolist())
+        hp_pipelines, _, _, _ = self.metadataset.evaluate_ensembles(
+            self.X_pending.reshape(-1, 1).tolist()
+        )
         hp_pipelines = np.squeeze(hp_pipelines, axis=1)
         mean, sigma = self.surrogate.predict(hp_pipelines)
         acq_value = -self.EI(mean, sigma, self.incumbent)
@@ -102,12 +104,11 @@ class LocalEnsembleOptimization(BaseSearcher):
         return np.argmin(acq_value)
 
     def _get_next_pipeline_to_add(self) -> tuple[int, float]:
-
         """Returns the next pipeline to add to the ensemble.
         The candidate is selected from the observed pipelines."""
 
-        ensemble_ids = np.array(self.ensemble).reshape(1,-1).repeat(len(self.X_obs),0)
-        observed_ids = np.array(self.X_obs).reshape(-1,1)
+        ensemble_ids = np.array(self.ensemble).reshape(1, -1).repeat(len(self.X_obs), 0)
+        observed_ids = np.array(self.X_obs).reshape(-1, 1)
         ensembles = np.concatenate((ensemble_ids, observed_ids), axis=1).tolist()
         _, y, _, _ = self.metadataset.evaluate_ensembles(ensembles)
         y = y.cpu().numpy()
@@ -115,7 +116,6 @@ class LocalEnsembleOptimization(BaseSearcher):
         np.random.shuffle(argmin_set)
         pipeline_id = self.X_obs[argmin_set[0]]
         return pipeline_id, y[argmin_set[0]].item()
-
 
     def suggest(
         self,
