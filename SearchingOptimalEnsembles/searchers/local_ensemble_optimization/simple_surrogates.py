@@ -38,10 +38,13 @@ class GaussianProcessSurrogate(BaseSurrogate):
     def __init__(self, kernel="matern", **args):
         super().__init__()
 
+        length_scale = args.get("length_scale", 1.0)
+        nu = args.get("nu", 1.5)
+
         if kernel == "rbf":
             kernel = ConstantKernel(1.0, constant_value_bounds="fixed") * RBF(1.0)
         elif kernel == "matern":
-            kernel = Matern(length_scale=1.0, nu=1.5)
+            kernel = Matern(length_scale=length_scale, nu=nu)
         else:
             print("Not specified kernel")
             kernel = None
@@ -54,10 +57,10 @@ class GaussianProcessSurrogate(BaseSurrogate):
 
 
 def create_surrogate(model_name, **args):
-    if model_name == "GP":
+    if model_name == "gp":
         model = GaussianProcessSurrogate(**args)
 
-    elif model_name == "RF":
+    elif model_name == "rf":
         model = RandomForestWithUncertainty(**args)
 
     else:

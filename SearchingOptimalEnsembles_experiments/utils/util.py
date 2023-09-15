@@ -35,6 +35,8 @@ COMPLEX_KEYS = {
             "activation_output",
             "score_with_rank",
         ],
+        "rf": ["num_estimators"],
+        "gp": [],
     },
     "acquisition_args": {
         "ei": ["beta"],

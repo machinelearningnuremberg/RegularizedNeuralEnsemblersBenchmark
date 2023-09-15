@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-import copy
-from pathlib import Path
-
 import numpy as np
-import torch
-import wandb
 from scipy.stats import norm as norm
 from typing_extensions import Literal
 
@@ -21,10 +16,14 @@ class LocalEnsembleOptimization(BaseSearcher):
         self,
         metadataset: BaseMetaDataset,
         patience: int = 50,
-        leo_surrogate_name: Literal["GP", "RF"] = "RF",
+        surrogate_name: Literal["rf", "gp"] = "rf",
+        surrogate_args: dict | None = None,
+        acquisition_args: dict | None = None,
         **kwargs,  # pylint: disable=unused-argument
     ):
         super().__init__(metadataset=metadataset, patience=patience)
+
+        assert surrogate_name in ["rf", "gp"]
 
         sampler_args = {
             "metadataset": self.metadataset,
@@ -44,21 +43,30 @@ class LocalEnsembleOptimization(BaseSearcher):
             kwargs=sampler_args,
         )
 
-        self.logger.debug("Initialized LocalEnsembleOptimization searcher.")
-        self.ensemble: list[int] | None = []
-        self.len_first_X_obs = 0
-        self._build_surrogate(surrogate_type=leo_surrogate_name)
+        if surrogate_args is None:
+            surrogate_args = {}
+        if acquisition_args is None:
+            acquisition_args = {}
 
-    def _build_surrogate(self, surrogate_type: str = "GP"):
+        self.logger.debug("Initialized LocalEnsembleOptimization searcher.")
+        self.ensemble: list[int] = []
+        self.len_first_X_obs = 0
+        self.surrogate_args = surrogate_args
+        self.surrogate_name = surrogate_name
+        self.beta = acquisition_args.get("beta", 0.0)
+        self._build_surrogate(**surrogate_args)
+
+    def _build_surrogate(self, **kwargs):
         """Builds the surrogate model.
         Args:
             - surrogate_type: str, the type of surrogate model to use.
         """
-
-        if surrogate_type == "GP":
-            self.surrogate = create_surrogate("GP")
-        elif surrogate_type == "RF":
-            self.surrogate = create_surrogate("RF", n_estimators=100)
+        if self.surrogate_name == "gp":
+            self.surrogate = create_surrogate("gp")
+        elif self.surrogate_name == "rf":
+            self.surrogate = create_surrogate(
+                "rf", n_estimators=kwargs.get("num_estimators", 100)
+            )
         else:
             raise NotImplementedError
 
@@ -72,9 +80,9 @@ class LocalEnsembleOptimization(BaseSearcher):
 
         return X, y
 
-    def EI(self, mean, sigma, incumbent, epsilon=0):
+    def EI(self, mean, sigma, incumbent):
         with np.errstate(divide="warn"):
-            imp = incumbent - mean - epsilon
+            imp = incumbent - mean - self.beta
             Z = imp / sigma
             ei = imp * norm.cdf(Z) + sigma * norm.pdf(Z)
             ei[sigma == 0.0] = 0.0
@@ -117,9 +125,7 @@ class LocalEnsembleOptimization(BaseSearcher):
     ) -> tuple[list[int], float]:
         # TODO: check on batch size
 
-        assert self.ensemble is not None
-
-        if self.ensemble is None:
+        if len(self.ensemble) == 0:
             self.ensemble = self.incumbent_ensemble
             self.len_first_X_obs = len(self.X_obs)
             i = 0

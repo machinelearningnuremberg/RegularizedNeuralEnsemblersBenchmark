@@ -20,7 +20,7 @@ def run(
     searcher_name: Literal["random", "bo"] = "bo",
     initial_design_size: int = 5,
     #############################################
-    surrogate_name: Literal["dkl", "dre"] = "dkl",
+    surrogate_name: Literal["dkl", "dre", "rf", "gp"] = "dkl",
     surrogate_args: dict | None = None,
     checkpoint_path: str | None = None,
     #############################################
