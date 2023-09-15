@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import abstractmethod
 
 import torch
+import numpy as np
 
 from ..metadatasets.base_metadataset import BaseMetaDataset
 from ..utils.logger import get_logger
@@ -30,9 +31,10 @@ class BaseSearcher:
         if patience < 1:
             raise ValueError("Patience should be at least 1")
 
-        self.X_obs = None
-        self.X_pending = None
-        self.incumbent = None
+        self.X_obs : np.array = None
+        self.X_pending : np.array = None
+        self.incumbent = np.inf
+        self.incumbent_ensemble : list[int] | None = None
 
         self.metadataset = metadataset
         self.patience = patience
@@ -43,9 +45,10 @@ class BaseSearcher:
 
     def set_state(
         self,
-        X_obs: torch.Tensor,
-        X_pending: torch.Tensor,
-        incumbent: torch.Tensor | None = None,
+        X_obs: np.array,
+        X_pending: np.array,
+        incumbent: float | None = None,
+        incumbent_ensemble: list[int] | None = None,
         **kwargs,  # pylint: disable=unused-argument
     ) -> None:
         """Set the state of the searcher.
@@ -56,6 +59,7 @@ class BaseSearcher:
         self.X_obs = X_obs
         self.X_pending = X_pending
         self.incumbent = incumbent
+        self.incumbent_ensemble = incumbent_ensemble
 
     @abstractmethod
     def suggest(self, **kwargs):

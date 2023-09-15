@@ -64,6 +64,8 @@ class BayesianOptimization(BaseSearcher):
             kwargs=sampler_args,
         )
 
+        assert surrogate_name in ["dkl", "dre"]
+
         default_args = ModelMapping[surrogate_name].default_config.copy()
         surrogate_args = {**default_args, **(surrogate_args or {})}
         surrogate_args.update(

@@ -59,6 +59,9 @@ if __name__ == "__main__":
     parser.add_argument("--num_heads", type=int, default=4)
     parser.add_argument("--num_seeds", type=int, default=1)
     parser.add_argument("--optional_dim", type=int, default=None)
+    ############################## LEO ARGS #######################################
+    parser.add_argument("--num_estimators", type=int, default=100)
+    parser.add_argument("--leo_surrogate_name", type=str, default="RF")
     ############################### ACQUISITION ARGS ##############################
     parser.add_argument("--acquisition_name", type=str, default="ei")
     parser.add_argument("--beta", type=float, default=0.0)
@@ -72,7 +75,7 @@ if __name__ == "__main__":
 
     set_seed(args.seed)
     logging.basicConfig(level=args.log_level.upper())
-
+    print(args)
     if not args.no_wandb:
         try:
             wandb.init(

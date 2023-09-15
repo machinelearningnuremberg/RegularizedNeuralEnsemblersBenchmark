@@ -22,7 +22,8 @@ results = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdic
 
 
 group_names = ["RS00", "DRE03", "DRE04", "DRE05", "DRE07"]
-group_names = ["RS00", "DRE06", "DRE03"]
+group_names = ["RS00", "DRE06", "LEO00"]
+until_iteration = 100
 
 for group_name in group_names:
     print("w")
@@ -43,13 +44,13 @@ for group_name in group_names:
             incumbent_values = [record["incumbent (norm)"] for record in history]
             iteration_values = [record["searcher_iteration"] for record in history]
 
-            results[max_num_pipelines][group_name][dataset_id] = incumbent_values
+            if len(incumbent_values) >= until_iteration:
+                results[max_num_pipelines][group_name][dataset_id] = incumbent_values[:until_iteration]
 
-until_iteration = 100
 num_datasets = 6
 num_groups = len(group_names)
 max_num_pipelines_values = [1, 2, 4, 6, 8, 10]
-group_names = ["RS00", "DRE06"]
+group_names = ["RS00", "DRE06", "LEO00"]
 for max_num_pipelines in max_num_pipelines_values:
     results_matrix = []
 
@@ -61,8 +62,8 @@ for max_num_pipelines in max_num_pipelines_values:
                 incumbent_values = results[max_num_pipelines][group_name][dataset_id]
             else:
                 omit_dataset = True
-            if len(incumbent_values) == until_iteration:
-                temp_results.append(incumbent_values)
+            if len(incumbent_values) >= until_iteration:
+                temp_results.append(incumbent_values[:until_iteration])
             else:
                 print(
                     "Problem with dataset_id:", dataset_id, "in group_name:", group_name
@@ -86,14 +87,14 @@ for max_num_pipelines in max_num_pipelines_values:
     plt.plot(rank.T)
     plt.legend(group_names)
     plt.savefig(
-        os.path.join(current_file_path, output_folder, f"rank4_{max_num_pipelines}.png")
+        os.path.join(current_file_path, output_folder, f"rank5_{max_num_pipelines}.png")
     )
 
     plt.figure()
     plt.plot(regret.T)
     plt.legend(group_names)
     plt.savefig(
-        os.path.join(current_file_path, output_folder, f"regret4_{max_num_pipelines}.png")
+        os.path.join(current_file_path, output_folder, f"regret5_{max_num_pipelines}.png")
     )
 
 

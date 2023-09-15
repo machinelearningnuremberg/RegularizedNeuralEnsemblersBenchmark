@@ -30,7 +30,7 @@ for i in range(num_experiments):
     #sample
     for key in config_space.keys():
         #value = random.choice(config_space[key])
-        if isinstance(config_space[key], list):
+        if hasattr(config_space[key], "__iter__"):
             for value in config_space[key]:
                 experiment_id = experiment_prefix + "_" + str(counter)
                 for j in range(6):
