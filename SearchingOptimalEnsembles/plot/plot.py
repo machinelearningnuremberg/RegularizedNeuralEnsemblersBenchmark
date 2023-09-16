@@ -1,367 +1,329 @@
 from __future__ import annotations
 
 import os
-from collections import defaultdict
+from functools import partial
 from pathlib import Path
+from typing import Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
-import wandb
+import pandas as pd
+from scipy.stats import rankdata
+
+from .utils import calc_mean_and_sem, fetch_results_and_configs
 
 BASE_FONT_SIZE = 14
 
 
-def fetch_results(
-    user_name: str,
-    project_name: str,
-    group_name: str,
-    metadatasets: list[str] | None = None,
-    algorithms: list[str] | None = None,
-    x_axis: str = "searcher_iteration",
-    y_axis: str = "incumbent (norm)",
+def _plot_single_subplot(
+    ax: plt.Axes,
+    data: pd.DataFrame,
+    dataset_name: str,
+    y_axis: str,
+    plot_function: Callable,
+    x_range: tuple | None = None,
+    log_x: bool = False,
+    log_y: bool = False,
 ):
-    api = wandb.Api()
-
-    # Dictionary to hold results
-    results: defaultdict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-
-    # Fetch runs
-    runs = api.runs(
-        f"{user_name}/{project_name}",
-        filters={"$and": [{"group": group_name}, {"state": "finished"}]},
-    )
-
-    # Algorithm filter, algorithms are passed as searcher_name + surrogate_name, joined by "_"
-    # e.g. "bo_dkl", let's get all possible searchers and surrogates
-    if algorithms is not None:
-        searcher_names = set()
-        surrogate_names = set()
-        for algorithm in algorithms:
-            searcher_name, surrogate_name = algorithm.split("_")
-            searcher_names.add(searcher_name)
-            surrogate_names.add(surrogate_name)
-
-    # Iterate over runs
-    for run in runs:
-        # Fetch the run name
-        full_run_name = run.name
-        identifier = full_run_name.rsplit("_", 1)[
-            0
-        ]  # Remove the last digit to get the identifier
-
-        # searcher_name, metadataset_name, surrogate_name = run.group.split("_")
-        metadataset_name = [
-            tag.split("=")[1] for tag in run.tags if "metadataset" in tag
-        ][0]
-        if metadatasets is not None and metadataset_name not in metadatasets:
-            continue
-        searcher_name = [tag.split("=")[1] for tag in run.tags if "searcher" in tag][0]
-        if algorithms is not None and searcher_name not in searcher_names:
-            continue
-        surrogate_name = [tag.split("=")[1] for tag in run.tags if "surrogate" in tag][0]
-        if algorithms is not None and surrogate_name not in surrogate_names:
-            continue
-        dataset_name = [tag.split("=")[1] for tag in run.tags if "dataset" in tag][0]
-        # seed = [tag.split("=")[1] for tag in run.tags if "seed" in tag][0]
-        meta_num_epochs = [
-            tag.split("=")[1] for tag in run.tags if "meta_num_epochs" in tag
-        ][0]
-        max_num_pipelines = [
-            tag.split("=")[1] for tag in run.tags if "max_num_pipelines" in tag
-        ][0]
-
-        # Include the identifier as part of the key
-        key = (
-            identifier,
-            searcher_name,
-            surrogate_name,
-            meta_num_epochs,
-            max_num_pipelines,
-        )
-
-        history = run.history(keys=[y_axis, x_axis], pandas=False)
-        if history:
-            # key = (searcher_name, surrogate_name, meta_num_epochs, max_num_pipelines)
-            incumbent_values = [record[y_axis] for record in history]
-            iteration_values = [record[x_axis] for record in history]
-
-            results[metadataset_name][dataset_name][key].append(
-                (iteration_values, incumbent_values)
-            )
-
-    return results
+    plot_function(ax, data, dataset_name=dataset_name, y_axis=y_axis)
+    if x_range:
+        ax.set_xlim(x_range)
+    if log_x:
+        ax.set_xscale("log")
+    if log_y:
+        ax.set_yscale("log")
 
 
-def plot_regret(
-    results: defaultdict,
+def plot_general(
+    results: pd.DataFrame,
     output_dir: Path,
-    x_range: tuple | None = None,
-    log_x: bool = False,
-    log_y: bool = False,
-    plot_name: str = "regret",
-    extension: str = "png",
-    dpi: int = 100,
-) -> None:
-    # Plot results
-    for metadataset_name, metadataset_results in results.items():
-        # num_datasets = len(metadataset_results)
-        fig, axs = plt.subplots(4, 3, figsize=(18, 18))  # 4 rows, 3 columns
-        fig.suptitle(
-            f"Metadataset: {metadataset_name}", fontsize=BASE_FONT_SIZE + 4, y=0.92
-        )
-
-        # Reduce space between subplots and legend
-        plt.subplots_adjust(hspace=0.4, wspace=0.4, bottom=0.15)
-
-        # Hide empty subplots
-        for ax_idx in range(
-            len(metadataset_results), 12
-        ):  # 4 rows x 3 columns = 12 subplots
-            row, col = divmod(ax_idx, 3)
-            axs[row, col].set_visible(False)
-
-        handles, labels = None, None
-        for ax_idx, (dataset_name, dataset_results) in enumerate(
-            metadataset_results.items()
-        ):
-            row, col = divmod(ax_idx, 3)  # 3 columns
-            ax = axs[row, col]
-
-            for key in dataset_results.keys():
-                all_iterations = []
-                all_incumbents = []
-
-                for iteration_values, incumbent_values in dataset_results[key]:
-                    all_iterations.append(
-                        iteration_values
-                    )  # Now we append the list instead of extending it
-                    all_incumbents.append(incumbent_values)  # Same here
-
-                # Convert to a numpy array and average over the first axis (assumed to be over seeds)
-                all_incumbents_array = np.array(all_incumbents)
-                mean_incumbents = np.mean(all_incumbents_array, axis=0)
-
-                # Calculate standard deviation and standard error
-                std_dev_incumbents = np.std(all_incumbents_array, axis=0)
-                num_seeds = all_incumbents_array.shape[0]
-                std_err_incumbents = std_dev_incumbents / np.sqrt(num_seeds)
-
-                # Make sure all lists have the same length before plotting
-                unique_iterations = sorted(
-                    set(all_iterations[0])
-                )  # Assuming all lists of iterations are identical
-
-                # if len(unique_iterations) != len(mean_incumbents):
-                #     raise ValueError(f"Mismatched dimensions: {len(unique_iterations)} vs {len(mean_incumbents)}")
-
-                (_,) = ax.plot(unique_iterations, mean_incumbents, label=str(key))
-                ax.fill_between(
-                    unique_iterations,
-                    mean_incumbents - std_err_incumbents,
-                    mean_incumbents + std_err_incumbents,
-                    alpha=0.3,
-                )
-
-                # Set the x-axis range
-                if x_range is not None:
-                    ax.set_xlim(x_range)
-
-                # Set the x-axis to log scale
-                if log_x:
-                    ax.set_xscale("log")
-
-                # Set the y-axis to log scale
-                if log_y:
-                    ax.set_yscale("log")
-
-            if col == 0:
-                ax.set_ylabel("Incumbent", fontsize=BASE_FONT_SIZE)
-
-            if row == 1:
-                ax.set_xlabel("Iteration", fontsize=BASE_FONT_SIZE)
-
-            if ax_idx == 0:
-                handles, labels = ax.get_legend_handles_labels()
-
-            ax.set_title(f"Dataset: {dataset_name}", fontsize=BASE_FONT_SIZE)
-
-        # Common legend below the entire figure
-        # Create a new axes for the legend at the bottom of the figure
-        legend_ax = fig.add_axes([0.1, 0.45, 0.8, 0.05])  # [left, bottom, width, height]
-
-        # Add the legend to the new axes
-        legend_ax.legend(handles, labels, loc="center", ncol=4, fontsize=BASE_FONT_SIZE)
-
-        # Hide the axes
-        legend_ax.axis("off")
-
-        # Save to disk
-        file_path = os.path.join(output_dir, f"{plot_name}.{extension}")
-        plt.savefig(file_path, bbox_inches="tight", dpi=dpi)
-        print(f"Plot saved to {file_path}")
-
-        # Close the figure to free up memory
-        plt.close(fig)
-
-
-def plot_aggregated_regret(
-    results: defaultdict,
-    output_dir: Path,
-    x_range: tuple | None = None,
-    log_x: bool = False,
-    log_y: bool = False,
-    plot_name: str = "aggregated_regret",
-    extension: str = "png",
-    dpi: int = 100,
-    force_name: bool = False,
-) -> None:
-    for metadataset_name, metadataset_results in results.items():
-        fig, ax = plt.subplots(figsize=(10, 8))  # Single plot per metadataset
-        fig.suptitle(
-            f"Metadataset: {metadataset_name}",
-            fontsize=BASE_FONT_SIZE + 4,
-        )
-
-        aggregated_data = defaultdict(list)
-
-        for _, dataset_configs in metadataset_results.items():
-            for config, runs in dataset_configs.items():
-                identifier = config[0]
-                searcher_name = config[1]
-                surrogate_name = config[2]
-                num_meta_epochs = config[3]
-                max_num_pipelines = config[4]
-                label = (
-                    identifier
-                    if force_name
-                    else f"{searcher_name}_{surrogate_name}_{num_meta_epochs}_{max_num_pipelines}"
-                )
-
-                for _, incumbent_values in runs:
-                    # Append incumbent values of each dataset to be aggregated later
-                    aggregated_data[label].append(incumbent_values)
-
-        for label, all_incumbents in aggregated_data.items():
-            # Convert to a numpy array and average over the first two axes (first over seeds, then over datasets)
-            all_incumbents_array = np.array(all_incumbents)
-
-            # Ensure it has three dimensions
-            if len(all_incumbents_array.shape) == 2:
-                all_incumbents_array = np.expand_dims(all_incumbents_array, axis=0)
-
-            mean_incumbents = np.mean(all_incumbents_array, axis=(0, 1))
-
-            # Calculate standard deviation and standard error
-            std_dev_incumbents = np.std(np.mean(all_incumbents_array, axis=1), axis=0)
-            num_seeds = all_incumbents_array.shape[0]
-            std_err_incumbents = std_dev_incumbents / np.sqrt(num_seeds)
-
-            # Assuming all lists of iterations are identical across datasets and runs
-            unique_iterations = np.array(range(len(mean_incumbents)))
-
-            # Plotting
-            ax.plot(unique_iterations, mean_incumbents, label=label)
-            ax.fill_between(
-                unique_iterations,
-                mean_incumbents - std_err_incumbents,
-                mean_incumbents + std_err_incumbents,
-                alpha=0.3,
-            )
-
-        # Common settings
-        ax.set_ylabel("Aggregated Normalized Regret", fontsize=BASE_FONT_SIZE)
-        ax.set_xlabel("Iteration", fontsize=BASE_FONT_SIZE)
-
-        if x_range is not None:
-            ax.set_xlim(x_range)
-
-        if log_x:
-            ax.set_xscale("log")
-
-        if log_y:
-            ax.set_yscale("log")
-
-        # If force_name is True, save legend separately
-        if force_name:
-            fig_legend = plt.figure(figsize=(3, 4))
-            handles, labels = ax.get_legend_handles_labels()
-            plt.figlegend(handles, labels, loc="center")
-            legend_file_path = os.path.join(
-                output_dir, f"{plot_name}_{metadataset_name}_legend.{extension}"
-            )
-            fig_legend.savefig(legend_file_path, bbox_inches="tight", dpi=dpi)
-            print(f"Legend saved to {legend_file_path}")
-            plt.close(fig_legend)
-        else:
-            ax.legend(loc="best", fontsize=BASE_FONT_SIZE)
-
-        # Save to disk
-        file_path = os.path.join(
-            output_dir, f"{plot_name}_{metadataset_name}.{extension}"
-        )
-        plt.savefig(file_path, bbox_inches="tight", dpi=dpi)
-        print(f"Plot saved to {file_path}")
-
-        # Close the figure to free up memory
-        plt.close(fig)
-
-
-def plot(
-    user_name: str,
-    project_name: str,
-    group_name: str,
-    output_dir: Path,
-    metadatasets: list[str] | None = None,
-    algorithms: list[str] | None = None,
-    plot_type: str = "regret",
-    normalize: bool = True,
+    plot_function: Callable,
+    subplot_shape: tuple | None = None,
     x_range: tuple | None = None,
     log_x: bool = False,
     log_y: bool = False,
     plot_name: str = "plot",
     extension: str = "png",
     dpi: int = 100,
+    y_axis: str = "incumbent",
 ) -> None:
-    x_axis = "searcher_iteration"
-    y_axis = "incumbent (norm)" if normalize else "incumbent"
-    plot_name = f"{plot_name}_normalized" if normalize else plot_name
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    for metadataset_name in results.index.get_level_values("metadataset_name").unique():
+        metadataset_data = results.xs(metadataset_name, level="metadataset_name", axis=0)
+
+        if subplot_shape:
+            nrows, ncols = subplot_shape
+            fig, axs = plt.subplots(nrows, ncols, figsize=(18, 18))
+            fig.subplots_adjust(hspace=0.5)
+            axs = axs.ravel()
+        else:
+            fig, ax = plt.subplots(figsize=(10, 8))
+            axs = [ax]  # make it a list for consistency
+
+        fig.suptitle(f"Metadataset: {metadataset_name}", fontsize=BASE_FONT_SIZE)
+
+        if subplot_shape:
+            num_visible_plots = len(
+                metadataset_data.index.get_level_values("dataset_name").unique()
+            )
+            last_visible_row = (num_visible_plots - 1) // ncols
+
+            for ax_idx, (dataset_name, dataset_data) in enumerate(
+                metadataset_data.groupby("dataset_name")
+            ):
+                _plot_single_subplot(
+                    ax=axs[ax_idx],
+                    data=dataset_data,
+                    dataset_name=dataset_name,
+                    y_axis=y_axis,
+                    plot_function=plot_function,
+                    x_range=x_range,
+                    log_x=log_x,
+                    log_y=log_y,
+                )
+                if ax_idx >= len(axs) - 1:
+                    break
+
+            # Hide the remaining subplots
+            for ax_idx in range(num_visible_plots, nrows * ncols):
+                axs[ax_idx].set_visible(False)
+
+            bbox_to_anchor = (0.5, 0.25 * (last_visible_row + 1))
+
+        else:
+            dataset_name, dataset_data = next(
+                iter(metadataset_data.groupby("dataset_name"))
+            )
+            _plot_single_subplot(
+                ax=ax,
+                data=dataset_data,
+                dataset_name=dataset_name,
+                y_axis=y_axis,
+                plot_function=plot_function,
+                x_range=x_range,
+                log_x=log_x,
+                log_y=log_y,
+            )
+
+            bbox_to_anchor = (0.5, 0.05)
+
+        # Add legend to the plot
+        handles, labels = axs[0].get_legend_handles_labels()
+        fig.legend(
+            handles,
+            labels,
+            loc="upper center",
+            bbox_to_anchor=bbox_to_anchor,
+            ncol=4,
+            bbox_transform=fig.transFigure,
+            fontsize=BASE_FONT_SIZE - 2,
+        )
+
+        file_path = os.path.join(
+            output_dir, f"{plot_name}_{metadataset_name}.{extension}"
+        )
+        plt.savefig(file_path, bbox_inches="tight", dpi=dpi)
+        print(f"Plot saved to {file_path}")
+        plt.close(fig)
+
+
+def regret_plot_function(
+    ax, df: pd.DataFrame, dataset_name: str, y_axis: str = "incumbent"
+):
+    # # Filter data for this particular dataset
+    # df = df.xs(dataset_name, level="dataset_name")
+
+    # Group by 'group_name' and 'dataset_name', and then apply the custom function
+    aggregated_data = df.groupby(["group_name", "dataset_name"]).apply(
+        lambda group_df: calc_mean_and_sem(group_df, y_axis)
+    )
+
+    for (group_name, _), (mean_values, sem_values) in aggregated_data.items():
+        ax.plot(mean_values, label=f"Group: {group_name}")
+        ax.fill_between(
+            range(len(mean_values)),
+            mean_values - sem_values,
+            mean_values + sem_values,
+            alpha=0.3,
+        )
+
+    ax.set_title(f"Dataset: {dataset_name}", fontsize=BASE_FONT_SIZE)
+    ax.set_xlabel("Iteration", fontsize=BASE_FONT_SIZE - 2)
+    ax.set_ylabel(y_axis, fontsize=BASE_FONT_SIZE - 2)
+
+
+def aggregated_regret_plot_function(
+    ax,
+    df: pd.DataFrame,
+    y_axis: str = "incumbent",
+    **kwargs,  # pylint: disable=unused-argument
+):
+    # Group by 'group_name' and then apply the custom function
+    aggregated_data = df.groupby(["group_name"]).apply(
+        lambda group_df: calc_mean_and_sem(group_df, y_axis)
+    )
+
+    for group_name, (mean_values, sem_values) in aggregated_data.items():
+        ax.plot(mean_values, label=f"Group: {group_name}")
+        ax.fill_between(
+            range(len(mean_values)),
+            mean_values - sem_values,
+            mean_values + sem_values,
+            alpha=0.3,
+        )
+
+    ax.set_xlabel("Iteration", fontsize=BASE_FONT_SIZE - 2)
+    ax.set_ylabel(y_axis, fontsize=BASE_FONT_SIZE - 2)
+
+
+def rank_plot_function(
+    ax, df: pd.DataFrame, dataset_name: str, y_axis: str = "incumbent"
+):
+    # Filter data for this particular dataset
+    df = df.xs(dataset_name, level="dataset_name")
+
+    # Group by 'group_name' and then apply your custom function to calculate mean and SEM
+    aggregated_data = df.groupby("group_name").apply(
+        lambda group_df: calc_mean_and_sem(group_df, y_axis)
+    )
+
+    # Find the number of iterations
+    first_group_data = aggregated_data.iloc[0]
+    num_iterations = len(first_group_data[0])
+
+    # Initialize a dictionary to store ranks for each group at each iteration
+    rank_over_time: dict = {group_name: [] for group_name in aggregated_data.index}
+
+    # Loop over each iteration and calculate ranks
+    for i in range(num_iterations):
+        iteration_means = [
+            data[0][i] if i < len(data[0]) else np.nan for data in aggregated_data
+        ]
+        ranks = rankdata(iteration_means, method="min")  # Ranks at this iteration
+        for j, group_name in enumerate(aggregated_data.index):
+            rank_over_time[group_name].append(ranks[j])
+
+    # Plotting ranks over time
+    for group_name, ranks in rank_over_time.items():
+        ax.plot(ranks, label=f"Group: {group_name}")
+
+    ax.set_title(f"Dataset: {dataset_name}", fontsize=BASE_FONT_SIZE)
+    ax.set_xlabel("Iteration", fontsize=BASE_FONT_SIZE - 2)
+    ax.set_ylabel("Rank", fontsize=BASE_FONT_SIZE - 2)
+
+
+def aggregated_rank_plot_function(
+    ax,
+    df: pd.DataFrame,
+    y_axis: str = "incumbent",
+    **kwargs,  # pylint: disable=unused-argument
+):
+    # Group by 'group_name' and apply custom function to calculate mean and SEM
+    aggregated_data = df.groupby(level="group_name").apply(
+        lambda group_df: calc_mean_and_sem(group_df, y_axis)
+    )
+
+    # Find the number of iterations
+    first_group_data = aggregated_data.iloc[0]
+    num_iterations = len(first_group_data[0])
+
+    # Initialize a dictionary to store ranks for each group at each iteration
+    rank_over_time: dict = {group_name: [] for group_name in aggregated_data.index}
+
+    # Loop over each iteration to calculate ranks
+    for i in range(num_iterations):
+        iteration_means = [
+            data[0][i] if i < len(data[0]) else np.nan for data in aggregated_data
+        ]
+        ranks = rankdata(iteration_means, method="min")
+        for j, group_name in enumerate(aggregated_data.index):
+            rank_over_time[group_name].append(ranks[j])
+
+    # Plotting ranks over time
+    for group_name, ranks in rank_over_time.items():
+        ax.plot(ranks, label=f"Group: {group_name}")
+
+    ax.set_xlabel("Iteration", fontsize=BASE_FONT_SIZE - 2)
+    ax.set_ylabel("Rank", fontsize=BASE_FONT_SIZE - 2)
+
+
+def plot(
+    user_name: str,
+    project_name: str,
+    group_names: list[str],
+    ######################################
+    output_dir: Path,
+    ######################################
+    plot_type: str = "regret",
+    unnormalize: bool = False,
+    per_dataset: bool = False,
+    ######################################
+    x_axis: str = "searcher_iteration",
+    y_axis: str = "incumbent",
+    ######################################
+    x_range: tuple | None = None,
+    log_x: bool = False,
+    log_y: bool = False,
+    #######################################
+    plot_name: str = "plot",
+    extension: str = "png",
+    dpi: int = 100,
+    #######################################
+) -> None:
+    plot_name = f"{plot_name}_{plot_type}"
+    if not unnormalize:
+        y_axis = f"{y_axis} (norm)"
+    plot_name = f"{plot_name}_aggregated" if not per_dataset else plot_name
+    plot_name = f"{plot_name}_normalized" if not unnormalize else plot_name
 
     # Create output directory, using path
     output_dir.mkdir(parents=True, exist_ok=True)
-    # Fetch results
-    results = fetch_results(
+    # Fetch results and configs
+    results, _ = fetch_results_and_configs(
         user_name=user_name,
         project_name=project_name,
-        group_name=group_name,
-        metadatasets=metadatasets,
-        algorithms=algorithms,
+        group_names=group_names,
         x_axis=x_axis,
         y_axis=y_axis,
     )
 
-    # Plot results§
+    plotting_function = partial(
+        plot_general,
+        results=results,
+        output_dir=output_dir,
+        x_range=x_range,
+        log_x=log_x,
+        log_y=log_y,
+        plot_name=plot_name,
+        extension=extension,
+        dpi=dpi,
+        y_axis=y_axis,
+    )
+
+    # Plot results
     if plot_type == "regret":
-        plot_regret(
-            results=results,
-            output_dir=output_dir,
-            x_range=x_range,
-            log_x=log_x,
-            log_y=log_y,
-            plot_name=plot_name,
-            extension=extension,
-            dpi=dpi,
-        )
-    elif plot_type == "aggregated_regret":
-        plot_aggregated_regret(
-            results=results,
-            output_dir=output_dir,
-            x_range=x_range,
-            log_x=log_x,
-            log_y=log_y,
-            plot_name=plot_name,
-            extension=extension,
-            dpi=dpi,
-            force_name=True,
-        )
+        if per_dataset:
+            plotting_function(
+                plot_function=regret_plot_function,
+                subplot_shape=(4, 3),
+            )
+        else:
+            plotting_function(
+                plot_function=aggregated_regret_plot_function,
+                subplot_shape=None,
+            )
+    elif plot_type == "rank":
+        if per_dataset:
+            plotting_function(
+                plot_function=rank_plot_function,
+                subplot_shape=(4, 3),
+            )
+        else:
+            plotting_function(
+                plot_function=aggregated_rank_plot_function,
+                subplot_shape=None,
+            )
     else:
         raise ValueError(f"Unknown plot type: {plot_type}")

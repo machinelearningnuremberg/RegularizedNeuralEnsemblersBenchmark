@@ -16,6 +16,9 @@ TAG_KEYS = [
     "acquisition_name",
     "meta_num_epochs",
     "max_num_pipelines",
+    "sampler_name",
+    "ensembler_name",
+    "dataset_id",
 ]
 
 if __name__ == "__main__":
@@ -95,5 +98,6 @@ if __name__ == "__main__":
     # Update wandb config
     if wandb.run is not None:
         wandb.config.update(config)
+        wandb.config.update({"seed": args.seed})
 
     SOE.run(**config)
