@@ -30,7 +30,7 @@ if __name__ == "__main__":
     parser.add_argument("--searcher_name", type=str, default="bo")
     parser.add_argument("--initial_design_size", type=int, default=5)
     ##############################################################################
-    parser.add_argument("--num_iterations", type=int, default=10)
+    parser.add_argument("--num_iterations", type=int, default=100)
     parser.add_argument("--max_num_pipelines", type=int, default=5)
     ##############################################################################
     parser.add_argument("--meta_num_epochs", type=int, default=0)

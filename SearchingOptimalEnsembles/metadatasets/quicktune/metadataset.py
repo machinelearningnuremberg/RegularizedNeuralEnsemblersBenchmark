@@ -166,6 +166,9 @@ class QuicktuneMetaDataset(BaseMetaDataset):
     def _get_hp_candidates_and_indices(self) -> tuple[torch.Tensor, torch.Tensor]:
         return self.hp_candidates, self.hp_candidates_ids
 
+    def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
+        return torch.nn.Softmax(dim=-1)(self.predictions[torch.LongTensor(ensembles)])
+
     def evaluate_ensembles(
         self, ensembles: list[list[int]]
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:

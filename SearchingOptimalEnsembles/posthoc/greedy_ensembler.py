@@ -1,35 +1,54 @@
-# from __future__ import annotations
+from __future__ import annotations
 
-# import torch
+import torch
+import numpy as np
+from ..metadatasets.base_metadataset import BaseMetaDataset
+from .base_ensembler import BaseEnsembler
 
-# from ..metadatasets.base_metadataset import BaseMetaDataset
-# from .base_ensembler import BaseEnsembler
+
+class GreedyEnsembler(BaseEnsembler):
+    """Greedy ensembler class."""
+
+    def __init__(
+        self,
+        metadataset: BaseMetaDataset,
+        device: torch.device = torch.device("cpu"),
+    ) -> None:
+        super().__init__(metadataset=metadataset, device=device)
+
+    def sample(
+        self,
+        X_obs,
+        # max_num_pipelines: int = 5,
+        # num_batches: int = 5,
+        # num_suggestions_per_batch: int = 1000,
+        **kwargs,
+    ) -> tuple[list, float]:
+        """Sample from the ensembler."""
 
 
-# class GreedyEnsembler(BaseEnsembler):
-#     """Greedy ensembler class."""
+        max_num_pipelines = kwargs.get("max_num_pipelines", 5)
+        ensemble : list[int] = []
+        best_metric = np.inf
+        X_obs = X_obs.reshape(-1,1).tolist()
 
-#     def __init__(
-#         self,
-#         metadataset: BaseMetaDataset,
-#         device: torch.device = torch.device("cpu"),
-#     ) -> None:
-#         super().__init__(metadataset=metadataset, device=device)
+        for i in range(max_num_pipelines):
+            print(f"GreedyEnsembler: {i}")
+            temp_ensembles = np.concatenate((np.array(X_obs),
+                                             np.array([ensemble]*len(X_obs))), axis = 1).astype(int).tolist()
+            (
+                pipeline_hps,
+                metric,
+                metric_per_pipeline,
+                time_per_pipeline,
+            ) = self.metadataset.evaluate_ensembles(ensembles=temp_ensembles)
 
-# def sample(
-#     self,
-#     X_obs,
-#     # max_num_pipelines: int = 5,
-#     # num_batches: int = 5,
-#     # num_suggestions_per_batch: int = 1000,
-#     **kwargs,
-# ) -> tuple[list, float]:
-#     """Sample from the ensembler."""
+            best_id = metric.argmin()
+            best_metric = metric.min()
+            ensemble.append(X_obs[best_id][0])
+            X_obs.pop(best_id)
 
-#     raise NotImplementedError
+        return ensemble, best_metric
 
-# best_score = np.inf
-# best_ensemble = None
-# for _ in range(num_batches):
-#     raise NotImplementedError
-# return best_ensemble, best_score
+
+

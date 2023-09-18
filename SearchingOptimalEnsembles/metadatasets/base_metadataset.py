@@ -216,3 +216,17 @@ class BaseMetaDataset:
             )
 
         return score
+
+    @abstractmethod
+    def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
+        """Get predictions for the given ensembles.
+
+        Args:
+            ensembles (list[list[int]]): Ensemble configuration. Shape is [B, N].
+            B = batch size (number of ensembles), N = number of pipelines per ensemble.
+
+        Returns:
+            torch.Tensor: The predictions tensor with the probability per class. Shape is [B, N, M, C].
+            M = number of samples, C = number of classes.
+        """
+        raise NotImplementedError

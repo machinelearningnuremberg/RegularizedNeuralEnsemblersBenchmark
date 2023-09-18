@@ -1,9 +1,11 @@
 # pylint: disable=all
 import torch
-
+import numpy as np
 import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
 import SearchingOptimalEnsembles.samplers.random_sampler as rs
 import SearchingOptimalEnsembles.samplers.local_search_sampler as lss
+import SearchingOptimalEnsembles.samplers.diversity_sampler as ds
+import SearchingOptimalEnsembles.posthoc.greedy_ensembler as ge
 
 
 def test_sampler(sampler):
@@ -50,6 +52,12 @@ if __name__ == "__main__":
     metadataset = qmd.QuicktuneMetaDataset(data_dir=DATA_DIR)
     dataset_names = metadataset.get_dataset_names()
     metadataset.set_state(dataset_names[0])
+
+    ensembler = ge.GreedyEnsembler(metadataset=metadataset, device=torch.device("cpu"))
+    ensembler.sample(np.array([1,2,3,4,5,6,7,8]))
+
+    sampler = ds.DiversitySampler(metadataset=metadataset, device=torch.device("cpu"))
+    sampler.sample(observed_pipeline_ids=[2,3,4,6])
 
     #test random sampler
     sampler = rs.RandomSampler(metadataset=metadataset, device=torch.device("cpu"))
