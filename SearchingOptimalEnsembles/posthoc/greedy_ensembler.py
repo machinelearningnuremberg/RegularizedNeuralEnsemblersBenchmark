@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import torch
 import numpy as np
+import torch
+
 from ..metadatasets.base_metadataset import BaseMetaDataset
 from .base_ensembler import BaseEnsembler
 
@@ -26,16 +27,20 @@ class GreedyEnsembler(BaseEnsembler):
     ) -> tuple[list, float]:
         """Sample from the ensembler."""
 
-
         max_num_pipelines = kwargs.get("max_num_pipelines", 5)
-        ensemble : list[int] = []
+        ensemble: list[int] = []
         best_metric = np.inf
-        X_obs = X_obs.reshape(-1,1).tolist()
+        X_obs = X_obs.reshape(-1, 1).tolist()
 
         for i in range(max_num_pipelines):
             print(f"GreedyEnsembler: {i}")
-            temp_ensembles = np.concatenate((np.array(X_obs),
-                                             np.array([ensemble]*len(X_obs))), axis = 1).astype(int).tolist()
+            temp_ensembles = (
+                np.concatenate(
+                    (np.array(X_obs), np.array([ensemble] * len(X_obs))), axis=1
+                )
+                .astype(int)
+                .tolist()
+            )
             (
                 pipeline_hps,
                 metric,
@@ -49,6 +54,3 @@ class GreedyEnsembler(BaseEnsembler):
             X_obs.pop(best_id)
 
         return ensemble, best_metric
-
-
-

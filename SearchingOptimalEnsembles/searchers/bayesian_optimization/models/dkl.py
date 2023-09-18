@@ -16,12 +16,12 @@ from .utils import ConfigurableMeta
 class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
     default_config = {
         "kernel_name": "matern",
-        "ard": False,
-        "nu": 2.5,
-        "hidden_dim": 64,
-        "num_heads": 4,
+        "ard": True,
+        "nu": 1.5,
+        "hidden_dim": 128,
+        "num_heads": 8,
         "num_seeds": 1,
-        "lr": 1e-3,
+        "lr": 1e-4,
         # "optional_dim": None,
     }
 

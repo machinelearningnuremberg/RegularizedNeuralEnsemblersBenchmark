@@ -13,16 +13,19 @@ from ...samplers import SamplerMapping
 from ...utils.common import instance_from_map
 from ..base_searcher import BaseSearcher
 
+
 class DivBO(BaseSearcher):
     """Diversity-aware Bayesian Optimization proposed in https://arxiv.org/pdf/2302.03255.pdf"""
 
-    def __init__(self,
-                 metadataset: BaseMetaDataset,
-                 patience: int = 50,):
+    def __init__(
+        self,
+        metadataset: BaseMetaDataset,
+        patience: int = 50,
+    ):
+        super().__init__(metadataset=metadataset, patience=patience)
 
-        super(DivBO, self).__init__(metadataset=metadataset, patience=patience)
-
-
-    def suggest(self,
-                max_num_pipelines: int = 1,):
+    def suggest(
+        self,
+        max_num_pipelines: int = 1,
+    ):
         pass

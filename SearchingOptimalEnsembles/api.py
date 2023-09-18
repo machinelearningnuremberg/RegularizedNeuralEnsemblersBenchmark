@@ -11,6 +11,7 @@ from .metadatasets import MetaDatasetMapping
 from .posthoc import EnsemblerMapping
 from .searchers import SearcherMapping
 from .utils.common import instance_from_map
+from .utils.logger import get_logger
 
 
 def run(
@@ -55,6 +56,8 @@ def run(
         sampler_name
         acquisition_name
     """
+
+    logger = get_logger(name="SEO-MAIN", logging_level="debug")
 
     metadataset = instance_from_map(
         MetaDatasetMapping,
@@ -103,6 +106,8 @@ def run(
         ), "Surrogate must be defined for meta-training."
         # TODO: assert that the surrogate can be meta_trained
 
+        logger.debug("Meta-training the surrogate...")
+
         searcher.meta_train_surrogate(
             num_epochs=meta_num_epochs,
             num_inner_epochs=meta_num_inner_epochs,
@@ -114,9 +119,14 @@ def run(
 
     # Set sampler based on the dataset id
     dataset_name = metadataset.meta_splits["meta-test"][dataset_id]
+
+    logger.debug(f"Using dataset: {dataset_name}")
+
     if wandb.run is not None:
-        wandb.run.tags += (f"dataset={dataset_name}",)
+        wandb.config.update({"dataset_id": dataset_name}, allow_val_change=True)
     searcher.sampler.set_state(dataset_name=dataset_name, meta_split="meta-test")
+
+    logger.debug("Sampling initial design...")
 
     # Sample initial design
     _, metric, _, _, ensembles = searcher.initial_design_sampler.sample(
@@ -131,6 +141,9 @@ def run(
     X_pending = np.setdiff1d(X_pending, X_obs)
     incumbent = torch.min(metric).item()
     incumbent_ensemble = ensembles[torch.argmin(metric).item()]
+
+    logger.info(f"Initial incumbent: {incumbent}")
+    logger.debug("Starting search...")
 
     # Main search loop
     for iteration in range(num_iterations):
@@ -170,6 +183,12 @@ def run(
         if observed_metric < incumbent:
             incumbent = observed_metric.item()
             incumbent_ensemble = suggested_ensemble
+
+            logger.info(
+                f"Iteration: {iteration}/{num_iterations} - New incumbent: {incumbent}"
+            )
+        else:
+            logger.info(f"Iteration: {iteration}/{num_iterations}")
 
         if wandb.run is not None:
             wandb.log({"searcher_iteration": iteration, "incumbent": incumbent})

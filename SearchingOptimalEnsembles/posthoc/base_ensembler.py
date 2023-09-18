@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 
+import numpy as np
 import torch
 import numpy as np
 
@@ -22,7 +23,6 @@ class BaseEnsembler:
         self.device = device
 
     @abstractmethod
-    def sample(self, X_obs: np.array,
-               **kwargs) -> tuple[list, float]:
+    def sample(self, X_obs: np.array, **kwargs) -> tuple[list, float]:
         """Sample from the ensembler."""
         raise NotImplementedError

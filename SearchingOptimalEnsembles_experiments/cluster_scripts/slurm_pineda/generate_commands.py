@@ -1,6 +1,9 @@
 # type: ignore
 # pylint: skip-file
 
+import itertools
+import random
+
 import random
 import itertools
 config_space = {
@@ -14,17 +17,19 @@ config_space = {
 
 config_space = {"max_num_pipelines": [1, 2, 4, 6, 8, 10]}
 
-config_space = {"max_num_pipelines": [1,2],
-                "num_estimators": [10, 100, 500],
-                "beta": [0.0, 0.01, 0.1]}
+config_space = {
+    "max_num_pipelines": [1, 2],
+    "num_estimators": [10, 100, 500],
+    "beta": [0.0, 0.01, 0.1],
+}
 
 conf_list = []
 
-#base_command = (
+# base_command = (
 #    "--surrogate_name dre --beta 0.01 --score_with_rank 1 --activation_output sigmoid"
 #    " --criterion_type weighted_listwise --num_inner_epochs 100 --acquisition_name lcb"
 #    " --log-wandb"
-#)
+# )
 # base_command = "--surrogate_name dre --beta 0.01 --score_with_rank 1 --activation_output sigmoid" \
 #               " --criterion_type weighted_listwise --num_inner_epochs 1000 --acquisition_name lcb" \
 #               " --log-wandb"
@@ -49,7 +54,7 @@ for i in range(num_seeds):
         temp_command += " --run_name " + experiment_id
         temp_command += " --seed " + str(i)
 
-        #cartesian product of lists with itertools
+        # cartesian product of lists with itertools
         for k, combination in enumerate(catersian_product):
             temp_command2 = temp_command
             # value = random.choice(config_space[key])
