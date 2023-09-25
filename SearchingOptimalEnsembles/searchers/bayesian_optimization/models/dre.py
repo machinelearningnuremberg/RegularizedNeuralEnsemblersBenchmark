@@ -36,7 +36,7 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
         device: torch.device = torch.device("cpu"),
         #############################################
         hidden_dim: int = 64,
-        hidden_dim_ff: int = 32,
+        hidden_dim_ff: int = 128,
         num_heads: int = 4,
         num_seeds: int = 1,
         out_dim: int = 32,
@@ -62,7 +62,7 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
         dim_in = self.sampler.metadataset.feature_dim
         assert dim_in is not None, "Feature dimension is None"
         if add_y:
-            dim_in += 1
+            dim_in += 2  # counting y and the mask
 
         self.encoder = SetTransformer(dim_in, hidden_dim, num_heads, num_seeds, out_dim)
         self.num_encoders = num_encoders
@@ -113,7 +113,9 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
         batch_size, num_pipelines, _ = pipeline_hps.shape
         batches = [
             self.sampler.sample(
-                fixed_num_pipelines=self.num_context_pipelines, batch_size=batch_size
+                fixed_num_pipelines=self.num_context_pipelines,
+                batch_size=batch_size,
+                observed_pipeline_ids=self.observed_pipeline_ids,
             )
             for _ in range(self.num_encoders - 1)
         ]
@@ -141,6 +143,7 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
             ]
             if np.isnan(k):
                 self.logger.debug("Kendall tau is nan!!!")
+
         self.logger.debug(f"Avg. Kendall tau: {k / len(y_pred)}")
         loss.backward()
         self.optimizer.step()
@@ -160,14 +163,16 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
                     if self.training:
                         y[i], mask = self.mask_y(y[i], x[i].shape, x[i].device)
                     else:
-                        mask = torch.ones(y[i].shape).bool().to(x[i].device)
+                        # mask = torch.ones(y[i].shape).bool().to(x[i].device)
+                        mask = ~torch.isnan(y[i]).unsqueeze(-1)
                         y[i] = y[i].to(x[i].device).unsqueeze(-1)
+                        y[i][~mask] = 0
                     mean = y[i][mask].mean()
                     std = y[i][mask].std()
                     if torch.isnan(std) or std == 0:
                         std = 1
                     y[i] = (y[i] - mean) / std
-                    temp_x = torch.cat([x[i], y[i]], axis=-1)
+                    temp_x = torch.cat([x[i], y[i], mask.int()], axis=-1)
             else:
                 temp_x = x[i]
             temp_x = self.encoder(temp_x)
@@ -180,14 +185,13 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
             x = nn.ReLU()(x)
             x = layer(x)
         x = nn.ReLU()(x)
-        #x = nn.Sigmoid()(x)
+        # x = nn.Sigmoid()(x)
 
         if self.activation_output == "sigmoid":
             out = [nn.Sigmoid()(f(x)) for f in self.out_layer]
         else:
             out = [f(x) for f in self.out_layer]
         return out
-
 
     def predict(
         self,
@@ -196,11 +200,15 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
         score_with_rank: bool = False,
         max_num_pipelines: int | None = None,
     ):
+        self.eval()
+
         with torch.no_grad():
             batch_size, num_pipelines, _ = x.shape
             batches = [
                 self.sampler.sample(
-                    fixed_num_pipelines=self.num_context_pipelines, batch_size=batch_size
+                    fixed_num_pipelines=self.num_context_pipelines,
+                    batch_size=batch_size,
+                    observed_pipeline_ids=self.observed_pipeline_ids,
                 )
                 for _ in range(self.num_encoders - 1)
             ]
@@ -282,4 +290,3 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
 
         self.load_state_dict(ckpt["model"])
         self.optimizer.load_state_dict(ckpt["optimizer"])
-

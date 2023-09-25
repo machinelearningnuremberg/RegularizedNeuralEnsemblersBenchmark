@@ -8,10 +8,12 @@ from ...metadatasets.base_metadataset import BaseMetaDataset
 from ...samplers import SamplerMapping
 from ...utils.common import instance_from_map
 from ..base_searcher import BaseSearcher
-from .simple_surrogates import create_surrogate
+from ..simple_surrogates import create_surrogate
 
 
 class LocalEnsembleOptimization(BaseSearcher):
+    """Implements Bayesian Optimization for Ensemble Learning:  https://arxiv.org/abs/1605.06394"""
+
     def __init__(
         self,
         metadataset: BaseMetaDataset,
@@ -23,7 +25,7 @@ class LocalEnsembleOptimization(BaseSearcher):
     ):
         super().__init__(metadataset=metadataset, patience=patience)
 
-        assert surrogate_name in ["rf", "gp"]
+        assert surrogate_name in ["rf", "gp", "lightgbm"]
 
         sampler_args = {
             "metadataset": self.metadataset,
@@ -67,6 +69,10 @@ class LocalEnsembleOptimization(BaseSearcher):
             self.surrogate = create_surrogate(
                 "rf", n_estimators=kwargs.get("num_estimators", 100)
             )
+        elif self.surrogate_name == "lightgbm":
+            self.surrogate = create_surrogate(
+                "lightgbm", n_estimators=kwargs.get("num_estimators", 100), verbose=-1
+            )
         else:
             raise NotImplementedError
 
@@ -101,7 +107,7 @@ class LocalEnsembleOptimization(BaseSearcher):
         mean, sigma = self.surrogate.predict(hp_pipelines)
         acq_value = -self.EI(mean, sigma, self.incumbent)
 
-        return np.argmin(acq_value)
+        return self.X_pending[np.argmin(acq_value)]
 
     def _get_next_pipeline_to_add(self) -> tuple[int, float]:
         """Returns the next pipeline to add to the ensemble.

@@ -49,6 +49,7 @@ class BaseSearcher:
         X_pending: np.array,
         incumbent: float | None = None,
         incumbent_ensemble: list[int] | None = None,
+        iteration: int | None = None,
         **kwargs,  # pylint: disable=unused-argument
     ) -> None:
         """Set the state of the searcher.
@@ -60,6 +61,7 @@ class BaseSearcher:
         self.X_pending = X_pending
         self.incumbent = incumbent
         self.incumbent_ensemble = incumbent_ensemble
+        self.iteration = iteration
 
     @abstractmethod
     def suggest(self, **kwargs):
