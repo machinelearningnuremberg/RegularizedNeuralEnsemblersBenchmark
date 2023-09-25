@@ -4,6 +4,8 @@
 import itertools
 import random
 
+import random
+import itertools
 config_space = {
     "beta": [0.0, 0.01, 0.1, 1],
     "score_with_rank": [0, 1],
