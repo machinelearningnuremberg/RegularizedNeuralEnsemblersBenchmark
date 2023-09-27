@@ -127,8 +127,8 @@ def run(
 
     logger.debug(f"Using dataset: {dataset_name}")
 
-    if wandb.run is not None:
-        wandb.config.update({"dataset_id": dataset_name}, allow_val_change=True)
+    # if wandb.run is not None:
+    #     wandb.config.update({"dataset_id": dataset_name}, allow_val_change=True)
     searcher.sampler.set_state(dataset_name=dataset_name, meta_split="meta-test")
 
     logger.debug("Sampling initial design...")
