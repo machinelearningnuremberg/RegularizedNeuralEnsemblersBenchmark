@@ -53,6 +53,7 @@ if __name__ == "__main__":
     ############################ COMMON SURROGATE ARGS ############################
     parser.add_argument("--surrogate_name", type=str, default="dkl")
     parser.add_argument("--hidden_dim", type=int, default=64)
+    parser.add_argument("--out_dim", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-3)
     ############################## DRE SURROGATE ARGS #############################
     parser.add_argument("--criterion_type", type=str, default="weighted_listwise")

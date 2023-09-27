@@ -26,9 +26,19 @@ def set_seed(seed: int):
 
 COMPLEX_KEYS = {
     "surrogate_args": {
-        "dkl": ["kernel_name", "ard", "nu", "hidden_dim", "num_heads", "num_seeds", "lr"],
+        "dkl": [
+            "kernel_name",
+            "ard",
+            "nu",
+            "hidden_dim",
+            "out_dim",
+            "num_heads",
+            "num_seeds",
+            "lr",
+        ],
         "dre": [
             "hidden_dim",
+            "out_dim",
             "num_heads",
             "num_seeds",
             "num_layers_ff",

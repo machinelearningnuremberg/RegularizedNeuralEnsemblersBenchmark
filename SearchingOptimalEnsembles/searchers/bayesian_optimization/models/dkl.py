@@ -19,6 +19,7 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         "ard": True,
         "nu": 1.5,
         "hidden_dim": 128,
+        "out_dim": 20,
         "num_heads": 8,
         "num_seeds": 1,
         "lr": 1e-4,
@@ -35,6 +36,7 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         ard: bool = False,
         nu: float = 2.5,
         hidden_dim: int = 64,
+        out_dim: int = 20,
         num_heads: int = 4,
         num_seeds: int = 1,
         lr: float = 1e-3,
@@ -50,6 +52,7 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
             hidden_dim=hidden_dim,
             num_heads=num_heads,
             num_seeds=num_seeds,
+            out_dim=out_dim,
             # optional_dim=optional_dim,
         ).to(self.device)
 
@@ -71,7 +74,7 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         gpytorch.likelihoods.GaussianLikelihood,
         gpytorch.mlls.ExactMarginalLogLikelihood,
     ]:
-        train_x = torch.ones(train_size, self.encoder.dim_out).to(self.device)
+        train_x = torch.ones(train_size, self.encoder.out_dim).to(self.device)
         train_y = torch.ones(train_size).to(self.device)
 
         likelihood = gpytorch.likelihoods.GaussianLikelihood()
@@ -79,7 +82,7 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
             train_x=train_x,
             train_y=train_y,
             likelihood=likelihood,
-            dims=self.encoder.dim_out,
+            dims=self.encoder.out_dim,
             kernel_name=kernel_name,
             ard=ard,
             nu=nu,
@@ -118,10 +121,9 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         self.likelihood.train()
 
         self.optimizer.zero_grad()
-        z = self.encoder(pipeline_hps)
+        z = self.encoder(pipeline_hps).squeeze()
         self.model.set_train_data(inputs=z, targets=metric, strict=False)
         predictions = self.model(z)
-
         loss = -self.mll(predictions, self.model.train_targets)
         loss.backward()
         self.optimizer.step()
@@ -145,7 +147,7 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         self.likelihood.eval()
 
         with torch.no_grad():
-            z = self.encoder(pipeline_hps)
+            z = self.encoder(pipeline_hps).squeeze()
             predictions = self.model(z)
 
             mse = torch.nn.MSELoss()
@@ -168,7 +170,7 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         self.likelihood.eval()
 
         with torch.no_grad():
-            z_query = self.encoder(x).detach()
+            z_query = self.encoder(x).squeeze().detach()
             pred = self.likelihood(self.model(z_query))
 
         return pred.mean, pred.stddev
@@ -191,7 +193,7 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
                 max_num_pipelines=num_pipelines,
             )
             y_obs_list.append(metric)
-            z_support = self.encoder(pipeline_hps).detach()
+            z_support = self.encoder(pipeline_hps).squeeze().detach()
             X_obs_list.append(z_support)
 
         # Concatenate the lists to form tensors
