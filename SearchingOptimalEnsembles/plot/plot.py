@@ -18,14 +18,16 @@ BASE_FONT_SIZE = 14
 def _plot_single_subplot(
     ax: plt.Axes,
     data: pd.DataFrame,
-    dataset_name: str,
     y_axis: str,
     plot_function: Callable,
+    dataset_name: str | None = None,
     x_range: tuple | None = None,
     log_x: bool = False,
     log_y: bool = False,
 ):
     plot_function(ax, data, dataset_name=dataset_name, y_axis=y_axis)
+    # Set tight autoscaling
+    ax.autoscale(enable=True, axis="x", tight=True)
     if x_range:
         ax.set_xlim(x_range)
     if log_x:
@@ -93,13 +95,9 @@ def plot_general(
             bbox_to_anchor = (0.5, 0.25 * (last_visible_row + 1))
 
         else:
-            dataset_name, dataset_data = next(
-                iter(metadataset_data.groupby("dataset_name"))
-            )
             _plot_single_subplot(
                 ax=ax,
-                data=dataset_data,
-                dataset_name=dataset_name,
+                data=metadataset_data,
                 y_axis=y_axis,
                 plot_function=plot_function,
                 x_range=x_range,
@@ -132,9 +130,6 @@ def plot_general(
 def regret_plot_function(
     ax, df: pd.DataFrame, dataset_name: str, y_axis: str = "incumbent"
 ):
-    # # Filter data for this particular dataset
-    # df = df.xs(dataset_name, level="dataset_name")
-
     # Group by 'group_name' and 'dataset_name', and then apply the custom function
     aggregated_data = df.groupby(["group_name", "dataset_name"]).apply(
         lambda group_df: calc_mean_and_sem(group_df, y_axis)
@@ -160,17 +155,54 @@ def aggregated_regret_plot_function(
     y_axis: str = "incumbent",
     **kwargs,  # pylint: disable=unused-argument
 ):
-    # Group by 'group_name' and then apply the custom function
-    aggregated_data = df.groupby(["group_name"]).apply(
-        lambda group_df: calc_mean_and_sem(group_df, y_axis)
+    all_datasets = df.index.get_level_values("dataset_name").unique()
+
+    # Placeholder for the final aggregated DataFrame for all datasets
+    all_regrets_dfs = []
+
+    # Iterate over each dataset
+    for dataset_name in all_datasets:
+        # Filter data to match the current dataset
+        dataset_df = df.loc[
+            (slice(None), dataset_name, slice(None)), :
+        ]  # Using slicers to select the appropriate rows
+
+        # Group by 'group_name' and then apply the custom function
+        aggregated_data = dataset_df.groupby(["group_name"]).apply(
+            lambda group_df: calc_mean_and_sem(group_df, y_axis)
+        )
+
+        # Convert aggregated_data (which has mean and SEM) to a DataFrame with MultiIndex columns
+        stats_df = pd.DataFrame(
+            aggregated_data.tolist(), columns=["mean", "sem"], index=aggregated_data.index
+        )
+        stats_df.columns = pd.MultiIndex.from_product([[dataset_name], stats_df.columns])
+
+        all_regrets_dfs.append(stats_df)
+
+    # Concatenate all DataFrames to get the final DataFrame with all datasets
+    all_regrets_df = pd.concat(all_regrets_dfs, axis=1)
+
+    # Calculate mean and SEM across datasets
+    mean_df = all_regrets_df.xs("mean", level=1, axis=1)
+    mean_across_datasets = mean_df.apply(
+        lambda row: np.mean(np.array(row.tolist()), axis=0), axis=1
     )
 
-    for group_name, (mean_values, sem_values) in aggregated_data.items():
-        ax.plot(mean_values, label=f"Group: {group_name}")
+    sem_df = all_regrets_df.xs("sem", level=1, axis=1)
+    sem_across_datasets = sem_df.apply(
+        lambda row: np.mean(np.array(row.tolist()), axis=0), axis=1
+    )
+
+    # Assuming that each list of means or sems has the same length
+    x = range(len(mean_across_datasets.iloc[0]))
+
+    for group_name, mean_values in mean_across_datasets.iteritems():
+        ax.plot(x, mean_values, label=f"Group: {group_name}")
         ax.fill_between(
-            range(len(mean_values)),
-            mean_values - sem_values,
-            mean_values + sem_values,
+            x,
+            mean_values - sem_across_datasets[group_name],
+            mean_values + sem_across_datasets[group_name],
             alpha=0.3,
         )
 
@@ -179,35 +211,33 @@ def aggregated_regret_plot_function(
 
 
 def rank_plot_function(
-    ax, df: pd.DataFrame, dataset_name: str, y_axis: str = "incumbent"
+    ax,
+    df: pd.DataFrame,
+    dataset_name: str,
+    y_axis: str = "incumbent",
+    **kwargs,  # pylint: disable=unused-argument
 ):
-    # Filter data for this particular dataset
-    df = df.xs(dataset_name, level="dataset_name")
+    # Filter data to match the current dataset
+    dataset_df = df.loc[
+        (slice(None), dataset_name, slice(None)), :
+    ]  # Using slicers to select the appropriate rows
 
-    # Group by 'group_name' and then apply your custom function to calculate mean and SEM
-    aggregated_data = df.groupby("group_name").apply(
+    # Group by 'group_name' and then apply the custom function
+    aggregated_data = dataset_df.groupby(["group_name"]).apply(
         lambda group_df: calc_mean_and_sem(group_df, y_axis)
     )
 
-    # Find the number of iterations
-    first_group_data = aggregated_data.iloc[0]
-    num_iterations = len(first_group_data[0])
+    # Convert aggregated_data (which has mean and SEM) to a DataFrame
+    mean_values_df = pd.DataFrame(
+        {group: data[0] for group, data in aggregated_data.items()}
+    )
+    # For each iteration, rank the groups
+    ranks = mean_values_df.apply(rankdata, axis=1)
+    rank_df = pd.DataFrame(ranks.tolist(), columns=mean_values_df.columns)
 
-    # Initialize a dictionary to store ranks for each group at each iteration
-    rank_over_time: dict = {group_name: [] for group_name in aggregated_data.index}
-
-    # Loop over each iteration and calculate ranks
-    for i in range(num_iterations):
-        iteration_means = [
-            data[0][i] if i < len(data[0]) else np.nan for data in aggregated_data
-        ]
-        ranks = rankdata(iteration_means, method="min")  # Ranks at this iteration
-        for j, group_name in enumerate(aggregated_data.index):
-            rank_over_time[group_name].append(ranks[j])
-
-    # Plotting ranks over time
-    for group_name, ranks in rank_over_time.items():
-        ax.plot(ranks, label=f"Group: {group_name}")
+    # Plot the rank data
+    for group in rank_df.columns:
+        ax.plot(rank_df[group], label=f"Group: {group}")
 
     ax.set_title(f"Dataset: {dataset_name}", fontsize=BASE_FONT_SIZE)
     ax.set_xlabel("Iteration", fontsize=BASE_FONT_SIZE - 2)
@@ -220,30 +250,44 @@ def aggregated_rank_plot_function(
     y_axis: str = "incumbent",
     **kwargs,  # pylint: disable=unused-argument
 ):
-    # Group by 'group_name' and apply custom function to calculate mean and SEM
-    aggregated_data = df.groupby(level="group_name").apply(
-        lambda group_df: calc_mean_and_sem(group_df, y_axis)
-    )
+    # all_groups = df.index.get_level_values('group_name').unique()
+    all_datasets = df.index.get_level_values("dataset_name").unique()
 
-    # Find the number of iterations
-    first_group_data = aggregated_data.iloc[0]
-    num_iterations = len(first_group_data[0])
+    # Placeholder to store rank data for plotting, using a dict for ease of concatenation later
+    all_ranks = {}
 
-    # Initialize a dictionary to store ranks for each group at each iteration
-    rank_over_time: dict = {group_name: [] for group_name in aggregated_data.index}
+    # Iterate over each dataset
+    for dataset_name in all_datasets:
+        # Filter data to match the current dataset
+        dataset_df = df.loc[
+            (slice(None), dataset_name, slice(None)), :
+        ]  # Using slicers to select the appropriate rows
 
-    # Loop over each iteration to calculate ranks
-    for i in range(num_iterations):
-        iteration_means = [
-            data[0][i] if i < len(data[0]) else np.nan for data in aggregated_data
-        ]
-        ranks = rankdata(iteration_means, method="min")
-        for j, group_name in enumerate(aggregated_data.index):
-            rank_over_time[group_name].append(ranks[j])
+        # Group by 'group_name' and then apply the custom function
+        aggregated_data = dataset_df.groupby(["group_name"]).apply(
+            lambda group_df: calc_mean_and_sem(group_df, y_axis)
+        )
 
-    # Plotting ranks over time
-    for group_name, ranks in rank_over_time.items():
-        ax.plot(ranks, label=f"Group: {group_name}")
+        # Convert aggregated_data (which has mean and SEM) to a DataFrame
+        mean_values_df = pd.DataFrame(
+            {group: data[0] for group, data in aggregated_data.items()}
+        )
+        # For each iteration, rank the groups
+        ranks = mean_values_df.apply(rankdata, axis=1)
+        rank_df = pd.DataFrame(ranks.tolist(), columns=mean_values_df.columns)
+
+        # Store ranks in our dict
+        all_ranks[dataset_name] = rank_df
+
+    # Concatenate all DataFrames along columns axis
+    all_ranks_df = pd.concat(all_ranks.values(), keys=all_ranks.keys(), axis=1)
+
+    # Calculate average ranks across datasets
+    mean_ranks_df = all_ranks_df.mean(level=1, axis=1)
+
+    # Plot the rank data
+    for group in mean_ranks_df.columns:
+        ax.plot(mean_ranks_df[group], label=f"Group: {group}")
 
     ax.set_xlabel("Iteration", fontsize=BASE_FONT_SIZE - 2)
     ax.set_ylabel("Rank", fontsize=BASE_FONT_SIZE - 2)
