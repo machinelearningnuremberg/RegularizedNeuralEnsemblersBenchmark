@@ -62,7 +62,7 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
         dim_in = self.sampler.metadataset.feature_dim
         assert dim_in is not None, "Feature dimension is None"
         if add_y:
-            dim_in += 2 # counting y and the mask
+            dim_in += 2  # counting y and the mask
 
         self.encoder = SetTransformer(dim_in, hidden_dim, num_heads, num_seeds, out_dim)
         self.num_encoders = num_encoders
@@ -164,7 +164,7 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
                     if self.training:
                         y[i], mask = self.mask_y(y[i], x[i].shape, x[i].device)
                     else:
-                        #mask = torch.ones(y[i].shape).bool().to(x[i].device)
+                        # mask = torch.ones(y[i].shape).bool().to(x[i].device)
                         mask = ~torch.isnan(y[i]).unsqueeze(-1)
                         y[i] = y[i].to(x[i].device).unsqueeze(-1)
                         y[i][~mask] = 0
@@ -186,14 +186,13 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
             x = nn.ReLU()(x)
             x = layer(x)
         x = nn.ReLU()(x)
-        #x = nn.Sigmoid()(x)
+        # x = nn.Sigmoid()(x)
 
         if self.activation_output == "sigmoid":
             out = [nn.Sigmoid()(f(x)) for f in self.out_layer]
         else:
             out = [f(x) for f in self.out_layer]
         return out
-
 
     def predict(
         self,
@@ -211,7 +210,7 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
                 self.sampler.sample(
                     fixed_num_pipelines=self.num_context_pipelines,
                     batch_size=batch_size,
-                    observed_pipeline_ids=self.observed_pipeline_ids
+                    observed_pipeline_ids=self.observed_pipeline_ids,
                 )
                 for _ in range(self.num_encoders - 1)
             ]
@@ -293,4 +292,3 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
 
         self.load_state_dict(ckpt["model"])
         self.optimizer.load_state_dict(ckpt["optimizer"])
-

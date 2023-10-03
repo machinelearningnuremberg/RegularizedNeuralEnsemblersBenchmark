@@ -295,9 +295,9 @@ class BayesianOptimization(BaseSearcher):
                 ).to(self.device)
 
                 # for DRE, ideally should be in DRE
-                #new_metric_per_pipeline = torch.zeros(len(new_pipeline_hps), 1)
+                # new_metric_per_pipeline = torch.zeros(len(new_pipeline_hps), 1)
                 shape = (len(new_pipeline_hps), 1)
-                new_metric_per_pipeline = torch.full(shape, float('nan'))
+                new_metric_per_pipeline = torch.full(shape, float("nan"))
                 metric_per_pipeline = torch.cat(
                     (metric_per_pipeline, new_metric_per_pipeline), dim=1
                 ).to(self.device)

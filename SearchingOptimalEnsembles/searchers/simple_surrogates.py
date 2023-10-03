@@ -1,8 +1,9 @@
 import numpy as np
+from lightgbm import LGBMRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, Matern
-from lightgbm import LGBMRegressor
+
 
 class BaseSurrogate:
     def __init__(self):

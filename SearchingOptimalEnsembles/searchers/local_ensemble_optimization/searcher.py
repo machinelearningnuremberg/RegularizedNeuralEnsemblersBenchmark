@@ -70,8 +70,7 @@ class LocalEnsembleOptimization(BaseSearcher):
             )
         elif self.surrogate_name == "lightgbm":
             self.surrogate = create_surrogate(
-                "lightgbm", n_estimators=kwargs.get("num_estimators", 100),
-                            verbose=-1
+                "lightgbm", n_estimators=kwargs.get("num_estimators", 100), verbose=-1
             )
         else:
             raise NotImplementedError

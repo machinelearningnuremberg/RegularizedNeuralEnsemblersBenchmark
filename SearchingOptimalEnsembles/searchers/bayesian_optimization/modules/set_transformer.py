@@ -79,7 +79,7 @@ class SetTransformer(nn.Module):
             PMA(dim=hidden_dim, num_heads=hidden_dim, num_seeds=num_seeds),
             nn.Linear(in_features=hidden_dim, out_features=out_dim),
         )
-        self.dim_out = out_dim
+        self.out_dim = out_dim
 
     def forward(self, x):
         x = self.enc(x)

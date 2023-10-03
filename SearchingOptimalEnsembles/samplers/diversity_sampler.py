@@ -30,7 +30,6 @@ class DiversitySampler(RandomSampler):
         batch_size: int = 16,
         observed_pipeline_ids: list[int] | None = None,
     ) -> tuple[np.array, np.array, np.array]:
-
         if observed_pipeline_ids is None:
             pipeline_hps, _, _, _, ensembles = super().sample(
                 max_num_pipelines=1, batch_size=batch_size

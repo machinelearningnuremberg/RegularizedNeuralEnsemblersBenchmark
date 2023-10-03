@@ -172,3 +172,28 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
             metric_per_pipeline,
             metric_per_pipeline,
         )  # , time_per_pipeline
+
+    def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
+        pipeline_hps = self.benchmark.get_pipeline_features(ensembles=ensembles)
+        pipeline_hps = pipeline_hps.astype(np.float32)
+        pipeline_hps = torch.from_numpy(pipeline_hps)
+
+        splits_ids = self.benchmark.get_splits(return_array=False)
+
+        # Retieve the predictions for each pipeline in each ensemble
+        y_proba_np = self.benchmark(
+            ensembles=ensembles,
+            datapoints=splits_ids[f"X_{self.split}"],
+            get_probabilities=True,
+            aggregate=False,
+        )
+
+        # Convert the numpy array to torch tensor
+        y_proba = torch.from_numpy(y_proba_np)
+
+        # Assuming the current shape of y_proba is (B, M, N, C)
+        # Reshape y_proba to (B, N, M, C)
+        # B, D, N, C = y_proba.shape
+        y_proba = y_proba.permute(0, 2, 1, 3)  # Now, shape will be (B, N, M, C)
+
+        return y_proba
