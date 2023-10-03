@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, Matern
-
+from lightgbm import LGBMRegressor
 
 class BaseSurrogate:
     def __init__(self):
@@ -27,6 +27,24 @@ class RandomForestWithUncertainty(BaseSurrogate):
 
     def predict(self, X):
         pred = np.array([tree.predict(X) for tree in self.model]).T
+        pred_mean = np.mean(pred, axis=1)
+        pred_var = (pred - pred_mean.reshape(-1, 1)) ** 2
+        pred_std = np.sqrt(np.mean(pred_var, axis=1))
+
+        return pred_mean, pred_std
+
+class LightGBMEnsemble(BaseSurrogate):
+    def __init__(self, **args):
+        super().__init__()
+        self.num_models = 100
+        self.models = [LGBMRegressor(**args) for _ in range(self.num_models)]
+
+    def fit(self, X, y):
+        for model in self.models:
+            model.fit(X, y)
+
+    def predict(self, X):
+        pred = np.array([model.predict(X) for model in self.models]).T
         pred_mean = np.mean(pred, axis=1)
         pred_var = (pred - pred_mean.reshape(-1, 1)) ** 2
         pred_std = np.sqrt(np.mean(pred_var, axis=1))
@@ -62,6 +80,9 @@ def create_surrogate(model_name, **args):
 
     elif model_name == "rf":
         model = RandomForestWithUncertainty(**args)
+
+    elif model_name == "lightgbm":
+        model = LightGBMEnsemble(**args)
 
     else:
         model = None

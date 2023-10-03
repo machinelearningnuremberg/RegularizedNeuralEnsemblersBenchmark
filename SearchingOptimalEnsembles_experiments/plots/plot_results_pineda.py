@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import wandb
 from scipy.stats import rankdata
-
+import itertools
 base_font_size = 14
 until_iteration = 100
 current_file_path = os.path.dirname(os.path.abspath(__file__))
@@ -21,8 +21,19 @@ os.makedirs(os.path.join(current_file_path, output_folder), exist_ok=True)
 results = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
 
 
-group_names = ["RS00", "DRE03", "DRE04", "DRE05", "DRE07"]
-group_names = ["RS00", "DRE06", "LEO00"]
+#group_names = ["RS00", "DRE03", "DRE04", "DRE05", "DRE07"]
+group_names = ["RS01_1", "LEO02_1", "DIVBO01_1", "DRE11_1", "DKL03_1"]
+group_names = ["RS01_0", "LEO02_0", "DIVBO01_0", "DRE11_0", "DKL03_0"]
+group_names = ["DRE15_1", "DRE15_5","DRE15_9", "DRE15_13", "DRE15_19", "DRE15_23", "DRE16_23", "DRE16_5"]
+#group_names = ["DRE16_1", "DRE16_5","DRE16_9", "DRE16_13", "DRE16_19", "DRE16_23"]
+group_names = ["DRE15_5", "DRE15_19", "DRE15_23", "DRE16_23", "DRE16_5"]
+
+group_names = [f"DRE16_{i}" for i in range(1, 23, 2)]
+group_names = [f"DRE18_{i}" for i in range(0, 16)]
+
+
+group_names = ["DRE17_13", "DRE18_14", "DIVBO03_0"]
+group_names = ["DIVBO03_1", "DIVBO01_1"]
 until_iteration = 100
 
 for group_name in group_names:
@@ -39,35 +50,47 @@ for group_name in group_names:
         )
         max_num_pipelines = run.config["max_num_pipelines"]
         dataset_id = run.config["dataset_id"]
+        seed = str(run.config["seed"])
 
         if history:
             incumbent_values = [record["incumbent (norm)"] for record in history]
             iteration_values = [record["searcher_iteration"] for record in history]
 
             if len(incumbent_values) >= until_iteration:
-                results[max_num_pipelines][group_name][dataset_id] = incumbent_values[:until_iteration]
-
+                results[max_num_pipelines][group_name][dataset_id + seed] = incumbent_values[:until_iteration]
 num_datasets = 6
 num_groups = len(group_names)
 max_num_pipelines_values = [1, 2, 4, 6, 8, 10]
-group_names = ["RS00", "DRE06", "LEO00"]
+max_num_pipelines_values = [6]
+#group_names = ["RS00", "DRE06", "LEO00"]
+#group_names = ["RS01_1", "DRE10_1", "DRE11_1", "LEO02_1", "DIVBO01_1"]
+dataset_ids = ['micro_set0_RESISC_v1', 'micro_set1_MD_5_BIS_v1', 'micro_set2_BTS_v1', 'micro_set1_INS_2_v1', 'micro_set2_PRT_v1', 'micro_set2_INS_v1']
+#dataset_ids = ['credit-approval', 'PhishingWebsites', 'ozone-level-8hr', 'pc1', 'cmc']
+seeds = [0]
+dataset_seed_ids = list(itertools.product(dataset_ids, seeds))
+dataset_seed_ids = [a+str(b) for a, b in dataset_seed_ids]
 for max_num_pipelines in max_num_pipelines_values:
     results_matrix = []
 
-    for dataset_id in range(0, num_datasets):
+    for dataset_seed_id in dataset_seed_ids:
         temp_results = []
         omit_dataset = False
         for group_name in group_names:
-            if dataset_id in results[max_num_pipelines][group_name].keys():
-                incumbent_values = results[max_num_pipelines][group_name][dataset_id]
+            if dataset_seed_id in results[max_num_pipelines][group_name].keys():
+                incumbent_values = results[max_num_pipelines][group_name][dataset_seed_id]
+                if len(incumbent_values) >= until_iteration:
+                    temp_results.append(incumbent_values[:until_iteration])
+                else:
+                    print(
+                        "Problem with dataset_id:", dataset_seed_id, "in group_name:", group_name
+                    )
+           
             else:
                 omit_dataset = True
-            if len(incumbent_values) >= until_iteration:
-                temp_results.append(incumbent_values[:until_iteration])
-            else:
                 print(
-                    "Problem with dataset_id:", dataset_id, "in group_name:", group_name
+                    "Problem with dataset_id:", dataset_seed_id, "in group_name:", group_name
                 )
+
         if not omit_dataset:
             results_matrix.append(temp_results)
         else:
@@ -87,14 +110,14 @@ for max_num_pipelines in max_num_pipelines_values:
     plt.plot(rank.T)
     plt.legend(group_names)
     plt.savefig(
-        os.path.join(current_file_path, output_folder, f"rank5_{max_num_pipelines}.png")
+        os.path.join(current_file_path, output_folder, f"rank14_{max_num_pipelines}.png")
     )
 
     plt.figure()
     plt.plot(regret.T)
     plt.legend(group_names)
     plt.savefig(
-        os.path.join(current_file_path, output_folder, f"regret5_{max_num_pipelines}.png")
+        os.path.join(current_file_path, output_folder, f"regret14_{max_num_pipelines}.png")
     )
 
 

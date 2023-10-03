@@ -8,6 +8,9 @@ import wandb
 import SearchingOptimalEnsembles as SOE
 from SearchingOptimalEnsembles_experiments.utils.util import get_config, set_seed
 
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, message="[LightGBM]")
+
 TAG_KEYS = [
     "seed",
     "metadataset_name",
@@ -55,11 +58,12 @@ if __name__ == "__main__":
     parser.add_argument("--criterion_type", type=str, default="weighted_listwise")
     parser.add_argument("--activation_output", type=str, default="sigmoid")
     parser.add_argument("--score_with_rank", type=bool, default=False)
+    parser.add_argument("--num_layers_ff", type=int, default=1)
     ############################## DKL SURROGATE ARGS #############################
     parser.add_argument("--kernel_name", type=str, default="matern")
-    parser.add_argument("--ard", type=bool, default=False)
-    parser.add_argument("--nu", type=float, default=2.5)
-    parser.add_argument("--num_heads", type=int, default=4)
+    parser.add_argument("--ard", type=bool, default=True)
+    parser.add_argument("--nu", type=float, default=1.5)
+    parser.add_argument("--num_heads", type=int, default=8)
     parser.add_argument("--num_seeds", type=int, default=1)
     parser.add_argument("--optional_dim", type=int, default=None)
     ############################## LEO ARGS #######################################
@@ -73,7 +77,9 @@ if __name__ == "__main__":
     parser.add_argument("--ensembler_name", type=str, default="random")
     ##############################################################################
     parser.add_argument("--dataset_id", type=int, default=0)
+    parser.add_argument("--meta_split_id", type=int, default=0)
     parser.add_argument("--no_wandb", action="store_true")
+    parser.add_argument("--no_posthoc", action="store_true")
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -92,6 +98,7 @@ if __name__ == "__main__":
             print("Wandb is not available")
 
     args.worker_dir = f"{args.worker_dir}/{args.experiment_group}"
+    args.apply_posthoc_ensemble = not args.no_posthoc
 
     config = get_config(args, function=SOE.run)
 

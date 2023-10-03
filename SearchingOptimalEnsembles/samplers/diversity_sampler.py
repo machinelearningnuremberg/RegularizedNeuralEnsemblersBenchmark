@@ -29,7 +29,8 @@ class DiversitySampler(RandomSampler):
         self,
         batch_size: int = 16,
         observed_pipeline_ids: list[int] | None = None,
-    ):
+    ) -> tuple[np.array, np.array, np.array]:
+
         if observed_pipeline_ids is None:
             pipeline_hps, _, _, _, ensembles = super().sample(
                 max_num_pipelines=1, batch_size=batch_size
@@ -49,8 +50,8 @@ class DiversitySampler(RandomSampler):
         predictions = self.metadataset.get_predictions(ensembles=ensembles).squeeze(1)
         predictions1 = predictions[pairs[:, 0]]
         predictions2 = predictions[pairs[:, 1]]
-        pipeline_hps1 = pipeline_hps[pairs[:, 0]]
-        pipeline_hps2 = pipeline_hps[pairs[:, 1]]
+        pipeline_hps1 = pipeline_hps[pairs[:, 0]].squeeze(1)
+        pipeline_hps2 = pipeline_hps[pairs[:, 1]].squeeze(1)
 
         scores = self.diversity_score(predictions1, predictions2)
 

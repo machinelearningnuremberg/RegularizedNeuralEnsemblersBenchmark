@@ -118,7 +118,7 @@ class BaseModel(nn.Module):
         self,
         pipeline_hps: torch.Tensor,
         metric_per_pipeline: torch.Tensor,
-        metric: torch.Tensor,
+        metric: torch.Tensor
     ) -> torch.Tensor:
         """Fits the model to the observed data. Returns the loss and the noise
         of the likelihood.

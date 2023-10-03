@@ -8,6 +8,7 @@ import wandb
 from typing_extensions import Literal
 
 from .metadatasets import MetaDatasetMapping
+from .metadatasets.base_metadataset import META_SPLITS
 from .posthoc import EnsemblerMapping
 from .searchers import SearcherMapping
 from .utils.common import instance_from_map
@@ -45,6 +46,7 @@ def run(
     apply_posthoc_ensemble: bool = True,
     #############################################
     dataset_id: int = 0,
+    meta_split_id: int = 0,
 ) -> None:
     """Runs SOE on the metadataset.
 
@@ -59,10 +61,13 @@ def run(
 
     logger = get_logger(name="SEO-MAIN", logging_level="debug")
 
+    metadataset_args = {"meta_split_ids": META_SPLITS[meta_split_id]}
+
     metadataset = instance_from_map(
         MetaDatasetMapping,
         metadataset_name,
         name="metadataset",
+        kwargs=metadataset_args,
     )
 
     if checkpoint_path is None:
@@ -142,6 +147,17 @@ def run(
     incumbent = torch.min(metric).item()
     incumbent_ensemble = ensembles[torch.argmin(metric).item()]
 
+    if wandb.run is not None:
+        wandb.log({"searcher_iteration": 0, "incumbent": incumbent})
+        wandb.log(
+            {
+                "searcher_iteration": 0,
+                "incumbent (norm)": metadataset.compute_normalized_score(
+                    torch.tensor(incumbent)
+                ),
+            }
+        )
+
     logger.info(f"Initial incumbent: {incumbent}")
     logger.debug("Starting search...")
 
@@ -152,6 +168,7 @@ def run(
             X_pending=X_pending,
             incumbent=incumbent,
             incumbent_ensemble=incumbent_ensemble,
+            iteration=iteration,
         )
 
         # Evaluate candidates
@@ -191,10 +208,10 @@ def run(
             logger.info(f"Iteration: {iteration}/{num_iterations}")
 
         if wandb.run is not None:
-            wandb.log({"searcher_iteration": iteration, "incumbent": incumbent})
+            wandb.log({"searcher_iteration": iteration + 1, "incumbent": incumbent})
             wandb.log(
                 {
-                    "searcher_iteration": iteration,
+                    "searcher_iteration": iteration + 1,
                     "incumbent (norm)": metadataset.compute_normalized_score(
                         torch.tensor(incumbent)
                     ),
