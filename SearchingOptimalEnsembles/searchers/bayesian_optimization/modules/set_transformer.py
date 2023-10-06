@@ -84,5 +84,5 @@ class SetTransformer(nn.Module):
     def forward(self, x):
         x = self.enc(x)
         x = self.dec(x)
-        x = nn.Sigmoid()(x)
+        #x = nn.Sigmoid()(x)
         return x.squeeze(-1)

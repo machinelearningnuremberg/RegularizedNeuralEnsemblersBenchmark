@@ -29,10 +29,10 @@ config_space = {"max_num_pipelines": [1, 6], "metadataset": ["scikit-learn"]}
 config_space = {"max_num_pipelines": [1, 6]}
 
 config_space = {
-    "hidden_dim": [64],
-    "num_layers_ff": [3, 4],
+    "hidden_dim": [64, 128],
+    "num_layers_ff": [3, 4, 5],
     "num_heads": [4, 8],
-    "lr": [0.001, 0.0001],
+    "lr": [ 0.0001, 0.00001],
     "num_inner_epochs": [100, 500],
 }
 
