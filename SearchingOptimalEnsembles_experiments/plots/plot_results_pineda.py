@@ -32,8 +32,14 @@ group_names = [f"DRE16_{i}" for i in range(1, 23, 2)]
 group_names = [f"DRE18_{i}" for i in range(0, 16)]
 
 
+
 group_names = ["DRE17_13", "DRE18_14", "DIVBO03_0"]
 group_names = ["DIVBO03_1", "DIVBO01_1"]
+group_names = ["DIVBO04_0", "DRE20_1", "DRE20_0"]
+group_names = [f"DRE21_{i}" for i in range(0, 11)]
+group_names = [f"DRE21_{i}" for i in range(11, 23)] + ["DRE21_5", "DIVBO04_0"]
+#group_names = ["DIVBO04_0", "DRE21_17"]
+
 until_iteration = 100
 
 for group_name in group_names:
@@ -57,18 +63,19 @@ for group_name in group_names:
             iteration_values = [record["searcher_iteration"] for record in history]
 
             if len(incumbent_values) >= until_iteration:
-                results[max_num_pipelines][group_name][dataset_id + seed] = incumbent_values[:until_iteration]
+                results[max_num_pipelines][group_name][str(dataset_id) + seed] = incumbent_values[:until_iteration]
 num_datasets = 6
 num_groups = len(group_names)
 max_num_pipelines_values = [1, 2, 4, 6, 8, 10]
-max_num_pipelines_values = [6]
+max_num_pipelines_values = [5]
 #group_names = ["RS00", "DRE06", "LEO00"]
 #group_names = ["RS01_1", "DRE10_1", "DRE11_1", "LEO02_1", "DIVBO01_1"]
 dataset_ids = ['micro_set0_RESISC_v1', 'micro_set1_MD_5_BIS_v1', 'micro_set2_BTS_v1', 'micro_set1_INS_2_v1', 'micro_set2_PRT_v1', 'micro_set2_INS_v1']
 #dataset_ids = ['credit-approval', 'PhishingWebsites', 'ozone-level-8hr', 'pc1', 'cmc']
-seeds = [0]
+dataset_ids = list(range(num_datasets))
+seeds = [0,1,2]
 dataset_seed_ids = list(itertools.product(dataset_ids, seeds))
-dataset_seed_ids = [a+str(b) for a, b in dataset_seed_ids]
+dataset_seed_ids = [str(a)+str(b) for a, b in dataset_seed_ids]
 for max_num_pipelines in max_num_pipelines_values:
     results_matrix = []
 
@@ -110,14 +117,14 @@ for max_num_pipelines in max_num_pipelines_values:
     plt.plot(rank.T)
     plt.legend(group_names)
     plt.savefig(
-        os.path.join(current_file_path, output_folder, f"rank14_{max_num_pipelines}.png")
+        os.path.join(current_file_path, output_folder, f"rank15_{max_num_pipelines}.png")
     )
 
     plt.figure()
     plt.plot(regret.T)
     plt.legend(group_names)
     plt.savefig(
-        os.path.join(current_file_path, output_folder, f"regret14_{max_num_pipelines}.png")
+        os.path.join(current_file_path, output_folder, f"regret15_{max_num_pipelines}.png")
     )
 
 
