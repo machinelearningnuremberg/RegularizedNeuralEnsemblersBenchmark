@@ -30,12 +30,19 @@ class BaseModel(nn.Module):
     def __init__(
         self,
         sampler: BaseSampler,
+        add_y: bool = True,
         checkpoint_path: Path | None = None,
         device: torch.device = torch.device("cpu"),
     ):
         super().__init__()
 
         self.sampler = sampler
+        self.add_y = add_y
+        self.dim_in = self.sampler.metadataset.feature_dim
+        assert self.dim_in is not None, "Feature dimension is None"
+        if self.add_y:
+            self.dim_in += 2  # counting y and the mask
+
         self.checkpoint_path = checkpoint_path
         self.device = device
         self.logger = get_logger(name="SEO-MODEL", logging_level="debug")
@@ -113,12 +120,28 @@ class BaseModel(nn.Module):
 
         return loss.item() if loss is not None else None
 
+    def _mask_y(self, y, shape):
+        if y is None:
+            y = torch.zeros(shape[0], shape[1], 1).to(self.device)
+            mask = y
+        else:
+            ones_pct = 1 - 1 / shape[1]
+            y_temp = y.unsqueeze(-1)
+            mask = torch.bernoulli(torch.full(y_temp.shape, ones_pct)).to(self.device)
+
+            if torch.sum(mask) == 0:
+                mask = torch.ones(mask.shape).to(self.device)
+
+            y_temp = y_temp.to(self.device)
+            y = y_temp * mask
+        return y, mask.bool()
+
     @abstractmethod
     def _fit_batch(
         self,
         pipeline_hps: torch.Tensor,
         metric_per_pipeline: torch.Tensor,
-        metric: torch.Tensor
+        metric: torch.Tensor,
     ) -> torch.Tensor:
         """Fits the model to the observed data. Returns the loss and the noise
         of the likelihood.

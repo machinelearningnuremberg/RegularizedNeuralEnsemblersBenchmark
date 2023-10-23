@@ -29,7 +29,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--worker_dir",
         type=str,
-        default="/work/dlclarge2/janowski-quicktune/SearchingOptimalEnsembles/SearchingOptimalEnsembles_experiments",
+        default="/work/dlclarge2/janowski-quicktune/SearchingOptimalEnsembles/SearchingOptimalEnsembles_experiments/",
     )
     ##############################################################################
     parser.add_argument("--metadataset_name", type=str, default="quicktune")
@@ -52,6 +52,7 @@ if __name__ == "__main__":
     parser.add_argument("--log_level", type=str, default="debug")
     ############################ COMMON SURROGATE ARGS ############################
     parser.add_argument("--surrogate_name", type=str, default="dkl")
+    parser.add_argument("--no_add_y", action="store_true")
     parser.add_argument("--hidden_dim", type=int, default=64)
     parser.add_argument("--out_dim", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -101,6 +102,7 @@ if __name__ == "__main__":
 
     args.worker_dir = f"{args.worker_dir}/{args.experiment_group}"
     args.apply_posthoc_ensemble = not args.no_posthoc
+    args.add_y = not args.no_add_y
 
     config = get_config(args, function=SOE.run)
 

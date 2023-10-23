@@ -32,6 +32,7 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
     def __init__(
         self,
         sampler: BaseSampler,
+        add_y: bool = True,
         checkpoint_path: Path | None = None,
         device: torch.device = torch.device("cpu"),
         #############################################
@@ -43,28 +44,25 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
         out_dim_ff: int = 1,
         num_encoders: int = 2,
         num_layers_ff: int = 1,
-        add_y: bool = False,
         num_context_pipelines: int = 10,
         criterion_type: str = "weighted_listwise",
         activation_output: str = "sigmoid",
         score_with_rank: bool = False,
         lr: float = 1e-3,
     ):
-        super().__init__(sampler=sampler, checkpoint_path=checkpoint_path, device=device)
+        super().__init__(
+            sampler=sampler, add_y=add_y, checkpoint_path=checkpoint_path, device=device
+        )
 
         assert num_encoders > 0, "num_encoders must be greater than 0"
         assert num_layers_ff > 0, "num_layers_ff must be greater than 1"
 
-        self.add_y = add_y
         self.activation_output = activation_output
         self.score_with_rank = score_with_rank
 
-        dim_in = self.sampler.metadataset.feature_dim
-        assert dim_in is not None, "Feature dimension is None"
-        if add_y:
-            dim_in += 2  # counting y and the mask
-
-        self.encoder = SetTransformer(dim_in, hidden_dim, num_heads, num_seeds, out_dim)
+        self.encoder = SetTransformer(
+            self.dim_in, hidden_dim, num_heads, num_seeds, out_dim
+        )
         self.num_encoders = num_encoders
         self.num_context_pipelines = num_context_pipelines
 
@@ -88,28 +86,13 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         self.to(self.device)
 
-    def mask_y(self, y, shape, device):
-        if y is None:
-            y = torch.zeros(shape[0], shape[1], 1).to(device)
-            mask = y
-        else:
-            ones_pct = 1 - 1 / shape[1]
-            y_temp = y.unsqueeze(-1)
-            mask = torch.bernoulli(torch.full(y_temp.shape, ones_pct)).to(device)
-
-            if torch.sum(mask) == 0:
-                mask = torch.ones(mask.shape).to(device)
-
-            y_temp = y_temp.to(device)
-            y = y_temp * mask
-        return y, mask.bool()
-
     def _fit_batch(
         self,
         pipeline_hps: torch.Tensor,
         metric_per_pipeline: torch.Tensor,
         metric: torch.Tensor,
     ) -> torch.Tensor:
+        # pylint: disable=unused-variable
         batch_size, num_pipelines, _ = pipeline_hps.shape
         batches = [
             self.sampler.sample(
@@ -158,11 +141,10 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
         x_agg = []
 
         for i in range(self.num_encoders):
-
             if self.add_y:
                 with torch.no_grad():
                     if self.training:
-                        y[i], mask = self.mask_y(y[i], x[i].shape, x[i].device)
+                        y[i], mask = self._mask_y(y[i], x[i].shape)
                     else:
                         # mask = torch.ones(y[i].shape).bool().to(x[i].device)
                         mask = ~torch.isnan(y[i]).unsqueeze(-1)
@@ -198,14 +180,14 @@ class DRE(BaseModel, metaclass=ConfigurableMeta):
         self,
         x,
         metric_per_pipeline: torch.Tensor = None,
-        score_with_rank: bool = False,
-        max_num_pipelines: int | None = None,
-
+        score_with_rank: bool = False,  # pylint: disable=unused-argument
+        max_num_pipelines: int | None = None,  # pylint: disable=unused-argument
+        **kwargs,
     ):
         self.eval()
 
         with torch.no_grad():
-            batch_size, num_pipelines, _ = x.shape
+            batch_size, num_pipelines, _ = x.shape  # pylint: disable=unused-variable
             batches = [
                 self.sampler.sample(
                     fixed_num_pipelines=self.num_context_pipelines,

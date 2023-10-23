@@ -23,12 +23,14 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         "num_heads": 8,
         "num_seeds": 1,
         "lr": 1e-4,
+        "add_y": True,
         # "optional_dim": None,
     }
 
     def __init__(
         self,
         sampler: BaseSampler,
+        add_y: bool = True,
         checkpoint_path: Path | None = None,
         device: torch.device = torch.device("cpu"),
         #############################################
@@ -42,13 +44,12 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         lr: float = 1e-3,
         # optional_dim: int | None = None,
     ):
-        super().__init__(sampler=sampler, checkpoint_path=checkpoint_path, device=device)
+        super().__init__(
+            sampler=sampler, add_y=add_y, checkpoint_path=checkpoint_path, device=device
+        )
 
-        dim_in = self.sampler.metadataset.feature_dim
-        if dim_in is None:
-            raise ValueError("Feature dimension is None")
         self.encoder = SetTransformer(
-            dim_in=dim_in,
+            dim_in=self.dim_in,
             hidden_dim=hidden_dim,
             num_heads=num_heads,
             num_seeds=num_seeds,
@@ -110,6 +111,22 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
             checkpoint,
         )
 
+    def _transform_input(
+        self, pipeline_hps: torch.Tensor, metric_per_pipeline: torch.Tensor
+    ) -> torch.Tensor:
+        x = pipeline_hps
+        if self.add_y:
+            if self.model.training:
+                metric_per_pipeline, mask = self._mask_y(
+                    metric_per_pipeline, pipeline_hps.shape[:-1]
+                )
+            else:
+                mask = ~torch.isnan(metric_per_pipeline).unsqueeze(-1)
+                metric_per_pipeline = metric_per_pipeline.to(self.device).unsqueeze(-1)
+                metric_per_pipeline[~mask] = 0
+            x = torch.cat([pipeline_hps, metric_per_pipeline, mask.float()], dim=-1)
+        return x
+
     def _fit_batch(
         self,
         pipeline_hps: torch.Tensor,
@@ -120,8 +137,10 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         self.encoder.train()
         self.likelihood.train()
 
+        x = self._transform_input(pipeline_hps, metric_per_pipeline)
+
         self.optimizer.zero_grad()
-        z = self.encoder(pipeline_hps).squeeze()
+        z = self.encoder(x).squeeze()
         self.model.set_train_data(inputs=z, targets=metric, strict=False)
         predictions = self.model(z)
         loss = -self.mll(predictions, self.model.train_targets)
@@ -147,7 +166,8 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
         self.likelihood.eval()
 
         with torch.no_grad():
-            z = self.encoder(pipeline_hps).squeeze()
+            x = self._transform_input(pipeline_hps, metric_per_pipeline)
+            z = self.encoder(x).squeeze()
             predictions = self.model(z)
 
             mse = torch.nn.MSELoss()
@@ -158,18 +178,19 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
     def predict(
         self,
         x: torch.Tensor,
+        metric_per_pipeline: torch.Tensor = None,
         max_num_pipelines: int = 10,
         **kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        X_obs, y_obs = self._create_support(max_num_pipelines=max_num_pipelines)
-
-        self.model.set_train_data(inputs=X_obs, targets=y_obs, strict=False)
-
         self.model.eval()
         self.encoder.eval()
         self.likelihood.eval()
 
+        X_obs, y_obs = self._create_support(max_num_pipelines=max_num_pipelines)
+        self.model.set_train_data(inputs=X_obs, targets=y_obs, strict=False)
+
         with torch.no_grad():
+            x = self._transform_input(x, metric_per_pipeline)
             z_query = self.encoder(x).squeeze().detach()
             pred = self.likelihood(self.model(z_query))
 
@@ -185,7 +206,7 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
             (
                 pipeline_hps,
                 metric,
-                _,
+                metric_per_pipeline,
                 _,
                 _,
             ) = self.sampler.sample(
@@ -193,7 +214,9 @@ class DeepKernelGP(BaseModel, metaclass=ConfigurableMeta):
                 max_num_pipelines=num_pipelines,
             )
             y_obs_list.append(metric)
-            z_support = self.encoder(pipeline_hps).squeeze().detach()
+
+            x = self._transform_input(pipeline_hps, metric_per_pipeline)
+            z_support = self.encoder(x).squeeze().detach()
             X_obs_list.append(z_support)
 
         # Concatenate the lists to form tensors

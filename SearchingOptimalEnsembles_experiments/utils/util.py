@@ -30,6 +30,7 @@ COMPLEX_KEYS = {
             "kernel_name",
             "ard",
             "nu",
+            "add_y",
             "hidden_dim",
             "out_dim",
             "num_heads",
@@ -37,6 +38,7 @@ COMPLEX_KEYS = {
             "lr",
         ],
         "dre": [
+            "add_y",
             "hidden_dim",
             "out_dim",
             "num_heads",
