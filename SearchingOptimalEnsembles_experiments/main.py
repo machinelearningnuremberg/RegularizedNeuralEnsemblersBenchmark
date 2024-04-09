@@ -79,6 +79,7 @@ if __name__ == "__main__":
     ##############################################################################
     parser.add_argument("--dataset_id", type=int, default=0)
     parser.add_argument("--meta_split_id", type=int, default=0)
+    parser.add_argument("--metric_name", type=str, default="nll")
     parser.add_argument("--no_wandb", action="store_true")
     parser.add_argument("--no_posthoc", action="store_true")
     args = parser.parse_args()
