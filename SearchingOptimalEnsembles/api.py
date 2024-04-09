@@ -47,7 +47,7 @@ def run(
     #############################################
     dataset_id: int = 0,
     meta_split_id: int = 0,
-    metric_name: str = "nll"
+    metric_name: str = "nll",
 ) -> None:
     """Runs SOE on the metadataset.
 
@@ -62,8 +62,10 @@ def run(
 
     logger = get_logger(name="SEO-MAIN", logging_level="debug")
 
-    metadataset_args = {"meta_split_ids": META_SPLITS[meta_split_id],
-                        "metric_name": metric_name}
+    metadataset_args = {
+        "meta_split_ids": META_SPLITS[meta_split_id],
+        "metric_name": metric_name,
+    }
 
     metadataset = instance_from_map(
         MetaDatasetMapping,

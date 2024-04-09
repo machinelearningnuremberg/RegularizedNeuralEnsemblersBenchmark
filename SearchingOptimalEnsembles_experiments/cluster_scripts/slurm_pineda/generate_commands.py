@@ -4,8 +4,6 @@
 import itertools
 import random
 
-import random
-import itertools
 config_space = {
     "beta": [0.0, 0.01, 0.1, 1],
     "score_with_rank": [0, 1],
@@ -23,31 +21,31 @@ config_space = {
     "beta": [0.0, 0.01, 0.1],
 }
 
-#config_space = {"max_num_pipelines": [1, 6], "metadataset": ["scikit-learn"]}
+# config_space = {"max_num_pipelines": [1, 6], "metadataset": ["scikit-learn"]}
 
 
-#config_space = {"max_num_pipelines": [1, 6]}
+# config_space = {"max_num_pipelines": [1, 6]}
 
 config_space = {
-    "hidden_dim": [ 128],
+    "hidden_dim": [128],
     "num_layers_ff": [3],
     "num_heads": [4],
-    "lr": [ 0.00001],
+    "lr": [0.00001],
     "num_inner_epochs": [100, 1000],
     "metric_name": ["error", "nll"],
     "meta_num_epochs": [0, 1000],
-    "initial_design_size" : [1]
+    "initial_design_size": [1],
 }
-#config_space = {"max_num_pipelines": [5],
+# config_space = {"max_num_pipelines": [5],
 #                "metric_name": ["error"]
 #                }
 
-#config_space = {"max_num_pipelines": [5, 6]}
+# config_space = {"max_num_pipelines": [5, 6]}
 
 # base_command = "--surrogate_name dre --beta 0.01 --score_with_rank 1 --activation_output sigmoid" \
 #    " --criterion_type weighted_listwise --num_inner_epochs 100 --acquisition_name lcb"
 # )
-#base_command = "--surrogate_name dre --beta 0.01 --score_with_rank 1 --activation_output sigmoid" \
+# base_command = "--surrogate_name dre --beta 0.01 --score_with_rank 1 --activation_output sigmoid" \
 #               " --criterion_type weighted_listwise --num_inner_epochs 1000 --acquisition_name lcb" \
 #               " --log-wandb"
 base_command = (
@@ -92,11 +90,13 @@ experiments = {
 
 experiments = {"DIVBO03": "--searcher_name divbo --surrogate_name rf"}
 
-#--surrogate_name dre --beta 0.1 --score_with_rank 0 --activation_output relu --criterion_type pointwise --max_num_pipelines 5 --dataset_id 0 --run_name DRE15_0_0 --seed 0 --hidden_dim 64 --num_layers_ff 3 --num_heads 8 --lr 0.0001 --experiment_group DRE15_7
+# --surrogate_name dre --beta 0.1 --score_with_rank 0 --activation_output relu --criterion_type pointwise --max_num_pipelines 5 --dataset_id 0 --run_name DRE15_0_0 --seed 0 --hidden_dim 64 --num_layers_ff 3 --num_heads 8 --lr 0.0001 --experiment_group DRE15_7
 
-experiments = {"DRE24": "--surrogate_name dre --beta 0.1 --score_with_rank 0 --activation_output relu --criterion_type pointwise --max_num_pipelines 5",
-               "DRE25": "--surrogate_name dre --beta 0.01 --score_with_rank 1 --activation_output sigmoid --criterion_type weighted_listwise --max_num_pipelines 5"}
-#experiments = {"DIVBO05": "--searcher_name divbo --surrogate_name rf"}
+experiments = {
+    "DRE24": "--surrogate_name dre --beta 0.1 --score_with_rank 0 --activation_output relu --criterion_type pointwise --max_num_pipelines 5",
+    "DRE25": "--surrogate_name dre --beta 0.01 --score_with_rank 1 --activation_output sigmoid --criterion_type weighted_listwise --max_num_pipelines 5",
+}
+# experiments = {"DIVBO05": "--searcher_name divbo --surrogate_name rf"}
 
 
 num_experiments = 1
