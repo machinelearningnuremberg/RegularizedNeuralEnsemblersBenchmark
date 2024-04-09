@@ -13,7 +13,6 @@ from ..simple_surrogates import create_surrogate
 
 class LocalEnsembleOptimization(BaseSearcher):
     """Implements Bayesian Optimization for Ensemble Learning:  https://arxiv.org/abs/1605.06394"""
-
     def __init__(
         self,
         metadataset: BaseMetaDataset,

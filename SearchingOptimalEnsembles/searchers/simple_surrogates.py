@@ -34,7 +34,6 @@ class RandomForestWithUncertainty(BaseSurrogate):
 
         return pred_mean, pred_std
 
-
 class LightGBMEnsemble(BaseSurrogate):
     def __init__(self, **args):
         super().__init__()

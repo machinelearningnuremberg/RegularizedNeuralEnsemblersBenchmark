@@ -4,6 +4,7 @@ import copy
 from pathlib import Path
 
 import numpy as np
+from scipy.stats import norm as norm
 import torch
 import wandb
 from scipy.stats import norm as norm
