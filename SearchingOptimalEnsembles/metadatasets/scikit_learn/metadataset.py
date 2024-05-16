@@ -17,6 +17,7 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         split: str = "valid",
         metric_name: str = "nll",
         data_version: str = "mini",
+        **kwargs,
     ):
         super().__init__(
             data_dir=data_dir,

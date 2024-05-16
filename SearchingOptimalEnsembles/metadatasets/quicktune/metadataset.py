@@ -20,6 +20,10 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         metric_name: str = "nll",
         ensemble_type: str = "soft",
         data_version: str = "micro",
+        use_logits: bool = True,
+        device: torch.device = torch.device("cpu"),
+        processing_batch_size: int = 5000,
+        **kwargs,
     ):
         super().__init__(
             data_dir=data_dir,
@@ -33,13 +37,16 @@ class QuicktuneMetaDataset(BaseMetaDataset):
 
         self.ensemble_type = ensemble_type
         self.data_version = data_version
+        self.use_logits = use_logits
+        self.device = device
+        self.processing_batch_size = processing_batch_size
 
         self.dataset_name: str = ""
         self.hps = pd.read_csv(
             os.path.join(self.data_dir, data_version, "preprocessed_args.csv")
         )
-        self._aggregate_info()
         self._initialize()
+        self._aggregate_info()
 
         self.best_performance_idx = None
         self.best_performance = None
@@ -52,14 +59,15 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         self.predictions: torch.Tensor = None
         self.is_test_id: np.array | torch.Tensor = None
 
-    def _aggregate_info(self):
+    def _aggregate_info(self, dataset_name: str = None):
         self.aggregated_info = {}
-        self.dataset_names = os.listdir(os.path.join(self.data_dir, "per_dataset"))
-        self.dataset_names = [
-            dataset for dataset in self.dataset_names if self.data_version in dataset
-        ]
 
-        for dataset in self.dataset_names:
+        if dataset_name is None:
+            dataset_names = self.dataset_names
+        else:
+            dataset_names = [dataset_name]
+
+        for dataset in dataset_names:
             # read json
             with open(
                 os.path.join(self.data_dir, "per_dataset", dataset, "time_info.json")
@@ -105,21 +113,6 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         self,
         dataset_name: str = "",
     ):
-        self.targets = torch.LongTensor(self.aggregated_info[dataset_name]["targets"])
-        self.predictions = torch.FloatTensor(
-            self.aggregated_info[dataset_name]["predictions"]
-        )
-
-        imputation_value_posinf = self.predictions[
-            ~torch.isposinf(self.predictions)
-        ].max()
-        imputation_value_neginf = self.predictions[
-            ~torch.isposinf(self.predictions)
-        ].min()
-
-        self.predictions[torch.isposinf(self.predictions)] = imputation_value_posinf
-        self.predictions[torch.isneginf(self.predictions)] = imputation_value_neginf
-
         self.is_test_id = np.array(self.aggregated_info[dataset_name]["split_indicator"])
         # self.time_info = self.aggregated_info[dataset_name]["time_info"]
         self.time = torch.FloatTensor(
@@ -138,17 +131,42 @@ class QuicktuneMetaDataset(BaseMetaDataset):
 
         self.is_test_id = torch.FloatTensor(self.is_test_id)
 
+        self.targets = torch.LongTensor(self.aggregated_info[dataset_name]["targets"])
+        self.predictions = torch.FloatTensor(
+            self.aggregated_info[dataset_name]["predictions"]
+        )
+
         if self.split == "val":
-            self.predictions = self.predictions[:, self.is_test_id == 0, :]
             self.targets = self.targets[self.is_test_id == 0]
+            self.predictions = self.predictions[:, self.is_test_id == 0, :]
 
         elif self.split == "test":
-            self.predictions = self.predictions[:, self.is_test_id == 1, :]
             self.targets = self.targets[self.is_test_id == 1]
+            self.predictions = self.predictions[:, self.is_test_id == 1, :]
+
         else:
             raise ValueError("split must be either val or test")
 
-        self.predictions[torch.isnan(self.predictions)] = 0
+        for i in range(0, self.predictions.shape[-2], self.processing_batch_size):
+            range_idx = list(
+                range(i, min(i + self.processing_batch_size, self.predictions.shape[-2]))
+            )
+            temp_predictions = self.predictions[:, range_idx, :]
+            if not self.use_logits:
+                temp_predictions = torch.nn.Softmax(dim=-1)(temp_predictions)
+            temp_predictions[torch.isnan(temp_predictions)] = 0
+
+            isposinf = torch.isposinf(temp_predictions)
+            isneginf = torch.isneginf(temp_predictions)
+
+            imputation_value_posinf = temp_predictions[~isposinf].max()
+            imputation_value_neginf = temp_predictions[~isneginf].min()
+
+            temp_predictions[isposinf] = imputation_value_posinf
+            temp_predictions[isneginf] = imputation_value_neginf
+
+            if temp_predictions.shape[1] > 0:
+                self.predictions[:, range_idx, :] = temp_predictions
 
         return self.hp_candidates, self.time, self.predictions, self.targets
 
@@ -161,7 +179,11 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             super().set_state(dataset_name=dataset_name)
 
     def get_dataset_names(self) -> list[str]:
-        return self.dataset_names
+        dataset_names = os.listdir(os.path.join(self.data_dir, "per_dataset"))
+        dataset_names = [
+            dataset for dataset in dataset_names if self.data_version in dataset
+        ]
+        return dataset_names
 
     def _get_hp_candidates_and_indices(self) -> tuple[torch.Tensor, torch.Tensor]:
         return self.hp_candidates, self.hp_candidates_ids
@@ -172,29 +194,77 @@ class QuicktuneMetaDataset(BaseMetaDataset):
     def evaluate_ensembles(
         self, ensembles: list[list[int]]
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        return self._evaluate_ensembles(ensembles=ensembles, weights=None)
+
+    def evaluate_ensembles_with_weights(
+        self, ensembles: list[list[int]], weights: list[float]
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        return self._evaluate_ensembles(ensembles=ensembles, weights=weights)
+
+    def _evaluate_ensembles(self, ensembles: list[list[int]], weights: torch.Tensor):
         batch_size = len(ensembles)
-        ensembles = torch.LongTensor(ensembles)
+        ensembles = torch.LongTensor(ensembles).to(self.device)
         # hp_candidates, time, predictions, targets = self.get_dataset_info(self.dataset_name)
 
         time_per_pipeline = self.time[ensembles]
-        predictions = self.predictions[ensembles]
-        targets = torch.tile(self.targets.unsqueeze(0), (batch_size, 1))
-        cross_entropy = torch.nn.CrossEntropyLoss(reduction="none")
 
+        # Predictions shape: [Num. ensembles X Num. pipelines X Num Samples X Num. Classes]
+        predictions = self.predictions[ensembles].to(self.device)
+        targets = torch.tile(self.targets.unsqueeze(0), (batch_size, 1)).to(self.device)
+        hp_candidates = self.hp_candidates[ensembles]
+        metric = []
+        metric_per_pipeline = []
+
+        for i in range(0, predictions.shape[-2], self.processing_batch_size):
+            range_idx = list(
+                range(i, min(i + self.processing_batch_size, predictions.shape[-2]))
+            )
+            temp_predictions = predictions[..., range_idx, :]
+            temp_targets = targets[:, range_idx]
+            if weights is not None:
+                temp_weights = weights[..., range_idx, :]
+            else:
+                temp_weights = None
+            temp_metric, temp_metric_per_pipeline = self._compute_metrics(
+                temp_predictions, temp_targets, temp_weights, batch_size
+            )
+            metric.append(temp_metric.unsqueeze(-1))
+            metric_per_pipeline.append(temp_metric_per_pipeline.unsqueeze(-1))
+
+        metric = torch.cat(metric, axis=-1).mean(-1)
+        metric_per_pipeline = torch.cat(metric_per_pipeline, axis=-1).mean(-1)
+
+        return hp_candidates, metric, metric_per_pipeline, time_per_pipeline
+
+    def _compute_metrics(
+        self,
+        predictions: torch.Tensor,
+        targets: torch.Tensor,
+        weights: torch.Tensor,
+        batch_size: int,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         n_classes = predictions.shape[-1]
         ensemble_size = predictions.shape[1]
         temp_targets = torch.tile(targets.unsqueeze(1), (1, ensemble_size, 1))
-        hp_candidates = self.hp_candidates[ensembles]
+
+        cross_entropy = torch.nn.CrossEntropyLoss(reduction="none")
+
+        if weights is not None:
+            assert weights.shape == predictions.shape
+            weights = weights.to(self.device)
+            weighted_predictions = torch.multiply(predictions, weights)
+        else:
+            weighted_predictions = predictions
 
         if self.metric_name == "error":
             metric_per_sample = torch.ne(
                 predictions.reshape(-1, n_classes).argmax(-1), temp_targets.reshape(-1)
             ).float()
-            metric_per_pipeline = metric_per_sample.reshape(
-                batch_size, ensemble_size, -1
-            ).mean(axis=2)
+            metric_per_sample = metric_per_sample.reshape(batch_size, ensemble_size, -1)
+            metric_per_pipeline = metric_per_sample.mean(axis=2)
             metric_ensemble_per_sample = torch.ne(
-                predictions.mean(1).reshape(-1, n_classes).argmax(-1), targets.reshape(-1)
+                weighted_predictions.mean(1).reshape(-1, n_classes).argmax(-1),
+                targets.reshape(-1),
             ).float()
             metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(axis=-1)
 
@@ -202,15 +272,14 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             metric_per_sample = cross_entropy(
                 predictions.reshape(-1, n_classes), temp_targets.reshape(-1)
             )
-            metric_per_pipeline = metric_per_sample.reshape(
-                batch_size, ensemble_size, -1
-            ).mean(axis=-1)
+            metric_per_sample = metric_per_sample.reshape(batch_size, ensemble_size, -1)
+            metric_per_pipeline = metric_per_sample.mean(axis=-1)
             metric_ensemble_per_sample = cross_entropy(
-                predictions.mean(1).reshape(-1, n_classes), targets.reshape(-1)
+                weighted_predictions.mean(1).reshape(-1, n_classes), targets.reshape(-1)
             )
             metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(axis=-1)
 
         else:
             raise ValueError("metric_name must be either error or nll")
 
-        return hp_candidates, metric, metric_per_pipeline, time_per_pipeline
+        return metric, metric_per_pipeline

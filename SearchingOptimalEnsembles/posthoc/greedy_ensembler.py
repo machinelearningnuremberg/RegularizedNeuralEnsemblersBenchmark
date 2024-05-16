@@ -14,6 +14,7 @@ class GreedyEnsembler(BaseEnsembler):
         self,
         metadataset: BaseMetaDataset,
         device: torch.device = torch.device("cpu"),
+        **kwargs,
     ) -> None:
         super().__init__(metadataset=metadataset, device=device)
 

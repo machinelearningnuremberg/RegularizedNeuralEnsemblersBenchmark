@@ -21,6 +21,7 @@ class SyntheticMetaDataset(BaseMetaDataset):
         search_space_size: int = 100,
         simple_coefficients: bool = True,
         sample_amplitude: bool = True,
+        **kwargs,
     ):
         super().__init__(
             data_dir=None,

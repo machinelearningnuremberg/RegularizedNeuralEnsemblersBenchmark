@@ -4,9 +4,8 @@ import argparse
 import logging
 import warnings
 
-import wandb
-
 import SearchingOptimalEnsembles as SOE
+import wandb
 from SearchingOptimalEnsembles_experiments.utils.util import get_config, set_seed
 
 warnings.filterwarnings("ignore", category=UserWarning, message="[LightGBM]")
@@ -51,7 +50,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--log_level", type=str, default="debug")
     ############################ COMMON SURROGATE ARGS ############################
-    parser.add_argument("--surrogate_name", type=str, default="dkl")
+    parser.add_argument("--surrogate_name", type=str, default="rf")
     parser.add_argument("--no_add_y", action="store_true")
     parser.add_argument("--hidden_dim", type=int, default=64)
     parser.add_argument("--out_dim", type=int, default=32)
@@ -74,6 +73,11 @@ if __name__ == "__main__":
     ############################### ACQUISITION ARGS ##############################
     parser.add_argument("--acquisition_name", type=str, default="ei")
     parser.add_argument("--beta", type=float, default=0.0)
+    ###############################NEURAL ENSEMBLER ARGS #########################
+    parser.add_argument("--ne_hidden_dim", type=int, default=512)
+    parser.add_argument("--ne_context_size", type=int, default=32)
+    parser.add_argument("--ne_reg_term_div", type=float, default=0.1)
+    parser.add_argument("--ne_add_y", action="store_true")
     ##############################################################################
     parser.add_argument("--sampler_name", type=str, default="random")
     parser.add_argument("--ensembler_name", type=str, default="random")
@@ -81,8 +85,11 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_id", type=int, default=0)
     parser.add_argument("--meta_split_id", type=int, default=0)
     parser.add_argument("--metric_name", type=str, default="nll")
+    parser.add_argument("--data_version", type=str, default="micro")
     parser.add_argument("--no_wandb", action="store_true")
-    parser.add_argument("--no_posthoc", action="store_true")
+    parser.add_argument("--apply_posthoc_ensemble_each_iter", action="store_true")
+    parser.add_argument("--apply_posthoc_ensemble_at_end", action="store_true")
+    parser.add_argument("--project_name", type=str, default="SearchingOptimalEnsembles")
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -91,7 +98,7 @@ if __name__ == "__main__":
     if not args.no_wandb:
         try:
             wandb.init(
-                project="SearchingOptimalEnsembles",
+                project=args.project_name,
                 group=args.experiment_group,
                 name=args.run_name,
             )
@@ -101,7 +108,6 @@ if __name__ == "__main__":
             print("Wandb is not available")
 
     args.worker_dir = f"{args.worker_dir}/{args.experiment_group}"
-    args.apply_posthoc_ensemble = not args.no_posthoc
     args.add_y = not args.no_add_y
 
     config = get_config(args, function=SOE.run)

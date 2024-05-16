@@ -1,9 +1,13 @@
 # pylint: disable=all
 import os
+
 import torch
+
 import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
 import SearchingOptimalEnsembles.samplers.random_sampler as rs
-from SearchingOptimalEnsembles.searchers.bayesian_optimization.models.dre import DRE
+
+from ..searchers.bayesian_optimization.models.dre import DRE
+
 
 def test_DRE():
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -12,6 +16,7 @@ def test_DRE():
     checkpoint_path = os.path.join(current_dir, "test_logs")
     device = "cuda"
     data_dir = "/home/pineda/AutoFinetune/aft_data/predictions/"
+    data_dir = "/work/dlclarge2/janowski-quicktune/predictions"
 
     metadataset = qmd.QuicktuneMetaDataset(data_dir=data_dir)
     dataset_names = metadataset.get_dataset_names()
