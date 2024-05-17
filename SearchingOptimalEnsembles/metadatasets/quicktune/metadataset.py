@@ -214,11 +214,12 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         hp_candidates = self.hp_candidates[ensembles]
         metric = []
         metric_per_pipeline = []
-
-        for i in range(0, predictions.shape[-2], self.processing_batch_size):
+        total_num_samples = predictions.shape[-2]
+        for i in range(0, total_num_samples, self.processing_batch_size):
             range_idx = list(
-                range(i, min(i + self.processing_batch_size, predictions.shape[-2]))
+                range(i, min(i + self.processing_batch_size, total_num_samples))
             )
+            current_samples_ratio = len(range_idx)/total_num_samples
             temp_predictions = predictions[..., range_idx, :]
             temp_targets = targets[:, range_idx]
             if weights is not None:
@@ -228,11 +229,11 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             temp_metric, temp_metric_per_pipeline = self._compute_metrics(
                 temp_predictions, temp_targets, temp_weights, batch_size
             )
-            metric.append(temp_metric.unsqueeze(-1))
-            metric_per_pipeline.append(temp_metric_per_pipeline.unsqueeze(-1))
+            metric.append(temp_metric.unsqueeze(-1)*current_samples_ratio)
+            metric_per_pipeline.append(temp_metric_per_pipeline.unsqueeze(-1)*current_samples_ratio)
 
-        metric = torch.cat(metric, axis=-1).mean(-1)
-        metric_per_pipeline = torch.cat(metric_per_pipeline, axis=-1).mean(-1)
+        metric = torch.cat(metric, axis=-1).sum(-1)
+        metric_per_pipeline = torch.cat(metric_per_pipeline, axis=-1).sum(-1)
 
         return hp_candidates, metric, metric_per_pipeline, time_per_pipeline
 

@@ -251,6 +251,7 @@ def run(
         metadataset.set_state(dataset_name=dataset_name)
         num_existing_pipelines = len(metadataset.hp_candidates_ids)
         X_obs = np.arange(num_existing_pipelines)
+        np.random.shuffle(X_obs)
 
     if apply_posthoc_ensemble_at_end:
         incumbent_ensemble, incumbent = posthoc_ensembler.sample(

@@ -4,7 +4,7 @@ import torch
 
 import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
 
-from ..posthoc.neural_ensembler import NeuralEnsembler
+from SearchingOptimalEnsembles.posthoc.neural_ensembler import NeuralEnsembler
 
 
 def test_posthoc_ensembling():

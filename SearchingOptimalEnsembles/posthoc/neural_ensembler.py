@@ -33,6 +33,8 @@ class NeuralEnsembler(BaseEnsembler):
         ne_context_size: int = 32,
         ne_reg_term_div: float = 0.1,
         ne_add_y: bool = True,
+        ne_eval_context_size: int = 256,
+        ne_num_layers: int = 1,
         **kwargs,
     ) -> None:
         super().__init__(metadataset=metadataset, device=device)
@@ -42,6 +44,8 @@ class NeuralEnsembler(BaseEnsembler):
         self.reg_term_div = ne_reg_term_div
         self.device = device
         self.add_y = ne_add_y
+        self.eval_context_size = ne_eval_context_size
+        self.num_layers = ne_num_layers
 
     def set_state(
         self,
@@ -54,12 +58,12 @@ class NeuralEnsembler(BaseEnsembler):
     def batched_prediction(self, X, base_functions, y=None):
         _, num_samples, num_classes, num_pipelines = X.shape
         idx = np.arange(num_samples)
-        np.random.shuffle(idx)
+        #np.random.shuffle(idx)
         outputs = []
         weights = []
 
-        for i in range(0, num_samples, self.context_size):
-            range_idx = idx[range(i, min(i + self.context_size, num_samples))]
+        for i in range(0, num_samples, self.eval_context_size):
+            range_idx = idx[range(i, min(i + self.eval_context_size, num_samples))]
             temp_y = y[:, range_idx] if y is not None else None
             output, w = self.net(X[:, range_idx], base_functions[:, range_idx], y=temp_y)
             w = w.transpose(2, 3).transpose(
@@ -140,6 +144,7 @@ class NeuralEnsembler(BaseEnsembler):
             w_norm_type=w_norm_type,
             dropout_rate=dropout_rate,
             add_y=self.add_y,
+            num_layers=self.num_layers
         )
 
         criterion = nn.CrossEntropyLoss()
@@ -163,7 +168,7 @@ class NeuralEnsembler(BaseEnsembler):
                 y_train[:, context_idx],
             )
             loss = criterion(
-                output.reshape(-1, num_classes), y_train.reshape(-1)[context_idx]
+                output.reshape(-1, num_classes), y_train[:, context_idx].reshape(-1)
             )
             div = div_loss(w, base_functions_train[:, context_idx])
             loss -= self.reg_term_div * div
@@ -188,7 +193,7 @@ class ENet(nn.Module):
         num_encoders=1,
         w_norm_type="softmax",
         add_y=True,
-        mask_prob=1.0,
+        mask_prob=0.5,
     ):
         super().__init__()
 
@@ -201,11 +206,18 @@ class ENet(nn.Module):
         self.mask_prob = mask_prob
 
         self.embedding = nn.Linear(input_dim, hidden_dim)
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=hidden_dim, nhead=num_heads, dim_feedforward=hidden_dim
-        )
+        #encoder_layer = nn.TransformerEncoderLayer(
+        #    d_model=hidden_dim, nhead=num_heads, dim_feedforward=hidden_dim
+        #
+        # )
+        first_encoder_modules = [
+            nn.TransformerEncoderLayer(
+                d_model=hidden_dim, nhead=num_heads, dim_feedforward=hidden_dim
+            ) for _ in range(num_layers)
+        ]
+        self.first_encoder = nn.Sequential(*first_encoder_modules)
 
-        self.first_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_encoders)
+        #self.first_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_encoders)
         if add_y:
             self.second_encoder = nn.TransformerEncoderLayer(
                 d_model=hidden_dim + input_dim,
@@ -219,17 +231,6 @@ class ENet(nn.Module):
             )
 
             self.out_layer = nn.Linear(hidden_dim, output_dim)
-
-        if self.num_layers == 1:
-            self.layers = nn.ModuleList(
-                [nn.Linear(hidden_dim, hidden_dim), nn.Linear(hidden_dim, output_dim)]
-            )
-
-        else:
-            self.layers = nn.ModuleList()
-            for _ in range(num_layers - 1):
-                self.layers.append(nn.Linear(hidden_dim, hidden_dim))
-            self.layers.append(nn.Linear(hidden_dim, out_features=1))
 
         self.simple_coefficients = simple_coefficients
         self.w_norm_type = w_norm_type
