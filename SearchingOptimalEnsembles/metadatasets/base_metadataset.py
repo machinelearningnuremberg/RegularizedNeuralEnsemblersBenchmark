@@ -234,22 +234,29 @@ class BaseMetaDataset:
     def get_logits_from_probabilities(self, probabilities: torch.Tensor) -> torch.Tensor:
         """
         Get the logits given the probabilities.
-        
+
         Args:
             probabilities (torch.Tensor): probability Tensor of shape (num_ensembles, num_pipelines, num_samples, num_classes).
-        
+
         Returns:
             logits (torch.Tensor): probability Tensor of shape (num_ensembles, num_pipelines, num_samples, num_classes)
 
         """
-        log_p = torch.log(probabilities+10e-8)
+        log_p = torch.log(probabilities + 10e-8)
         C = -log_p.mean(-1)
         logits = log_p + C.unsqueeze(-1)
         return logits
 
     @abstractmethod
-    def get_num_samples(self):
+    def get_num_samples(self) -> int:
         """
         Returns the number of samples for the current loaded dataset.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_targets(self) -> torch.Tensor:
+        """
+        Returns the targets of the current loaded dataset, with shape (num_samples)
         """
         raise NotImplementedError

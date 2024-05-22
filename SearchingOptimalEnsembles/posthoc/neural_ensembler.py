@@ -57,14 +57,12 @@ class NeuralEnsembler(BaseEnsembler):
         self.metadataset = metadataset
         self.device = device
 
-    def batched_prediction(self, X, base_functions,
-                            y=None,
-                            X_context=None,
-                            y_context=None,
-                            mask_context=None):
+    def batched_prediction(
+        self, X, base_functions, y=None, X_context=None, y_context=None, mask_context=None
+    ):
         _, num_samples, num_classes, num_pipelines = X.shape
         idx = np.arange(num_samples)
-        #np.random.shuffle(idx)
+        # np.random.shuffle(idx)
         outputs = []
         weights = []
 
@@ -72,17 +70,21 @@ class NeuralEnsembler(BaseEnsembler):
             range_idx = idx[range(i, min(i + self.eval_context_size, num_samples))]
 
             if mask_context is not None:
-                temp_mask = mask_context[:(self.context_size+len(range_idx)),
-                                        : (self.context_size+len(range_idx))]
+                temp_mask = mask_context[
+                    : (self.context_size + len(range_idx)),
+                    : (self.context_size + len(range_idx)),
+                ]
             else:
                 temp_mask = None
             temp_y = y[:, range_idx] if y is not None else None
-            output, w = self.net(x=X[:, range_idx], 
-                                 base_functions=base_functions[:, range_idx], 
-                                 y=temp_y,
-                                 X_context=X_context,
-                                 y_context=y_context,
-                                 mask_context=temp_mask)
+            output, w = self.net(
+                x=X[:, range_idx],
+                base_functions=base_functions[:, range_idx],
+                y=temp_y,
+                X_context=X_context,
+                y_context=y_context,
+                mask_context=temp_mask,
+            )
             w = w.transpose(2, 3).transpose(
                 1, 2
             )  # Expected shape [BATCH SIZE X NUM_PIPELINES X NUM_SAMPLES X NUM_CLASSES]
@@ -93,9 +95,7 @@ class NeuralEnsembler(BaseEnsembler):
             weights, axis=-2
         ).to(self.device)
 
-    def get_weights(self, X_obs, 
-                    X_context=None, 
-                    y_context=None):
+    def get_weights(self, X_obs, X_context=None, y_context=None):
         base_functions = (
             self.metadataset.get_predictions([X_obs])[0]
             .transpose(0, 1)
@@ -109,20 +109,27 @@ class NeuralEnsembler(BaseEnsembler):
         else:
             mask_context = self.get_mask_context()
         _, weights = self.batched_prediction(
-            X=base_functions, base_functions=base_functions, 
-            X_context=X_context, y_context=y_context, mask_context=mask_context
+            X=base_functions,
+            base_functions=base_functions,
+            X_context=X_context,
+            y_context=y_context,
+            mask_context=mask_context,
         )
         return weights
-    
+
     def get_mask_context(self):
         mask = None
         if self.use_context:
-            actual_eval_context_size = min(self.eval_context_size, self.metadataset.get_num_samples())
+            actual_eval_context_size = min(
+                self.eval_context_size, self.metadataset.get_num_samples()
+            )
             mask_upper_left_tile = torch.ones(self.context_size, self.context_size)
-            mask_upper_right_tile = torch.zeros(self.context_size, actual_eval_context_size)
+            mask_upper_right_tile = torch.zeros(
+                self.context_size, actual_eval_context_size
+            )
             mask_lower_left_tile = torch.ones(actual_eval_context_size, self.context_size)
             mask_lower_right_tile = torch.eye(actual_eval_context_size)
-            #mask_lower_right_tile = torch.ones(actual_eval_context_size, actual_eval_context_size)
+            # mask_lower_right_tile = torch.ones(actual_eval_context_size, actual_eval_context_size)
             mask_upper = torch.cat([mask_upper_left_tile, mask_upper_right_tile], dim=1)
             mask_lower = torch.cat([mask_lower_left_tile, mask_lower_right_tile], dim=1)
             mask = torch.cat([mask_upper, mask_lower], dim=0).to(self.device)
@@ -130,8 +137,8 @@ class NeuralEnsembler(BaseEnsembler):
         return mask
 
     def get_context(self, X_obs, metadataset):
-        #X_context are the base functions for val dataset for a subset fo samples
-        #y_context are the 
+        # X_context are the base functions for val dataset for a subset fo samples
+        # y_context are the
         X_context = None
         y_context = None
         if self.use_context:
@@ -143,16 +150,12 @@ class NeuralEnsembler(BaseEnsembler):
             )
             _, num_samples, num_classes, num_pipelines = base_functions.shape
             samples_idx_for_context = np.random.randint(0, num_samples, self.context_size)
-            X_context = base_functions[:,samples_idx_for_context].to(self.device)
+            X_context = base_functions[:, samples_idx_for_context].to(self.device)
             y_context = (
-                metadataset.targets[samples_idx_for_context]
-                .unsqueeze(0)
-                .to(self.device)
+                metadataset.get_targets()[samples_idx_for_context].unsqueeze(0).to(self.device)
             )
-        
+
         return X_context, y_context
-   
-        
 
     def sample(self, X_obs, **kwargs) -> tuple[list, float]:
         """Fit neural ensembler, output ensemble WITH weights"""
@@ -165,7 +168,7 @@ class NeuralEnsembler(BaseEnsembler):
             .unsqueeze(0)
             .to(self.device)
         )
-        y = self.metadataset.targets.unsqueeze(0).to(self.device)
+        y = self.metadataset.get_targets().unsqueeze(0).to(self.device)
         self.net = self.fit_net(
             X_train=base_functions, y_train=y, base_functions_train=base_functions
         )
@@ -209,7 +212,7 @@ class NeuralEnsembler(BaseEnsembler):
             w_norm_type=w_norm_type,
             dropout_rate=dropout_rate,
             add_y=self.add_y,
-            num_layers=self.num_layers
+            num_layers=self.num_layers,
         )
 
         criterion = nn.CrossEntropyLoss()
@@ -270,30 +273,36 @@ class ENet(nn.Module):
         self.mask_prob = mask_prob
 
         self.embedding = nn.Linear(input_dim, hidden_dim)
-        #encoder_layer = nn.TransformerEncoderLayer(
+        # encoder_layer = nn.TransformerEncoderLayer(
         #    d_model=hidden_dim, nhead=num_heads, dim_feedforward=hidden_dim
         #
         # )
         first_encoder_modules = [
             nn.TransformerEncoderLayer(
-                d_model=hidden_dim, nhead=num_heads, dim_feedforward=hidden_dim, batch_first=True
-            ) for _ in range(num_layers)
+                d_model=hidden_dim,
+                nhead=num_heads,
+                dim_feedforward=hidden_dim,
+                batch_first=True,
+            )
+            for _ in range(num_layers)
         ]
-        #self.first_encoder = nn.Sequential(*first_encoder_modules)
+        # self.first_encoder = nn.Sequential(*first_encoder_modules)
         self.first_encoder = nn.ModuleList(first_encoder_modules)
-        #self.first_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_encoders)
+        # self.first_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_encoders)
         if add_y:
             self.second_encoder = nn.TransformerEncoderLayer(
                 d_model=hidden_dim + input_dim,
                 nhead=num_heads,
                 dim_feedforward=hidden_dim,
-                batch_first=True
+                batch_first=True,
             )
             self.out_layer = nn.Linear(hidden_dim + input_dim, output_dim)
         else:
             self.second_encoder = nn.TransformerEncoderLayer(
-                d_model=hidden_dim, nhead=num_heads, dim_feedforward=hidden_dim,
-                batch_first=True
+                d_model=hidden_dim,
+                nhead=num_heads,
+                dim_feedforward=hidden_dim,
+                batch_first=True,
             )
 
             self.out_layer = nn.Linear(hidden_dim, output_dim)
@@ -307,25 +316,21 @@ class ENet(nn.Module):
         self.weight = nn.Parameter(custom_weights_fc1)
         self.dropout = nn.Dropout(p=self.dropout_rate)
 
-
     def get_max_prob_per_base_function(self, x, y):
         batch_size, num_samples, num_classes, num_base_functions = x.shape
 
         if y is not None and self.add_y:
-
             with torch.no_grad():
                 y_rep = torch.repeat_interleave(y.unsqueeze(-1), x.shape[2], dim=2)
-                y_rep = torch.repeat_interleave(
-                    y_rep.unsqueeze(-1), x.shape[3], dim=3
-                )
-                max_prob_per_base_function = torch.gather(
-                    x.clone().detach(), 2, y_rep
-                )[:, :, 0, :].to(x.device)
+                y_rep = torch.repeat_interleave(y_rep.unsqueeze(-1), x.shape[3], dim=3)
+                max_prob_per_base_function = torch.gather(x.clone().detach(), 2, y_rep)[
+                    :, :, 0, :
+                ].to(x.device)
 
                 if self.training:
-                    mask = torch.randn(
-                        batch_size, num_samples, num_base_functions
-                    ).to(x.device)
+                    mask = torch.randn(batch_size, num_samples, num_base_functions).to(
+                        x.device
+                    )
                     mask = (torch.rand(mask.shape) > self.mask_prob).to(x.device)
                     max_prob_per_base_function = torch.where(
                         mask,
@@ -341,8 +346,9 @@ class ENet(nn.Module):
                 max_prob_per_base_function = None
         return max_prob_per_base_function
 
-    def forward(self, x, base_functions, y=None, X_context=None, y_context=None, mask_context=None):
-
+    def forward(
+        self, x, base_functions, y=None, X_context=None, y_context=None, mask_context=None
+    ):
         if self.simple_coefficients:
             if len(base_functions.shape) == 3:
                 x = torch.repeat_interleave(
@@ -356,26 +362,25 @@ class ENet(nn.Module):
                 )
 
         else:
-            max_prob_per_base_function = self.get_max_prob_per_base_function(x,y)
+            max_prob_per_base_function = self.get_max_prob_per_base_function(x, y)
             num_query_samples = x.shape[1]
 
             if X_context is not None:
-                max_prob_per_base_function_context = self.get_max_prob_per_base_function(X_context,y_context)
-                
+                max_prob_per_base_function_context = self.get_max_prob_per_base_function(
+                    X_context, y_context
+                )
+
                 if max_prob_per_base_function is not None:
-                    max_prob_per_base_function = torch.cat([
-                        max_prob_per_base_function_context,
-                        max_prob_per_base_function
-                    ], dim=1)
-                x = torch.cat([
-                    X_context,
-                    x
-                ], dim=1)
+                    max_prob_per_base_function = torch.cat(
+                        [max_prob_per_base_function_context, max_prob_per_base_function],
+                        dim=1,
+                    )
+                x = torch.cat([X_context, x], dim=1)
             batch_size, num_samples, num_classes, num_base_functions = x.shape
 
             # X = [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
-            #x = torch.nn.functional.softmax(x, dim=-2)
-            
+            # x = torch.nn.functional.softmax(x, dim=-2)
+
             x = x.transpose(1, 2).reshape(-1, num_samples, num_base_functions)
             # [(BATCH SIZE X NUMBER OF CLASSES) X NUMBER OF SAMPLES X NUMBER OF BASE FUNCTIONS]
             x = self.embedding(x)
@@ -407,7 +412,7 @@ class ENet(nn.Module):
         else:
             raise ValueError("w_norm_type must be either linear or softmax")
 
-        w_norm = w_norm[:,-num_query_samples:]
+        w_norm = w_norm[:, -num_query_samples:]
 
         x = torch.multiply(base_functions, w_norm).sum(
             axis=-1

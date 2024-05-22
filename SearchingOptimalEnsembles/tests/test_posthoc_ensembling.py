@@ -35,8 +35,7 @@ if __name__ == "__main__":
     ne = NeuralEnsembler(metadataset=metadataset)
 
     # X refers to the pipelines
-    X_obs = np.random.randint(0, 100, 50)
-    X_obs = np.arange(120)
+    X_obs = np.arange(120).tolist()
     best_ensemble, best_metric = ne.sample(X_obs)
 
     metadataset.set_state(dataset_names[task_id])

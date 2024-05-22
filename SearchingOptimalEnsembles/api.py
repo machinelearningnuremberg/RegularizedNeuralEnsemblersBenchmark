@@ -122,7 +122,7 @@ def run(
         "ne_reg_term_div": ne_reg_term_div,
         "ne_add_y": ne_add_y,
         "ne_use_context": ne_use_context,
-        "ne_eval_context_size": ne_eval_context_size
+        "ne_eval_context_size": ne_eval_context_size,
     }
     posthoc_ensembler = instance_from_map(
         EnsemblerMapping,
@@ -271,7 +271,7 @@ def run(
         metric_name=metric_name,
         split="test",
         ensembler=posthoc_ensembler,
-        val_metadataset=metadataset
+        val_metadataset=metadataset,
     )
 
     if wandb.run is not None:

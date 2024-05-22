@@ -184,6 +184,9 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             dataset for dataset in dataset_names if self.data_version in dataset
         ]
         return dataset_names
+    
+    def get_targets(self):
+        return self.targets
 
     def _get_hp_candidates_and_indices(self) -> tuple[torch.Tensor, torch.Tensor]:
         return self.hp_candidates, self.hp_candidates_ids
@@ -209,7 +212,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         time_per_pipeline = self.time[ensembles]
 
         # Predictions shape: [Num. ensembles X Num. pipelines X Num Samples X Num. Classes]
-        #predictions = self.predictions[ensembles].to(self.device)
+        # predictions = self.predictions[ensembles].to(self.device)
 
         predictions = self.get_predictions(ensembles).to(self.device)
 
@@ -222,7 +225,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             range_idx = list(
                 range(i, min(i + self.processing_batch_size, total_num_samples))
             )
-            current_samples_ratio = len(range_idx)/total_num_samples
+            current_samples_ratio = len(range_idx) / total_num_samples
             temp_predictions = predictions[..., range_idx, :]
             temp_targets = targets[:, range_idx]
             if weights is not None:
@@ -232,8 +235,10 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             temp_metric, temp_metric_per_pipeline = self._compute_metrics(
                 temp_predictions, temp_targets, temp_weights, batch_size
             )
-            metric.append(temp_metric.unsqueeze(-1)*current_samples_ratio)
-            metric_per_pipeline.append(temp_metric_per_pipeline.unsqueeze(-1)*current_samples_ratio)
+            metric.append(temp_metric.unsqueeze(-1) * current_samples_ratio)
+            metric_per_pipeline.append(
+                temp_metric_per_pipeline.unsqueeze(-1) * current_samples_ratio
+            )
 
         metric = torch.cat(metric, axis=-1).sum(-1)
         metric_per_pipeline = torch.cat(metric_per_pipeline, axis=-1).sum(-1)
@@ -241,11 +246,11 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         return hp_candidates, metric, metric_per_pipeline, time_per_pipeline
 
     def get_logits_from_probabilities(self, probabilities):
-        log_p = torch.log(probabilities+10e-8)
+        log_p = torch.log(probabilities + 10e-8)
         C = -log_p.mean(-1)
         logits = log_p + C.unsqueeze(-1)
         return logits
-    
+
     def get_num_samples(self):
         return self.predictions.shape[1]
 
@@ -289,8 +294,10 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             metric_per_sample = metric_per_sample.reshape(batch_size, ensemble_size, -1)
             metric_per_pipeline = metric_per_sample.mean(axis=-1)
 
-            #logits 
-            weighted_logits = self.get_logits_from_probabilities(weighted_predictions.mean(1))
+            # logits
+            weighted_logits = self.get_logits_from_probabilities(
+                weighted_predictions.mean(1)
+            )
             metric_ensemble_per_sample = cross_entropy(
                 weighted_logits.reshape(-1, n_classes), targets.reshape(-1)
             )

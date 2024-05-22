@@ -19,7 +19,7 @@ def eval(
     ensembler: BaseEnsembler = None,
     observed_pipelines: np.array = None,
     device: torch.device = torch.device("cuda"),
-    val_metadataset: BaseMetaDataset = None
+    val_metadataset: BaseMetaDataset = None,
 ):
     metadataset_args = {
         "meta_split_ids": META_SPLITS[meta_split_id],
@@ -36,8 +36,7 @@ def eval(
 
     dataset_name = metadataset.meta_splits["meta-test"][dataset_id]
     metadataset.set_state(dataset_name=dataset_name)
-    ensembler.set_state(metadataset=metadataset,
-                        device=ensembler.device)
+    ensembler.set_state(metadataset=metadataset, device=ensembler.device)
 
     weights = None
     if ensembler is not None:
@@ -45,8 +44,9 @@ def eval(
             # if ensemble is None:
             #    ensemble = np.arange(len(metadataset.hp_candidates_ids)).tolist()
             X_context, y_context = ensembler.get_context(ensemble, val_metadataset)
-            weights = ensembler.get_weights(ensemble, X_context=X_context,
-                                            y_context=y_context)
+            weights = ensembler.get_weights(
+                ensemble, X_context=X_context, y_context=y_context
+            )
 
     if weights is None:
         _, metric, metric_per_pipeline, _ = metadataset.evaluate_ensembles([ensemble])
