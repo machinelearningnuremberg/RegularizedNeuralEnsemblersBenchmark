@@ -17,7 +17,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         meta_split_ids=((0, 1, 2), (3,), (4,)),
         seed: int = 42,
         split: str = "val",
-        metric_name: str = "nll",
+        metric_name: str = "error",
         ensemble_type: str = "soft",
         data_version: str = "micro",
         use_logits: bool = True,
@@ -209,7 +209,10 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         time_per_pipeline = self.time[ensembles]
 
         # Predictions shape: [Num. ensembles X Num. pipelines X Num Samples X Num. Classes]
-        predictions = self.predictions[ensembles].to(self.device)
+        #predictions = self.predictions[ensembles].to(self.device)
+
+        predictions = self.get_predictions(ensembles).to(self.device)
+
         targets = torch.tile(self.targets.unsqueeze(0), (batch_size, 1)).to(self.device)
         hp_candidates = self.hp_candidates[ensembles]
         metric = []
@@ -236,6 +239,15 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         metric_per_pipeline = torch.cat(metric_per_pipeline, axis=-1).sum(-1)
 
         return hp_candidates, metric, metric_per_pipeline, time_per_pipeline
+
+    def get_logits_from_probabilities(self, probabilities):
+        log_p = torch.log(probabilities+10e-8)
+        C = -log_p.mean(-1)
+        logits = log_p + C.unsqueeze(-1)
+        return logits
+    
+    def get_num_samples(self):
+        return self.predictions.shape[1]
 
     def _compute_metrics(
         self,
@@ -270,13 +282,17 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(axis=-1)
 
         elif self.metric_name == "nll":
+            logits = self.get_logits_from_probabilities(predictions)
             metric_per_sample = cross_entropy(
-                predictions.reshape(-1, n_classes), temp_targets.reshape(-1)
+                logits.reshape(-1, n_classes), temp_targets.reshape(-1)
             )
             metric_per_sample = metric_per_sample.reshape(batch_size, ensemble_size, -1)
             metric_per_pipeline = metric_per_sample.mean(axis=-1)
+
+            #logits 
+            weighted_logits = self.get_logits_from_probabilities(weighted_predictions.mean(1))
             metric_ensemble_per_sample = cross_entropy(
-                weighted_predictions.mean(1).reshape(-1, n_classes), targets.reshape(-1)
+                weighted_logits.reshape(-1, n_classes), targets.reshape(-1)
             )
             metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(axis=-1)
 

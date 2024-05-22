@@ -179,6 +179,116 @@ experiments:
         - 32
       ne_reg_term_div:
         - 0.1
+  neural29:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name neural --data_version micro --ne_add_y"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 64
+      ne_context_size:
+        - 32
+      ne_reg_term_div:
+        - 0.1
+  neural36:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name neural --data_version micro --ne_use_context"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 64
+        - 128
+      ne_context_size:
+        - 32
+      ne_reg_term_div:
+        - 0.1
+        - 0.
+  neural37:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name neural --data_version micro --ne_use_context"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 128
+      ne_context_size:
+        - 32
+      ne_reg_term_div:
+        - 0.1
+        - 0.
+  neural38:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name neural --data_version micro --ne_use_context"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 256
+        - 128
+      ne_context_size:
+        - 32
+      ne_reg_term_div:
+        - 0.1
+  neural41:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name neural --data_version micro --ne_use_context --ne_add_y"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 256
+        - 128
+      ne_context_size:
+        - 32
+      ne_reg_term_div:
+        - 0.1
+  neural40:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name neural --data_version micro"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 256
+        - 128
+      ne_context_size:
+        - 32
+      ne_reg_term_div:
+        - 0.1
+  neural43:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name neural --data_version micro --ne_use_context"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 128
+      ne_context_size:
+        - 32
+        - 64
+      ne_reg_term_div:
+        - 0.1
+  neural45:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name neural --data_version micro --ne_use_context"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 128
+      ne_context_size:
+        - 32
+      ne_reg_term_div:
+        - 0.1
+      ne_eval_context_size:
+        - 128
+        - 64
+        - 32
+  neural33:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name neural --data_version micro --ne_use_context"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 64
+      ne_context_size:
+        - 32
+      ne_reg_term_div:
+        - 0.1
   greedy1:
     base_command: "--apply_posthoc_ensemble_at_end --ensembler_name greedy"
     hyper_grid:
