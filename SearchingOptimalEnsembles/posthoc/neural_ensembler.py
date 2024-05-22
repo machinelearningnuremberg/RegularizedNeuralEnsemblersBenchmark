@@ -182,7 +182,7 @@ class NeuralEnsembler(BaseEnsembler):
         _, weights = self.batched_prediction(
             X=base_functions, base_functions=base_functions, y=y
         )
-        best_ensemble = X_obs.tolist()
+        best_ensemble = X_obs  #.tolist()
         _, best_metric, _, _ = self.metadataset.evaluate_ensembles_with_weights(
             [best_ensemble], weights
         )
@@ -332,6 +332,7 @@ class ENet(nn.Module):
             with torch.no_grad():
                 y_rep = torch.repeat_interleave(y.unsqueeze(-1), x.shape[2], dim=2)
                 y_rep = torch.repeat_interleave(y_rep.unsqueeze(-1), x.shape[3], dim=3)
+                y_rep = y_rep.long()
                 max_prob_per_base_function = torch.gather(x.clone().detach(), 2, y_rep)[
                     :, :, 0, :
                 ].to(x.device)
@@ -358,6 +359,7 @@ class ENet(nn.Module):
     def forward(
         self, x, base_functions, y=None, X_context=None, y_context=None, mask_context=None
     ):
+                    
         if self.simple_coefficients:
             if len(base_functions.shape) == 3:
                 x = torch.repeat_interleave(

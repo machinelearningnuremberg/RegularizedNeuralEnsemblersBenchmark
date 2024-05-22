@@ -255,6 +255,13 @@ class BaseMetaDataset:
         raise NotImplementedError
 
     @abstractmethod
+    def get_num_classes(self) -> int:
+        """
+        Returns the number of classes for the current loaded dataset.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def get_targets(self) -> torch.Tensor:
         """
         Returns the targets of the current loaded dataset, with shape (num_samples)

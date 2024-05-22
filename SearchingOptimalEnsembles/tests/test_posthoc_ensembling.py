@@ -3,6 +3,7 @@ import numpy as np
 import torch
 
 import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
+import SearchingOptimalEnsembles.metadatasets.scikit_learn.metadataset as slmd
 
 from SearchingOptimalEnsembles.posthoc.neural_ensembler import NeuralEnsembler
 
@@ -12,18 +13,35 @@ def test_posthoc_ensembling():
 
 
 if __name__ == "__main__":
-    DATA_DIR = "/work/dlclarge2/janowski-quicktune/predictions"
     task_id = 5
     metric_name = "error"
     data_version = "micro"
-    metadataset = qmd.QuicktuneMetaDataset(
+
+    name = "quicktune"
+    # name = "pipelinebench"
+
+    if name == "quicktune":
+        DATA_DIR = "/work/dlclarge2/janowski-quicktune/predictions"
+        md_class = qmd.QuicktuneMetaDataset
+    else:
+        DATA_DIR = "/work/dlclarge2/janowski-quicktune/pipeline_bench"
+        md_class = slmd.ScikitLearnMetaDataset
+
+    metadataset = md_class(
         data_dir=DATA_DIR, metric_name=metric_name, data_version=data_version
     )
-
     dataset_names = metadataset.get_dataset_names()
     metadataset.set_state(dataset_names[task_id])
+    num_samples = metadataset.get_num_samples()
+    num_classes = metadataset.get_num_classes()
+
     ensembles = [[1, 2]]
-    num_pipelines, num_samples, num_classes = metadataset.predictions.shape
+    (
+        pipeline_hps,
+        metric,
+        metric_per_pipeline,
+        metric_per_pipeline,
+    ) = metadataset.evaluate_ensembles(ensembles=ensembles)
     num_ensembles = len(ensembles)
     num_pipelines = len(ensembles[0])
     weights = np.random.uniform(
@@ -47,12 +65,10 @@ if __name__ == "__main__":
         _,
     ) = metadataset.evaluate_ensembles_with_weights([best_ensemble], weights)
 
-    metadataset_test = qmd.QuicktuneMetaDataset(
-        data_dir=DATA_DIR,
-        metric_name=metric_name,
-        split="test",
-        data_version=data_version,
+    metadataset_test = md_class(
+        data_dir=DATA_DIR, metric_name=metric_name, data_version=data_version, split="test",
     )
+
     metadataset_test.set_state(dataset_names[task_id])
     ne.set_state(metadataset=metadataset_test)
     weights = ne.get_weights(X_obs)
