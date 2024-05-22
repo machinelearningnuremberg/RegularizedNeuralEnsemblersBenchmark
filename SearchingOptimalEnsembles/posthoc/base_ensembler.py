@@ -19,8 +19,18 @@ class BaseEnsembler:
     ) -> None:
         """Initializes the base ensembler class."""
 
+        self.set_state(metadataset=metadataset,
+                       device=device)
+
+    def set_state(
+        self,
+        metadataset: BaseMetaDataset,
+        device: torch.device = torch.device("cpu"),
+    ) -> None:
+
         self.metadataset = metadataset
         self.device = device
+
 
     @abstractmethod
     def sample(self, X_obs: np.array, **kwargs) -> tuple[list, float]:

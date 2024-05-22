@@ -21,6 +21,9 @@ def div_loss(w, base_observations):
     div = torch.multiply(loss, w[:, :, 0, :].squeeze(-1))
     return div.mean()
 
+def l1_norm(w):
+    #return torch.norm(w, p=1, dim=-1).mean()
+    return (torch.log(w+10e-8)).mean()
 
 class NeuralEnsembler(BaseEnsembler):
     """Neural (End-to-End) Ensembler."""
@@ -36,6 +39,7 @@ class NeuralEnsembler(BaseEnsembler):
         ne_eval_context_size: int = 50,
         ne_num_layers: int = 1,
         ne_use_context: bool = True,
+        ne_reg_term_norm: float = 0.1,
         **kwargs,
     ) -> None:
         super().__init__(metadataset=metadataset, device=device)
@@ -48,6 +52,7 @@ class NeuralEnsembler(BaseEnsembler):
         self.eval_context_size = ne_eval_context_size
         self.num_layers = ne_num_layers
         self.use_context = ne_use_context
+        self.reg_term_norm = ne_reg_term_norm
 
     def set_state(
         self,
@@ -161,6 +166,7 @@ class NeuralEnsembler(BaseEnsembler):
         """Fit neural ensembler, output ensemble WITH weights"""
         best_ensemble = None
         weights = None
+        #this has to change when using more batches
         base_functions = (
             self.metadataset.get_predictions([X_obs])[0]
             .transpose(0, 1)
@@ -168,6 +174,7 @@ class NeuralEnsembler(BaseEnsembler):
             .unsqueeze(0)
             .to(self.device)
         )
+        ##this has to change when using more batches
         y = self.metadataset.get_targets().unsqueeze(0).to(self.device)
         self.net = self.fit_net(
             X_train=base_functions, y_train=y, base_functions_train=base_functions
@@ -194,7 +201,7 @@ class NeuralEnsembler(BaseEnsembler):
         y_train,
         base_functions_train,
         simple_coefficients=False,
-        learning_rate=0.0001,
+        learning_rate=0.001,
         epochs=1000,
         w_norm_type="softmax",
         dropout_rate=0,
@@ -235,11 +242,13 @@ class NeuralEnsembler(BaseEnsembler):
                 base_functions_train[:, context_idx],
                 y_train[:, context_idx],
             )
+            output = self.metadataset.get_logits_from_probabilities(output)
             loss = criterion(
                 output.reshape(-1, num_classes), y_train[:, context_idx].reshape(-1)
             )
             div = div_loss(w, base_functions_train[:, context_idx])
             loss -= self.reg_term_div * div
+            loss += self.reg_term_norm * l1_norm(w)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
             optimizer.step()
@@ -255,7 +264,7 @@ class ENet(nn.Module):
         input_dim=1,
         hidden_dim=128,
         output_dim=1,
-        num_layers=3,
+        num_layers=2,
         simple_coefficients=False,
         dropout_rate=0,
         num_heads=1,
@@ -416,5 +425,7 @@ class ENet(nn.Module):
 
         x = torch.multiply(base_functions, w_norm).sum(
             axis=-1
-        )  # [BATCH_SIZE, NUM_SAMPLES, NUM_CLASSES]
+        )  
+        # x.shape: [BATCH_SIZE, NUM_SAMPLES, NUM_CLASSES]
+        # w_norm.shape : [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
         return x, w_norm
