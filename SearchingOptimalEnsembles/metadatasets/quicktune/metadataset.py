@@ -307,3 +307,6 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             raise ValueError("metric_name must be either error or nll")
 
         return metric, metric_per_pipeline
+
+    def get_num_classes(self) -> int:
+        return self.predictions.shape[-1]

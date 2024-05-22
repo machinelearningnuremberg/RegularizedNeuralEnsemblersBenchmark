@@ -102,6 +102,7 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
     def evaluate_ensembles(
         self,
         ensembles: list[list[int]],
+        weights: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         batch_size = len(ensembles)
 
@@ -118,9 +119,17 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         y_proba = self.benchmark(
             ensembles=ensembles,
             datapoints=splits_ids[f"X_{self.split}"],
-            get_probabilities=False if self.metric_name == "error" else True,
+            get_probabilities=True if not self.metric_name == "error" or weights is not None else False,
             aggregate=False,
         )
+
+        if weights is not None:
+            # since the weights have a different shape order, we need to permute the axes
+            if isinstance(weights, torch.Tensor) or isinstance(weights, np.ndarray):
+                weights = weights.permute(0, 2, 1, 3)
+                if isinstance(weights, torch.Tensor):
+                    weights = weights.cpu().detach().numpy()
+            y_proba *= weights
 
         if self.metric_name == "error":
             # Step 1: Reshape the predictions and the true labels to have the same shape
@@ -173,6 +182,14 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
             metric_per_pipeline,
             metric_per_pipeline,
         )  # , time_per_pipeline
+    
+    def evaluate_ensembles_with_weights(
+            self,
+            ensembles: list[list[int]],
+            weights: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        
+        return self.evaluate_ensembles(ensembles=ensembles, weights=weights)
 
     def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
         pipeline_hps = self.benchmark.get_pipeline_features(ensembles=ensembles)
@@ -190,7 +207,7 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         )
 
         # Convert the numpy array to torch tensor
-        y_proba = torch.from_numpy(y_proba_np)
+        y_proba = torch.tensor(y_proba_np, dtype=torch.float32)
 
         # Assuming the current shape of y_proba is (B, M, N, C)
         # Reshape y_proba to (B, N, M, C)
@@ -198,3 +215,14 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         y_proba = y_proba.permute(0, 2, 1, 3)  # Now, shape will be (B, N, M, C)
 
         return y_proba
+
+    def get_num_samples(self) -> int:
+        return self.benchmark.get_splits(return_array=False)[f"X_{self.split}"].shape[0]
+    
+    def get_targets(self) -> torch.Tensor:
+        splits = self.benchmark.get_splits(return_array=True)
+        y_true = np.repeat(splits[f"y_{self.split}"].reshape(1, -1), 1, axis=0)
+        return torch.tensor(y_true, dtype=torch.float32).squeeze()
+    
+    def get_num_classes(self) -> int:
+        return len(np.unique(self.get_targets().numpy()))
