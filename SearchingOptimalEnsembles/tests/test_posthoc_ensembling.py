@@ -5,7 +5,7 @@ import torch
 import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
 import SearchingOptimalEnsembles.metadatasets.scikit_learn.metadataset as slmd
 
-from ..posthoc.neural_ensembler import NeuralEnsembler
+from SearchingOptimalEnsembles.posthoc.neural_ensembler import NeuralEnsembler
 
 
 def test_posthoc_ensembling():
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     data_version = "micro"
 
     name = "quicktune"
-    # name = "pipelinebench"
+    name = "pipelinebench"
 
     if name == "quicktune":
         DATA_DIR = "/work/dlclarge2/janowski-quicktune/predictions"

@@ -303,16 +303,17 @@ experiments:
       ne_reg_term_div:
         - 0.1
         - 1.0
-  neural54:
+  neural56:
     base_command: "--apply_posthoc_ensemble_at_end --ensembler_name neural --data_version micro --ne_use_context"
     hyper_grid:
       searcher_name:
         - None
       ne_hidden_dim:
         - 32
-      ne_context_size:
         - 16
+      ne_context_size:
         - 8
+        - 4
       ne_reg_term_div:
         - 0.1
         - 1.0

@@ -40,7 +40,7 @@ class NeuralEnsembler(BaseEnsembler):
         ne_hidden_dim: int = 512,
         ne_context_size: int = 32,
         ne_reg_term_div: float = 0.1,
-        ne_add_y: bool = True,
+        ne_add_y: bool = False,
         ne_eval_context_size: int = 50,
         ne_num_layers: int = 2,
         ne_use_context: bool = True,
@@ -338,7 +338,7 @@ class ENetSAS(nn.Module):  # Sample as Sequence
         dropout_rate=0,
         num_heads=1,
         w_norm_type="softmax",
-        add_y=True,
+        add_y=False,
         mask_prob=0.5,
     ):
         super().__init__()
