@@ -18,7 +18,7 @@ if __name__ == "__main__":
     data_version = "micro"
 
     name = "quicktune"
-    # name = "pipelinebench"
+    #name = "pipelinebench"
 
     if name == "quicktune":
         DATA_DIR = "/work/dlclarge2/janowski-quicktune/predictions"

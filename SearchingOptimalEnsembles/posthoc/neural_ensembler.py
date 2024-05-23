@@ -9,6 +9,8 @@ from ..metadatasets.base_metadataset import BaseMetaDataset
 from ..samplers.random_sampler import RandomSampler
 from .base_ensembler import BaseEnsembler
 
+#command to test:
+#python main.py --apply_posthoc_ensemble_at_end --ensembler_name neural --data_version micro --ne_use_context --project_name SOE --num_iterations 100 --metric_name error --dataset_id 2 --run_name neural45_2_4 --meta_split_id 4 --searcher_name None --ne_hidden_dim 128 --ne_context_size 8 --ne_reg_term_div 0.1 --ne_eval_context_size 32 --experiment_group neural45_2 --no_wandb
 
 def div_loss(w, base_observations):
     criterion = nn.KLDivLoss(reduction="none")
@@ -37,9 +39,9 @@ class NeuralEnsembler(BaseEnsembler):
         ne_reg_term_div: float = 0.1,
         ne_add_y: bool = True,
         ne_eval_context_size: int = 50,
-        ne_num_layers: int = 1,
+        ne_num_layers: int = 2,
         ne_use_context: bool = True,
-        ne_reg_term_norm: float = 0.1,
+        ne_reg_term_norm: float = 0.01,
         **kwargs,
     ) -> None:
         super().__init__(metadataset=metadataset, device=device)
@@ -194,30 +196,56 @@ class NeuralEnsembler(BaseEnsembler):
         for arg in args:
             output.append(arg.to(self.device))
         return output
+    
+    def get_batch(self, X_train, base_functions_train, y_train, 
+                  net_type):
+
+        _, num_samples, num_classes, num_base_functions = X_train.shape
+      
+        if net_type == "bas":
+            idx = np.random.randint(0, num_base_functions, self.context_size)
+
+            return (
+                X_train[..., idx],
+                base_functions_train[..., idx],
+                y_train
+            )
+
+        elif net_type == "sas":
+            idx = np.random.randint(0, num_samples, self.context_size)
+
+            return (
+                X_train[:, idx],
+                base_functions_train[:, idx],
+                y_train[:, idx]
+            )
 
     def fit_net(
         self,
         X_train,
         y_train,
         base_functions_train,
-        simple_coefficients=False,
-        learning_rate=0.001,
+        learning_rate=0.0001,
         epochs=1000,
-        w_norm_type="softmax",
-        dropout_rate=0,
+        net_type = "sas"
     ):
-        output_dim = base_functions_train.shape[
-            -1
-        ]  # [NUMBER OF SAMPLES X NUMBER OF BASE FUNCTIONS]
-        input_dim = X_train.shape[-1]
 
-        net = ENet(
+        if net_type == "bas":
+            NetClass = ENetBAS
+            input_dim = base_functions_train.shape[-2] # NUMBER OF CLASSES
+            output_dim = 1
+        elif net_type == "sas":
+            NetClass = ENetSAS
+            input_dim = X_train.shape[-1] 
+            output_dim = base_functions_train.shape[-1]  # [NUMBER OF BASE FUNCTIONS]
+
+        else:
+            raise NotImplementedError()
+
+        net = NetClass(
             input_dim=input_dim,
             hidden_dim=self.hidden_dim,
             output_dim=output_dim,
-            simple_coefficients=simple_coefficients,
-            w_norm_type=w_norm_type,
-            dropout_rate=dropout_rate,
             add_y=self.add_y,
             num_layers=self.num_layers,
         )
@@ -237,16 +265,14 @@ class NeuralEnsembler(BaseEnsembler):
             optimizer.zero_grad()
             np.random.shuffle(idx)
             context_idx = idx[: self.context_size]
-            output, w = net(
-                X_train[:, context_idx],
-                base_functions_train[:, context_idx],
-                y_train[:, context_idx],
-            )
-            output = self.metadataset.get_logits_from_probabilities(output)
+            batch = self.get_batch(X_train, base_functions_train, y_train, net_type)
+            X_batch, base_functions_batch, y_batch = batch
+            output, w = net(*batch)
+            logits = self.metadataset.get_logits_from_probabilities(output)
             loss = criterion(
-                output.reshape(-1, num_classes), y_train[:, context_idx].reshape(-1)
+                logits.reshape(-1, num_classes), y_batch.reshape(-1)
             )
-            div = div_loss(w, base_functions_train[:, context_idx])
+            div = div_loss(w, base_functions_batch)
             loss -= self.reg_term_div * div
             loss += self.reg_term_norm * l1_norm(w)
             loss.backward()
@@ -258,7 +284,61 @@ class NeuralEnsembler(BaseEnsembler):
         return net
 
 
-class ENet(nn.Module):
+class ENetBAS(nn.Module): #Base model as sequence
+    def __init__(
+        self,
+        input_dim=1,
+        hidden_dim=128,
+        output_dim=1,
+        num_layers=3,
+        num_heads=1,
+        add_y=True,
+        mask_prob=0.5,
+    ):
+        super().__init__()
+
+        self.num_layers = num_layers
+        self.hidden_dim = hidden_dim
+        self.num_heads = num_heads
+        self.add_y = add_y
+        self.mask_prob = mask_prob
+
+        self.embedding = nn.Linear(input_dim, hidden_dim)
+        # input = [BATCH SIZE X NUMBER OF SAMPLES X NUMBER OF BASE FUNCTIONS X NUMBER OF CLASSES]
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=hidden_dim, nhead=num_heads, dim_feedforward=hidden_dim
+        )
+
+        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        self.output_layer = nn.Linear(hidden_dim, output_dim)
+
+    def forward(
+        self, x, base_functions, y=None, X_context=None, y_context=None, mask_context=None
+    ):
+        # x = [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
+        batch_size, num_samples, num_classes, num_base_functions = x.shape
+
+        x = x.reshape(-1, num_base_functions, num_classes)
+        x = self.embedding(x)
+        x = self.encoder(x)
+        x = self.output_layer(x) #((BATCH_SIZE X NUM_SAMPLES) X NUM_BASE_FUNCTIONS)
+        x = x.reshape((batch_size, num_samples, num_base_functions))
+        x = torch.repeat_interleave(
+            x.unsqueeze(2), num_classes, dim=2
+        )
+
+        w = x.reshape(batch_size, num_samples, -1)
+        w_norm = torch.nn.functional.softmax(w, dim=-1)
+        w_norm = w_norm.reshape(batch_size, num_samples, num_classes, num_base_functions)
+
+        x = torch.multiply(base_functions, w_norm).sum(
+            axis=-1
+        )  
+        # x.shape: [BATCH_SIZE X NUM_SAMPLES, NUM_CLASSES]
+        # w_norm.shape : [BATCH_SIZE X NUM_SAMPLES  X NUM_CLASSES X NUMBER OF BASE FUNCTIONS]
+        return x, w_norm
+    
+class ENetSAS(nn.Module): #Sample as Sequence
     def __init__(
         self,
         input_dim=1,
@@ -270,7 +350,7 @@ class ENet(nn.Module):
         num_heads=1,
         w_norm_type="softmax",
         add_y=True,
-        mask_prob=0.5,
+        mask_prob=0.5
     ):
         super().__init__()
 
@@ -397,29 +477,34 @@ class ENet(nn.Module):
             x = self.embedding(x)
             for encoder in self.first_encoder:
                 x = encoder(x, src_mask=mask_context)
-            x = x.reshape(batch_size, num_classes, num_samples, self.hidden_dim)
-            x = x.mean(axis=1)
+            #x = x.reshape(batch_size, num_classes, num_samples, self.hidden_dim)
+            #x = x.mean(axis=1)
 
             if max_prob_per_base_function is not None:
                 x = torch.cat([x, max_prob_per_base_function], axis=-1)
             x = self.second_encoder(x, src_mask=mask_context)
             x = self.out_layer(x)
+            x = x.transpose(0,1).unsqueeze(0) #use batch size here
+            #x = x.mean(-2, keepdim=True)
 
-            if len(base_functions.shape) == 3:
-                x = torch.repeat_interleave(
-                    x.unsqueeze(1), base_functions.shape[1], dim=1
-                )
-            if len(base_functions.shape) == 4:
-                x = torch.repeat_interleave(
-                    x.unsqueeze(2), base_functions.shape[2], dim=2
-                )
+            #if len(base_functions.shape) == 3:
+            #    x = torch.repeat_interleave(
+            #        x.unsqueeze(1), base_functions.shape[1], dim=1
+            #    )
+            #if len(base_functions.shape) == 4:
+            #    x = torch.repeat_interleave(
+            #        x.unsqueeze(2), base_functions.shape[2], dim=2
+            #    )
 
         if self.w_norm_type == "linear":
             w = nn.ReLU()(x)
             w_norm = torch.divide(w + 1e-8, torch.sum(w, axis=-1).reshape(-1, 1) + 1e-8)
         elif self.w_norm_type == "softmax":
             w = x
+            w = w.reshape(batch_size, num_samples, -1)
             w_norm = torch.nn.functional.softmax(w, dim=-1)
+            w_norm = w_norm.reshape(batch_size, num_samples, num_classes, num_base_functions)
+
         else:
             raise ValueError("w_norm_type must be either linear or softmax")
 
