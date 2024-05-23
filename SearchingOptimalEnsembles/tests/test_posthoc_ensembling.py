@@ -5,7 +5,7 @@ import torch
 import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
 import SearchingOptimalEnsembles.metadatasets.scikit_learn.metadataset as slmd
 
-from SearchingOptimalEnsembles.posthoc.neural_ensembler import NeuralEnsembler
+from ..posthoc.neural_ensembler import NeuralEnsembler
 
 
 def test_posthoc_ensembling():
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     data_version = "micro"
 
     name = "quicktune"
-    #name = "pipelinebench"
+    # name = "pipelinebench"
 
     if name == "quicktune":
         DATA_DIR = "/work/dlclarge2/janowski-quicktune/predictions"
@@ -66,7 +66,10 @@ if __name__ == "__main__":
     ) = metadataset.evaluate_ensembles_with_weights([best_ensemble], weights)
 
     metadataset_test = md_class(
-        data_dir=DATA_DIR, metric_name=metric_name, data_version=data_version, split="test",
+        data_dir=DATA_DIR,
+        metric_name=metric_name,
+        data_version=data_version,
+        split="test",
     )
 
     metadataset_test.set_state(dataset_names[task_id])
