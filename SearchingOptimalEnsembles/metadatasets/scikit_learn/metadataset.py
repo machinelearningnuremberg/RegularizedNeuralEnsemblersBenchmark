@@ -119,7 +119,7 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         y_proba = self.benchmark(
             ensembles=ensembles,
             datapoints=splits_ids[f"X_{self.split}"],
-            get_probabilities=True if not self.metric_name == "error" or weights is not None else False,
+            get_probabilities=True,
             aggregate=False,
         )
 
@@ -130,10 +130,13 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
                 if isinstance(weights, torch.Tensor):
                     weights = weights.cpu().detach().numpy()
             y_proba *= weights
-
+            
         if self.metric_name == "error":
+            # Convert the probabilities to predictions
+            y_proba = np.argmax(y_proba, axis=-1, keepdims=True)
             # Step 1: Reshape the predictions and the true labels to have the same shape
-            predictions = np.round(y_proba.reshape(batch_size, -1, y_true.shape[1]))
+            predictions = y_proba.reshape(batch_size, -1, y_true.shape[1])
+            predictions = np.round(predictions)
 
             # Step 2: Compute the accuracy for each pipeline and each ensemble
             acc_per_pipeline = (predictions == y_true[:, None, :]).mean(axis=2)
@@ -143,9 +146,9 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
             error_per_pipeline = 1.0 - acc_per_pipeline
             error_per_ensemble = 1.0 - acc_per_ensemble
 
-            metric = torch.tensor(error_per_ensemble, dtype=torch.float32)
             metric_per_pipeline = torch.tensor(error_per_pipeline, dtype=torch.float32)
-
+            metric = torch.tensor(error_per_ensemble, dtype=torch.float32)
+            
         elif self.metric_name == "nll":
             num_datapoints = y_proba.shape[1]
             num_pipelines = y_proba.shape[2]

@@ -35,28 +35,41 @@ if __name__ == "__main__":
     num_samples = metadataset.get_num_samples()
     num_classes = metadataset.get_num_classes()
 
-    ensembles = [[1, 2]]
-    (
-        pipeline_hps,
-        metric,
-        metric_per_pipeline,
-        metric_per_pipeline,
-    ) = metadataset.evaluate_ensembles(ensembles=ensembles)
-    num_ensembles = len(ensembles)
-    num_pipelines = len(ensembles[0])
-    weights = np.random.uniform(
-        size=(num_ensembles, num_pipelines, num_samples, num_classes)
-    )
-    weights = torch.FloatTensor(weights)
-    metadataset.evaluate_ensembles_with_weights(ensembles=ensembles, weights=weights)
+    # Test functionality
+    try:
+        ensembles = [[1, 2]]
+        (
+            pipeline_hps,
+            metric,
+            metric_per_pipeline,
+            metric_per_pipeline,
+        ) = metadataset.evaluate_ensembles(ensembles=ensembles)
+        num_ensembles = len(ensembles)
+        num_pipelines = len(ensembles[0])
+        weights = np.random.uniform(
+            size=(num_ensembles, num_pipelines, num_samples, num_classes)
+        )
+        weights = torch.FloatTensor(weights)
+        metadataset.evaluate_ensembles_with_weights(ensembles=ensembles, weights=weights)
 
+        print("Test passed")
+    except Exception as e:
+        print(e)
+
+    # get the best performing pipeline
+    ensembles = [[i] for i in range(len(metadataset.hp_candidates_ids))]
+    pipeline_hps, metric, metric_per_pipeline, _ = metadataset.evaluate_ensembles(
+        ensembles=ensembles
+    )
+    print("Oracle pipeline:", metric_per_pipeline.min(), metric_per_pipeline.argmin())
+
+    metadataset.set_state(dataset_names[task_id])
     ne = NeuralEnsembler(metadataset=metadataset)
 
     # X refers to the pipelines
-    X_obs = np.arange(120).tolist()
+    X_obs = [i for i in range(len(metadataset.hp_candidates_ids))]
     best_ensemble, best_metric = ne.sample(X_obs)
 
-    metadataset.set_state(dataset_names[task_id])
     weights = ne.get_weights(X_obs)
     (
         _,
@@ -66,7 +79,10 @@ if __name__ == "__main__":
     ) = metadataset.evaluate_ensembles_with_weights([best_ensemble], weights)
 
     metadataset_test = md_class(
-        data_dir=DATA_DIR, metric_name=metric_name, data_version=data_version, split="test",
+        data_dir=DATA_DIR, 
+        metric_name=metric_name, 
+        data_version=data_version, 
+        split="test",
     )
 
     metadataset_test.set_state(dataset_names[task_id])
