@@ -189,7 +189,7 @@ class NeuralEnsembler(BaseEnsembler):
         _, weights = self.batched_prediction(
             X=base_functions, base_functions=base_functions, y=y
         )
-        best_ensemble = X_obs  # .tolist()
+        best_ensemble = X_obs  
         _, best_metric, _, _ = self.metadataset.evaluate_ensembles_with_weights(
             [best_ensemble], weights
         )
