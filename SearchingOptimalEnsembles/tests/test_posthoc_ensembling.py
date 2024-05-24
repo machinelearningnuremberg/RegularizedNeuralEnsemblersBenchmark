@@ -18,7 +18,11 @@ if __name__ == "__main__":
     data_version = "micro"
 
     name = "quicktune"
+<<<<<<< HEAD
     # name = "pipelinebench"
+=======
+    #name = "pipelinebench"
+>>>>>>> 18aa7f44e3cf0f640a16cdef0824de63dee50c8f
 
     if name == "quicktune":
         DATA_DIR = "/work/dlclarge2/janowski-quicktune/predictions"
@@ -80,9 +84,9 @@ if __name__ == "__main__":
     ) = metadataset.evaluate_ensembles_with_weights([best_ensemble], weights)
 
     metadataset_test = md_class(
-        data_dir=DATA_DIR, 
-        metric_name=metric_name, 
-        data_version=data_version, 
+        data_dir=DATA_DIR,
+        metric_name=metric_name,
+        data_version=data_version,
         split="test",
     )
 
