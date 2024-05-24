@@ -116,40 +116,52 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
         y_true = np.repeat(splits[f"y_{self.split}"].reshape(1, -1), batch_size, axis=0)
 
         # Retieve the predictions for each pipeline in each ensemble
-        y_proba = self.benchmark(
+        y_probabilities = self.benchmark(
             ensembles=ensembles,
             datapoints=splits_ids[f"X_{self.split}"],
             get_probabilities=True,
             aggregate=False,
         )
 
+        y_proba_weighted = y_probabilities.copy()
         if weights is not None:
             # since the weights have a different shape order, we need to permute the axes
             if isinstance(weights, torch.Tensor) or isinstance(weights, np.ndarray):
                 weights = weights.permute(0, 2, 1, 3)
                 if isinstance(weights, torch.Tensor):
                     weights = weights.cpu().detach().numpy()
-            y_proba *= weights
-            
+            weights = weights.reshape(batch_size, -1, y_probabilities.shape[-2], y_probabilities.shape[-1])
+            y_proba_weighted *= weights
+
         if self.metric_name == "error":
-            # Convert the probabilities to predictions
-            y_proba = np.argmax(y_proba, axis=-1, keepdims=True)
-            # Step 1: Reshape the predictions and the true labels to have the same shape
-            predictions = y_proba.reshape(batch_size, -1, y_true.shape[1])
-            predictions = np.round(predictions)
 
-            # Step 2: Compute the accuracy for each pipeline and each ensemble
-            acc_per_pipeline = (predictions == y_true[:, None, :]).mean(axis=2)
-            acc_per_ensemble = acc_per_pipeline.mean(axis=1)
+            def calculate_errors(y_proba, y_labels):
+                # Argmax over the last dimension to get class predictions
+                y_predictions = np.argmax(y_proba, axis=-1)  # This results in shape (B, D, P)
 
-            # Step 3: Compute the error rate
-            error_per_pipeline = 1.0 - acc_per_pipeline
-            error_per_ensemble = 1.0 - acc_per_ensemble
+                # We now need to compare these predictions with y_labels
+                # Since y_labels is (B, D), we need to expand it to (B, D, P) for broadcasting
+                y_labels_expanded = np.expand_dims(y_labels, axis=-1)  # Expanding the last dimension
+                y_labels_expanded = np.repeat(y_labels_expanded, repeats=y_predictions.shape[-1], axis=-1)  # Repeat for each member
+
+                # Compute accuracy for each ensemble member
+                accuracy = (y_predictions == y_labels_expanded).mean(axis=1)  # Mean over D (datapoints)
+                error = 1.0 - accuracy 
+
+                return error  # This returns the error for each member in each ensemble (shape B, P)
+
+            # Calculate error per pipeline without aggregation
+            error_per_pipeline = calculate_errors(y_probabilities, y_true)
+            # Aggregate the probabilities for ensemble error
+            y_proba_aggregated = np.mean(y_proba_weighted, axis=-2, keepdims=True)
+            error_per_ensemble = calculate_errors(y_proba_aggregated, y_true)
 
             metric_per_pipeline = torch.tensor(error_per_pipeline, dtype=torch.float32)
             metric = torch.tensor(error_per_ensemble, dtype=torch.float32)
             
         elif self.metric_name == "nll":
+
+            raise NotImplementedError("NLL is not implemented yet")
             num_datapoints = y_proba.shape[1]
             num_pipelines = y_proba.shape[2]
 

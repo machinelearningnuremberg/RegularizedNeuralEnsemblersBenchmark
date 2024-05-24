@@ -281,7 +281,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             metric_per_sample = metric_per_sample.reshape(batch_size, ensemble_size, -1)
             metric_per_pipeline = metric_per_sample.mean(axis=2)
             metric_ensemble_per_sample = torch.ne(
-                weighted_predictions.mean(1).reshape(-1, n_classes).argmax(-1),
+                weighted_predictions.sum(1).reshape(-1, n_classes).argmax(-1),
                 targets.reshape(-1),
             ).float()
             metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(axis=-1)
@@ -296,7 +296,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
 
             # logits
             weighted_logits = self.get_logits_from_probabilities(
-                weighted_predictions.mean(1)
+                weighted_predictions.sum(1)
             )
             metric_ensemble_per_sample = cross_entropy(
                 weighted_logits.reshape(-1, n_classes), targets.reshape(-1)

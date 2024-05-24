@@ -17,8 +17,8 @@ if __name__ == "__main__":
     metric_name = "error"
     data_version = "micro"
 
-    # name = "quicktune"
-    name = "pipelinebench"
+    name = "quicktune"
+    # name = "pipelinebench"
 
     if name == "quicktune":
         DATA_DIR = "/work/dlclarge2/janowski-quicktune/predictions"
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     )
     print("Oracle pipeline val:", oracle_val, oracle_val_id)
     print("Oracle pipeline test:", metric_per_pipeline.min().item(), metric_per_pipeline.argmin().item())
-    _, val, _, _ = metadataset_test.evaluate_ensembles(ensembles=[oracle_val_id])
+    _, val, _, _ = metadataset_test.evaluate_ensembles(ensembles=[[oracle_val_id]])
     print("Oracle from val evaluated on test:", val.item())
 
     ne.set_state(metadataset=metadataset_test)
