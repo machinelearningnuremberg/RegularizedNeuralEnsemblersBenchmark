@@ -14,9 +14,11 @@ class GreedyEnsembler(BaseEnsembler):
         self,
         metadataset: BaseMetaDataset,
         device: torch.device = torch.device("cpu"),
+        no_resample: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(metadataset=metadataset, device=device)
+        self.no_resample = no_resample
 
     def sample(
         self,
@@ -52,6 +54,8 @@ class GreedyEnsembler(BaseEnsembler):
             best_id = metric.argmin()
             best_metric = metric.min()
             ensemble.append(X_obs[best_id][0])
-            X_obs.pop(best_id)
+            
+            if self.no_resample:
+                X_obs.pop(best_id)
 
         return ensemble, best_metric

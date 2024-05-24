@@ -58,6 +58,7 @@ class NeuralEnsembler(BaseEnsembler):
         self,
         metadataset: BaseMetaDataset,
         device: torch.device = torch.device("cuda"),
+        prediction_device: torch.device = torch.device("cpu"),
         ne_hidden_dim: int = 512,
         ne_context_size: int = 32,
         ne_reg_term_div: float = 0.1,
@@ -81,6 +82,8 @@ class NeuralEnsembler(BaseEnsembler):
         self.use_context = ne_use_context
         self.reg_term_norm = ne_reg_term_norm
         self.net_type = ne_net_type
+        self.prediction_device = prediction_device
+        self.training = True
 
     def set_state(
         self,
@@ -98,6 +101,7 @@ class NeuralEnsembler(BaseEnsembler):
     def batched_prediction(
         self, X, base_functions, y=None, X_context=None, y_context=None, mask_context=None
     ):
+        
         _, num_samples, num_classes, num_pipelines = X.shape
         idx = np.arange(num_samples)
         # np.random.shuffle(idx)
@@ -115,23 +119,25 @@ class NeuralEnsembler(BaseEnsembler):
             else:
                 temp_mask = None
             temp_y = y[:, range_idx] if y is not None else None
-            output, w = self.net(
-                x=X[:, range_idx],
-                base_functions=base_functions[:, range_idx],
-                y=temp_y,
-                X_context=X_context,
-                y_context=y_context,
-                mask_context=temp_mask,
-            )
+
+            with torch.no_grad():   
+                output, w = self.net(
+                    x=X[:, range_idx],
+                    base_functions=base_functions[:, range_idx],
+                    y=temp_y,
+                    X_context=X_context,
+                    y_context=y_context,
+                    mask_context=temp_mask,
+                )
             w = w.transpose(2, 3).transpose(
                 1, 2
             )  # Expected shape [BATCH SIZE X NUM_PIPELINES X NUM_SAMPLES X NUM_CLASSES]
-            outputs.append(output)
-            weights.append(w)
+            outputs.append(output.to(self.prediction_device))
+            weights.append(w.to(self.prediction_device))
 
-        return torch.cat(outputs, axis=-2).to(self.device), torch.cat(
+        return torch.cat(outputs, axis=-2).to(self.prediction_device), torch.cat(
             weights, axis=-2
-        ).to(self.device)
+        ).to(self.prediction_device)
 
     def get_weights(self, X_obs, X_context=None, y_context=None):
         base_functions = (
@@ -236,12 +242,10 @@ class NeuralEnsembler(BaseEnsembler):
 
         if self.net_type == "bas":
             idx = np.random.randint(0, num_base_functions, self.context_size)
-
             return (X_train[..., idx], base_functions_train[..., idx], y_train)
 
         elif self.net_type == "sas":
             idx = np.random.randint(0, num_samples, self.context_size)
-
             return (X_train[:, idx], base_functions_train[:, idx], y_train[:, idx])
 
         else:
@@ -255,6 +259,7 @@ class NeuralEnsembler(BaseEnsembler):
         learning_rate=0.0001,
         epochs=1000,
     ):
+        self.training = True
         if self.net_type == "bas":
             NetClass = ENetBAS
             input_dim = base_functions_train.shape[-2]  # NUMBER OF CLASSES
@@ -315,6 +320,7 @@ class NeuralEnsembler(BaseEnsembler):
             print("Epoch", epoch, "Loss", loss.item(), "Div Loss", div.item())
 
         net.eval()
+        self.training = False
         return net
 
 
@@ -523,6 +529,7 @@ class ENetSAS(nn.Module):  # Sample as Sequence
         num_heads=1,
         add_y=False,
         mask_prob=0.5,
+        inner_batch_size=50
     ):
         super().__init__()
 
@@ -532,6 +539,7 @@ class ENetSAS(nn.Module):  # Sample as Sequence
         self.num_heads = num_heads
         self.add_y = add_y
         self.mask_prob = mask_prob
+        self.inner_batch_size = inner_batch_size
 
         self.embedding = nn.Linear(input_dim, hidden_dim)
         # encoder_layer = nn.TransformerEncoderLayer(
@@ -568,7 +576,6 @@ class ENetSAS(nn.Module):  # Sample as Sequence
 
             self.out_layer = nn.Linear(hidden_dim, output_dim)
 
-        self.simple_coefficients = simple_coefficients
         self.dropout_rate = dropout_rate
         custom_weights_fc1 = torch.randn(
             output_dim
@@ -607,56 +614,62 @@ class ENetSAS(nn.Module):  # Sample as Sequence
                 max_prob_per_base_function = None
         return max_prob_per_base_function
 
+    def get_batched_weights(self, x, base_functions, y=None, X_context=None, y_context=None, mask_context=None):
+        
+        max_prob_per_base_function = self.get_max_prob_per_base_function(x, y)
+
+        if X_context is not None:
+            max_prob_per_base_function_context = self.get_max_prob_per_base_function(
+                X_context, y_context
+            )
+
+            if max_prob_per_base_function is not None:
+                max_prob_per_base_function = torch.cat(
+                    [max_prob_per_base_function_context, max_prob_per_base_function],
+                    dim=1,
+                )
+            x = torch.cat([X_context, x], dim=1)
+
+        batch_size, num_samples, num_classes, num_base_functions = x.shape
+        x = x.transpose(1, 2).reshape(-1, num_samples, num_base_functions)
+        
+        # [(BATCH SIZE X NUMBER OF CLASSES) X NUMBER OF SAMPLES X NUMBER OF BASE FUNCTIONS]
+        x = self.embedding(x)
+        for encoder in self.first_encoder:
+            x = encoder(x, src_mask=mask_context)
+
+
+        if max_prob_per_base_function is not None:
+            x = torch.cat([x, max_prob_per_base_function], axis=-1)
+        x = self.second_encoder(x, src_mask=mask_context)
+        x = self.out_layer(x)
+        x = x.transpose(0, 1).unsqueeze(0)  # use batch size here
+
+        return x
+
     def forward(
         self, x, base_functions, y=None, X_context=None, y_context=None, mask_context=None
     ):
-        if self.simple_coefficients:
-            if len(base_functions.shape) == 3:
-                x = torch.repeat_interleave(
-                    self.weight.reshape(1, 1, -1), base_functions.shape[0], dim=0
-                )
-                x = torch.repeat_interleave(x, base_functions.shape[1], dim=1)
-            else:
-                # x = torch.repeat_interleave(self.weight.reshape(-1,1), x.shape[0], dim=1).T
-                x = torch.repeat_interleave(
-                    self.weight.reshape(1, -1), base_functions.shape[0], dim=0
-                )
+        # X = [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
+        batch_size, num_samples, num_classes, num_base_functions = x.shape
+        num_query_samples = x.shape[1]
+        
+        w = []
+        idx = np.arange(num_classes)
+        for i in range(0, num_classes, self.inner_batch_size):
+            range_idx = idx[range(i, min(i + self.inner_batch_size, num_classes))]
+            temp_w = self.get_batched_weights(x = x[:,:,range_idx],
+                                              base_functions = base_functions[:,:,range_idx],
+                                               y= y,
+                                               X_context=X_context[:,:,range_idx] if X_context is not None else None,
+                                               y_context=y_context,
+                                               mask_context=mask_context)
+            w.append(temp_w)
+        w = torch.cat(w, axis=2)
 
-        else:
-            max_prob_per_base_function = self.get_max_prob_per_base_function(x, y)
-            num_query_samples = x.shape[1]
-
-            if X_context is not None:
-                max_prob_per_base_function_context = self.get_max_prob_per_base_function(
-                    X_context, y_context
-                )
-
-                if max_prob_per_base_function is not None:
-                    max_prob_per_base_function = torch.cat(
-                        [max_prob_per_base_function_context, max_prob_per_base_function],
-                        dim=1,
-                    )
-                x = torch.cat([X_context, x], dim=1)
-            batch_size, num_samples, num_classes, num_base_functions = x.shape
-
-            # X = [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
-            # x = torch.nn.functional.softmax(x, dim=-2)
-
-            x = x.transpose(1, 2).reshape(-1, num_samples, num_base_functions)
-            # [(BATCH SIZE X NUMBER OF CLASSES) X NUMBER OF SAMPLES X NUMBER OF BASE FUNCTIONS]
-            x = self.embedding(x)
-            for encoder in self.first_encoder:
-                x = encoder(x, src_mask=mask_context)
-            # x = x.reshape(batch_size, num_classes, num_samples, self.hidden_dim)
-            # x = x.mean(axis=1)
-
-            if max_prob_per_base_function is not None:
-                x = torch.cat([x, max_prob_per_base_function], axis=-1)
-            x = self.second_encoder(x, src_mask=mask_context)
-            x = self.out_layer(x)
-            x = x.transpose(0, 1).unsqueeze(0)  # use batch size here
-
-        w = x.reshape(batch_size, num_samples, -1)
+        #num_classes changed
+        batch_size, num_samples, num_classes, num_base_functions = w.shape
+        w = w.reshape(batch_size, num_samples, -1)
         w_norm = torch.nn.functional.softmax(w, dim=-1)
         w_norm = w_norm.reshape(
             batch_size, num_samples, num_classes, num_base_functions

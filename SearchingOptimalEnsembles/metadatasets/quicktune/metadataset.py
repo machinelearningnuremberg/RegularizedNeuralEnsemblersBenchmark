@@ -22,7 +22,8 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         data_version: str = "micro",
         use_logits: bool = True,
         device: torch.device = torch.device("cpu"),
-        processing_batch_size: int = 5000,
+        processing_batch_size: int = 1000,
+        impute_inf: bool = False,
         **kwargs,
     ):
         super().__init__(
@@ -155,6 +156,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             if not self.use_logits:
                 temp_predictions = torch.nn.Softmax(dim=-1)(temp_predictions)
             temp_predictions[torch.isnan(temp_predictions)] = 0
+
 
             isposinf = torch.isposinf(temp_predictions)
             isneginf = torch.isneginf(temp_predictions)
