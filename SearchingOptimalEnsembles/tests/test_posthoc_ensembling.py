@@ -18,7 +18,11 @@ if __name__ == "__main__":
     data_version = "micro"
 
     name = "quicktune"
+<<<<<<< HEAD
+    # name = "pipelinebench"
+=======
     #name = "pipelinebench"
+>>>>>>> 18aa7f44e3cf0f640a16cdef0824de63dee50c8f
 
     if name == "quicktune":
         DATA_DIR = "/work/dlclarge2/janowski-quicktune/predictions"
@@ -61,7 +65,8 @@ if __name__ == "__main__":
     pipeline_hps, metric, metric_per_pipeline, _ = metadataset.evaluate_ensembles(
         ensembles=ensembles
     )
-    print("Oracle pipeline:", metric_per_pipeline.min(), metric_per_pipeline.argmin())
+    oracle_val_id = metric_per_pipeline.argmin().item()
+    oracle_val = metric_per_pipeline.min().item()
 
     metadataset.set_state(dataset_names[task_id])
     ne = NeuralEnsembler(metadataset=metadataset)
@@ -86,6 +91,16 @@ if __name__ == "__main__":
     )
 
     metadataset_test.set_state(dataset_names[task_id])
+
+    ensembles = [[i] for i in range(len(metadataset.hp_candidates_ids))]
+    pipeline_hps, metric, metric_per_pipeline, _ = metadataset_test.evaluate_ensembles(
+        ensembles=ensembles
+    )
+    print("Oracle pipeline val:", oracle_val, oracle_val_id)
+    print("Oracle pipeline test:", metric_per_pipeline.min().item(), metric_per_pipeline.argmin().item())
+    _, val, _, _ = metadataset_test.evaluate_ensembles(ensembles=[[oracle_val_id]])
+    print("Oracle from val evaluated on test:", val.item())
+
     ne.set_state(metadataset=metadataset_test)
     weights = ne.get_weights(X_obs)
     (
@@ -97,13 +112,13 @@ if __name__ == "__main__":
 
     print(
         "Best metric val using val, single pipeline:",
-        metric_per_pipeline_val.min(),
-        metric_per_pipeline_val.argmin(),
+        metric_per_pipeline_val.min().item(),
+        metric_per_pipeline_val.argmin().item(),
     )
-    print("Best metric val Neural Ensembler:", best_metric_val)
+    print("Best metric val Neural Ensembler:", best_metric_val.item())
 
     print(
         "Best metric test using val, single pipeline:",
-        metric_per_pipeline_test[0, metric_per_pipeline_val.argmin()],
+        metric_per_pipeline_test[0, metric_per_pipeline_val.argmin()].item(),
     )
-    print("Best metric test Neural Ensembler:", best_metric_test)
+    print("Best metric test Neural Ensembler:", best_metric_test.item())
