@@ -3,10 +3,19 @@
 import itertools
 import os
 import random
+import warnings
 
 import yaml
+import argparse
 
-project_name = "SOE"
+warnings.filterwarnings("ignore", category=UserWarning, message="[LightGBM]")
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--project_name", type=str, default="SOE")
+args = parser.parse_args()
+
+project_name = args.project_name
+
 with open(f"experiments_confs/{project_name}.yml") as f:
     experiments_conf = yaml.safe_load(f)
 

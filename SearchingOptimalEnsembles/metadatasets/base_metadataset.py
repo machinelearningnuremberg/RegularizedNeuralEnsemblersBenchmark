@@ -216,7 +216,30 @@ class BaseMetaDataset:
             )
 
         return score
+    
+    def normalize_performance(self, performance: float,
+                              best_reference_performance: float = None,
+                              worst_reference_performance: float = None):
 
+        if best_reference_performance is None:
+            if self.best_performance is None:
+                best_reference_performance = self.best_performance
+            else:
+                best_reference_performance = 0.
+
+        if worst_reference_performance is None:
+            if self.worst_performance is None:
+                worst_reference_performance = self.worst_performance
+            else:
+                worst_reference_performance = 1.
+
+        if best_reference_performance != worst_reference_performance:
+            normalized_value = (performance-best_reference_performance)/(worst_reference_performance-best_reference_performance)
+        else:
+            normalized_value = performance
+            
+        return normalized_value
+    
     @abstractmethod
     def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
         """Get predictions for the given ensembles.

@@ -58,4 +58,4 @@ def eval(
             [ensemble], weights
         )
 
-    return metric, metric_per_pipeline
+    return metric, metric_per_pipeline, metadataset

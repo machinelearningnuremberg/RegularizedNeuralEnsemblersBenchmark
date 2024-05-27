@@ -253,16 +253,20 @@ def run(
     else:
         dataset_name = metadataset.meta_splits["meta-test"][dataset_id]
         metadataset.set_state(dataset_name=dataset_name)
-        num_existing_pipelines = len(metadataset.hp_candidates_ids)
+        num_existing_pipelines = metadataset.get_num_pipelines()
         X_obs = np.arange(num_existing_pipelines)
         np.random.shuffle(X_obs)
+    X_obs = X_obs.tolist()
 
     if apply_posthoc_ensemble_at_end:
         incumbent_ensemble, incumbent = posthoc_ensembler.sample(
             X_obs, max_num_pipelines=max_num_pipelines
         )
 
-    test_metric, test_metric_per_pipeline = eval(
+
+    (test_metric, 
+     test_metric_per_pipeline,
+     test_metadataset) = eval(
         incumbent_ensemble,
         metadataset_name=metadataset_name,
         dataset_id=dataset_id,
@@ -273,6 +277,17 @@ def run(
         ensembler=posthoc_ensembler,
         val_metadataset=metadataset,
     )
+    (_, _, val_metric_per_pipeline,_)   = metadataset.evaluate_ensembles([np.arange(metadataset.get_num_pipelines()).tolist()])
+    (_, _, test_metric_per_pipeline,_)   = test_metadataset.evaluate_ensembles([np.arange(metadataset.get_num_pipelines()).tolist()])
+
+    if hasattr(metadataset, "normalize_performance"):
+        incumbent = metadataset.normalize_performance(incumbent)
+        best_performance_idx = torch.argmin(val_metric_per_pipeline).item()
+        worst_performance_idx = torch.argmax(val_metric_per_pipeline).item()
+        best_reference_performance = test_metric_per_pipeline[0][best_performance_idx]
+        worst_reference_performance = test_metric_per_pipeline[0][worst_performance_idx]
+
+        test_metric = test_metadataset.normalize_performance(test_metric, best_reference_performance, worst_reference_performance)
 
     if wandb.run is not None:
         wandb.log(

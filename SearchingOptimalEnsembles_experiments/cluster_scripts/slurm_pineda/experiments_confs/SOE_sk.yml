@@ -1,0 +1,26 @@
+project_name: SOE_sk
+num_datasets: 12
+num_meta_splits: 5
+num_iterations: 100
+metric_name: error
+metadataset_name: scikit-learn
+experiments:
+  neural5:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name neural --data_version micro --ne_use_context"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 64
+        - 128
+      ne_context_size:
+        - 2
+        - 4
+      ne_reg_term_div:
+        - 0.1
+
+  greedy5:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name greedy --data_version micro"
+    hyper_grid:
+      searcher_name:
+        - None

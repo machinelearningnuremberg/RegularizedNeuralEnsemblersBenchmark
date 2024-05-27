@@ -367,6 +367,19 @@ experiments:
         - 2
       ne_reg_term_div:
         - 0.1
+  neural64:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name neural --data_version mini --ne_use_context"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 64
+        - 128
+      ne_context_size:
+        - 2
+        - 4
+      ne_reg_term_div:
+        - 0.1
   greedy1:
     base_command: "--apply_posthoc_ensemble_at_end --ensembler_name greedy"
     hyper_grid:
@@ -401,8 +414,15 @@ experiments:
     hyper_grid:
       searcher_name:
         - None
+
   greedy4:
     base_command: "--apply_posthoc_ensemble_at_end --ensembler_name greedy"
+    hyper_grid:
+      searcher_name:
+        - None
+
+  greedy9:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name greedy --data_version mini"
     hyper_grid:
       searcher_name:
         - None

@@ -241,3 +241,6 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
     
     def get_num_classes(self) -> int:
         return len(np.unique(self.get_targets().numpy()))
+    
+    def get_num_pipelines(self) -> int:
+        return len(self.hp_candidates_ids)

@@ -17,12 +17,8 @@ if __name__ == "__main__":
     metric_name = "error"
     data_version = "micro"
 
-    name = "quicktune"
-<<<<<<< HEAD
-    # name = "pipelinebench"
-=======
-    #name = "pipelinebench"
->>>>>>> 18aa7f44e3cf0f640a16cdef0824de63dee50c8f
+    #name = "quicktune"
+    name = "pipelinebench"
 
     if name == "quicktune":
         DATA_DIR = "/work/dlclarge2/janowski-quicktune/predictions"

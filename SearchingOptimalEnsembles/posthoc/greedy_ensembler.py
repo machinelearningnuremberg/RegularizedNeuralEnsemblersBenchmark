@@ -33,7 +33,9 @@ class GreedyEnsembler(BaseEnsembler):
         max_num_pipelines = kwargs.get("max_num_pipelines", 5)
         ensemble: list[int] = []
         best_metric = np.inf
-        X_obs = X_obs.reshape(-1, 1).tolist()
+        
+        #TODO: Fix the type of X_obs
+        X_obs = np.array(X_obs).reshape(-1, 1).tolist()
 
         for i in range(max_num_pipelines):
             print(f"GreedyEnsembler: {i}")

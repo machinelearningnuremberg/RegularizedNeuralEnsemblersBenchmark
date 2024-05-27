@@ -99,7 +99,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         self.best_performance_idx = torch.argmin(metric_per_pipeline)
         self.worst_performance = torch.max(metric_per_pipeline)
         self.worst_performance_idx = torch.argmax(metric_per_pipeline)
-
+        self.metric_per_pipeline = metric_per_pipeline
         return (
             self.best_performance,
             self.best_performance_idx,
@@ -110,6 +110,8 @@ class QuicktuneMetaDataset(BaseMetaDataset):
     def _get_worst_and_best_performance(self) -> tuple[torch.Tensor, torch.Tensor]:
         return self.worst_performance, self.best_performance
 
+
+    
     def get_dataset_info(
         self,
         dataset_name: str = "",
@@ -312,3 +314,6 @@ class QuicktuneMetaDataset(BaseMetaDataset):
 
     def get_num_classes(self) -> int:
         return self.predictions.shape[-1]
+    
+    def get_num_pipelines(self) -> int:
+        return len(self.hp_candidates_ids)
