@@ -9,9 +9,11 @@ except ImportError:
 
 from .quicktune.metadataset import QuicktuneMetaDataset
 from .scikit_learn.metadataset import ScikitLearnMetaDataset
+from .tabrepo.metadataset import TabRepoMetaDataset
 
 MetaDatasetMapping: dict[str, Callable] = {
     "scikit-learn": ScikitLearnMetaDataset,
     "nasbench201": NASBench201MetaDataset,
     "quicktune": QuicktuneMetaDataset,
+    "tabrepo": TabRepoMetaDataset
 }

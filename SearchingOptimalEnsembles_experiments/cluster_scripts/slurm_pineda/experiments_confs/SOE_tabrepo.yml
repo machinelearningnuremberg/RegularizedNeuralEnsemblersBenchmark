@@ -1,0 +1,26 @@
+project_name: SOE_tabrepo
+num_datasets: 16
+num_meta_splits: 5
+num_iterations: 100
+metric_name: error
+metadataset_name: tabrepo
+experiments:
+  neural6:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name neural --ne_use_context"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 64
+        - 128
+      ne_context_size:
+        - 2
+        - 4
+      ne_reg_term_div:
+        - 0.1
+
+  greedy6:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name greedy"
+    hyper_grid:
+      searcher_name:
+        - None

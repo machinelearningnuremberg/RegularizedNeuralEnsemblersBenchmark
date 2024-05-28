@@ -9,6 +9,7 @@ import torch
 
 from ..base_metadataset import BaseMetaDataset
 
+#TODO: Unify the name "hp_candidate" and "pipeline", it might be confusing
 
 class QuicktuneMetaDataset(BaseMetaDataset):
     def __init__(
@@ -23,9 +24,9 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         use_logits: bool = True,
         device: torch.device = torch.device("cpu"),
         processing_batch_size: int = 1000,
-        impute_inf: bool = False,
         **kwargs,
     ):
+        
         super().__init__(
             data_dir=data_dir,
             meta_split_ids=meta_split_ids,
@@ -109,8 +110,6 @@ class QuicktuneMetaDataset(BaseMetaDataset):
 
     def _get_worst_and_best_performance(self) -> tuple[torch.Tensor, torch.Tensor]:
         return self.worst_performance, self.best_performance
-
-
     
     def get_dataset_info(
         self,

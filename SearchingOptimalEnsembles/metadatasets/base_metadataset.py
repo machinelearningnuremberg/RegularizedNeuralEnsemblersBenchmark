@@ -240,19 +240,6 @@ class BaseMetaDataset:
             
         return normalized_value
     
-    @abstractmethod
-    def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
-        """Get predictions for the given ensembles.
-
-        Args:
-            ensembles (list[list[int]]): Ensemble configuration. Shape is [B, N].
-            B = batch size (number of ensembles), N = number of pipelines per ensemble.
-
-        Returns:
-            torch.Tensor: The predictions tensor with the probability per class. Shape is [B, N, M, C].
-            M = number of samples, C = number of classes.
-        """
-        raise NotImplementedError
 
     def get_logits_from_probabilities(self, probabilities: torch.Tensor) -> torch.Tensor:
         """
@@ -284,9 +271,49 @@ class BaseMetaDataset:
         """
         raise NotImplementedError
 
+
+
+    @abstractmethod
+    def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
+
+        """
+        Returns the ensemble predictions for every sample in the active dataset.
+
+        B: number of ensembles
+        N: number of models per ensemble
+        M: number of samplers per ensemble
+        C: number of classes per ensemble
+
+        Args:
+            ensembles: List of list with the base model index to evaluate: [B, N]
+
+        Returns:
+            prediction: torch tensor with the probabilistic prediction per class: [B, N, M, C]    
+        """
+        raise NotImplementedError
+    
     @abstractmethod
     def get_targets(self) -> torch.Tensor:
         """
-        Returns the targets of the current loaded dataset, with shape (num_samples)
+        Returns the target associated to every sample in the active dataset.
+
+        M: number of samplers per ensemble
+        Returns:
+            target: torch tensor with the target per sample: [M]    
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_time(self, ensembles: list[list[int]]) -> torch.Tensor:
+        """
+        Returns the target associated to every sample in the active dataset.
+
+        B: number of ensembles
+        N: number of models per ensemble
+        Args:
+            ensembles: List of list with the base model index to evaluate: [B, N]
+
+        Returns:
+            time: torch tensor with the time per pipeline and ensemble: [B, N]    
         """
         raise NotImplementedError
