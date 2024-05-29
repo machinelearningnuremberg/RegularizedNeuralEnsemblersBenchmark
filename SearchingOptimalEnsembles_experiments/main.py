@@ -80,6 +80,7 @@ if __name__ == "__main__":
     parser.add_argument("--ne_reg_term_div", type=float, default=0.1)
     parser.add_argument("--ne_add_y", action="store_true")
     parser.add_argument("--ne_use_context", action="store_true")
+    parser.add_argument("--ne_mode", type=str, default="inference")
     ##############################################################################
     parser.add_argument("--sampler_name", type=str, default="random")
     parser.add_argument("--ensembler_name", type=str, default="random")

@@ -165,6 +165,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             imputation_value_posinf = temp_predictions[~isposinf].max()
             imputation_value_neginf = temp_predictions[~isneginf].min()
 
+            #TODO: User torch.nan_to_num
             temp_predictions[isposinf] = imputation_value_posinf
             temp_predictions[isneginf] = imputation_value_neginf
 

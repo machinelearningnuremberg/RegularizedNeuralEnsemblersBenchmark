@@ -4,6 +4,7 @@ import torch
 
 import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
 import SearchingOptimalEnsembles.metadatasets.scikit_learn.metadataset as slmd
+import SearchingOptimalEnsembles.metadatasets.tabrepo.metadataset as trmd
 
 from SearchingOptimalEnsembles.posthoc.neural_ensembler import NeuralEnsembler
 
@@ -16,13 +17,18 @@ if __name__ == "__main__":
     task_id = 5
     metric_name = "error"
     data_version = "micro"
+    pretrain = False
+    DATA_DIR = None
 
     name = "quicktune"
+    name = "tabrepo"
     # name = "pipelinebench"
 
     if name == "quicktune":
         DATA_DIR = "/work/dlclarge2/janowski-quicktune/predictions"
         md_class = qmd.QuicktuneMetaDataset
+    elif name == "tabrepo":
+        md_class = trmd.TabRepoMetaDataset
     else:
         DATA_DIR = "/work/dlclarge2/janowski-quicktune/pipeline_bench"
         md_class = slmd.ScikitLearnMetaDataset
@@ -64,13 +70,23 @@ if __name__ == "__main__":
     oracle_val_id = metric_per_pipeline.argmin().item()
     oracle_val = metric_per_pipeline.min().item()
 
-    metadataset.set_state(dataset_names[task_id])
-    ne = NeuralEnsembler(metadataset=metadataset)
-
     # X refers to the pipelines
     X_obs = [i for i in range(len(metadataset.hp_candidates_ids))]
-    best_ensemble, best_metric = ne.sample(X_obs)
 
+    ne = NeuralEnsembler(metadataset=metadataset,
+                         ne_add_y=True,
+                         ne_use_context=True,
+                         epochs=100,
+                         ne_reg_term_div=0.,
+                         ne_reg_term_norm=0.,
+                         ne_num_layers=4)
+
+    if pretrain:
+        ne.pretrain_net(X_obs, pretrain_epochs=1000)
+        
+    metadataset.set_state(dataset_names[task_id])
+
+    best_ensemble, best_metric = ne.sample(X_obs)
     weights = ne.get_weights(X_obs)
     (
         _,

@@ -31,7 +31,7 @@ def run(
     acquisition_name: Literal["ei", "lcb"] = "ei",
     acquisition_args: dict | None = None,
     #############################################
-    ensembler_name: Literal["greedy", "random"] = "random",
+    ensembler_name: Literal["greedy", "random", "neural"] = "random",
     sampler_name: Literal["random"] = "random",
     #############################################
     meta_num_epochs: int = 0,
@@ -54,6 +54,7 @@ def run(
     ne_add_y: bool = True,
     ne_use_context: bool = True,
     ne_eval_context_size: int = 256,
+    ne_mode: str = "inference",
     #############################################
     dataset_id: int = 0,
     meta_split_id: int = 0,
@@ -123,6 +124,7 @@ def run(
         "ne_add_y": ne_add_y,
         "ne_use_context": ne_use_context,
         "ne_eval_context_size": ne_eval_context_size,
+        "ne_mode": ne_mode
     }
     posthoc_ensembler = instance_from_map(
         EnsemblerMapping,
@@ -262,7 +264,6 @@ def run(
         incumbent_ensemble, incumbent = posthoc_ensembler.sample(
             X_obs, max_num_pipelines=max_num_pipelines
         )
-
 
     (test_metric, 
      test_metric_per_pipeline,

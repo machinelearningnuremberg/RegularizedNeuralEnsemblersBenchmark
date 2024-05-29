@@ -11,4 +11,5 @@ if __name__ == "__main__":
     metadataset.evaluate_ensembles([[1,2,3],
                                     [4,5,6]])
 
+    metadataset.score_ensemble([1,2])
     base_test.test_evaluate_ensembles(metadataset)

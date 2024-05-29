@@ -114,6 +114,9 @@ class TabRepoMetaDataset(Evaluator):
         else:
             targets = self.repo.labels_test(dataset=self.dataset_name, fold=self.fold)
         targets = torch.tensor(targets)
+
+        if self.task_type == "Supervised Classification":
+            targets = targets.long()
         return targets
     
     def get_time(self, ensembles: list[list[int]]) -> torch.Tensor:
@@ -137,6 +140,11 @@ class TabRepoMetaDataset(Evaluator):
     def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
         config_names_in_ensemble = self.config_names[ensembles]
         predictions = []
+
+        #if len(ensembles) == 1:
+        #    if len(ensembles[0])==1:
+        #        config_names_in_ensemble = [[config_names_in_ensemble]]
+
         for configs in config_names_in_ensemble:
             if self.split == "valid":
                 temp_predictions = torch.FloatTensor(self.repo.predict_val_multi(dataset=self.dataset_name, 
@@ -152,7 +160,10 @@ class TabRepoMetaDataset(Evaluator):
             predictions.append(temp_predictions.unsqueeze(0))
         
         predictions = torch.cat(predictions, axis=0)
-
+        num_classes = predictions.shape[-1]
+        predictions = torch.nan_to_num(predictions, nan=1./num_classes,
+                                       posinf=1.,
+                                       neginf=0.)
         return predictions
 
     def get_num_samples(self) -> int:
@@ -170,4 +181,10 @@ class TabRepoMetaDataset(Evaluator):
         self.best_performance = 0.
         return self.worst_performance, self.best_performance
     
+    def score_ensemble(self, ensemble: list[int]):
+        score, _ = self.repo.evaluate_ensemble(datasets =[self.dataset_name],
+                                            configs=self.config_names[ensemble],
+                                            rank=False,
+                                            folds=[self.fold])
 
+        return score

@@ -41,12 +41,12 @@ class Evaluator(BaseMetaDataset):
 
     def _evaluate_ensembles(self, ensembles: list[list[int]], weights: torch.Tensor):
         batch_size = len(ensembles)
-        ensembles = torch.LongTensor(ensembles).to(self.device)
 
         # Predictions shape: [Num. ensembles X Num. pipelines X Num Samples X Num. Classes]
         time_per_pipeline = self.get_time(ensembles).to(self.device)
         predictions = self.get_predictions(ensembles).to(self.device)
         targets = self.get_targets().to(self.device).to(self.device)
+        ensembles = torch.LongTensor(ensembles).to(self.device)
 
         targets = torch.tile(targets, (batch_size, 1)).to(self.device)
         hp_candidates = self.hp_candidates[ensembles]
