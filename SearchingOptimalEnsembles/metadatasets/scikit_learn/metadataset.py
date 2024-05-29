@@ -123,6 +123,13 @@ class ScikitLearnMetaDataset(BaseMetaDataset):
             aggregate=False,
         )
 
+        # Pipeline that have NaN values in their predictions will be assigned a uniform probability
+        # (treating them as if they are random guesses)
+        nan_mask = np.isnan(y_probabilities)
+        config_with_nans = nan_mask.any(axis=(1, 2, 3))
+        uniform_probability = 1.0 / self.get_num_classes()
+        y_probabilities[config_with_nans, :, :, :] = uniform_probability
+
         y_proba_weighted = y_probabilities.copy()
         if weights is not None:
             # since the weights have a different shape order, we need to permute the axes
