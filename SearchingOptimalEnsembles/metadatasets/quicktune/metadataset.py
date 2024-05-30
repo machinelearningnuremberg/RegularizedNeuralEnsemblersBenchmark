@@ -317,3 +317,6 @@ class QuicktuneMetaDataset(BaseMetaDataset):
     
     def get_num_pipelines(self) -> int:
         return len(self.hp_candidates_ids)
+
+    def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:
+        return self.hp_candidates[ensembles]
