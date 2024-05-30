@@ -181,6 +181,8 @@ class TabRepoMetaDataset(Evaluator):
         self.best_performance = 0.
         return self.worst_performance, self.best_performance
     
+    def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:
+        return self.hp_candidates[ensembles]
     def score_ensemble(self, ensemble: list[int]):
         score, _ = self.repo.evaluate_ensemble(datasets =[self.dataset_name],
                                             configs=self.config_names[ensemble],

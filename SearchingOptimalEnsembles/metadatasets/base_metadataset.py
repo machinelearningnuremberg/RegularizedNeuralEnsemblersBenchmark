@@ -324,5 +324,80 @@ class BaseMetaDataset:
         logits = log_p + C.unsqueeze(-1)
         return logits
 
+    @abstractmethod
+    def get_num_samples(self) -> int:
+        """
+        Returns the number of samples for the current loaded dataset.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_num_classes(self) -> int:
+        """
+        Returns the number of classes for the current loaded dataset.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
+
+        """
+        Returns the ensemble predictions for every sample in the active dataset.
+
+        B: number of ensembles
+        N: number of models per ensemble
+        M: number of samplers per ensemble
+        C: number of classes per ensemble
+
+        Args:
+            ensembles: List of list with the base model index to evaluate: [B, N]
+
+        Returns:
+            prediction: torch tensor with the probabilistic prediction per class: [B, N, M, C]    
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_targets(self) -> torch.Tensor:
+        """
+        Returns the target associated to every sample in the active dataset.
+
+        M: number of samplers per ensemble
+        Returns:
+            target: torch tensor with the target per sample: [M]    
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_time(self, ensembles: list[list[int]]) -> torch.Tensor:
+        """
+        Returns the target associated to every sample in the active dataset.
+
+        B: number of ensembles
+        N: number of models per ensemble
+        Args:
+            ensembles: List of list with the base model index to evaluate: [B, N]
+
+        Returns:
+            time: torch tensor with the time per pipeline and ensemble: [B, N]    
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:
+        """
+        Returns the pipeline features associated to every ensemble.
+
+        B: number of ensembles
+        N: number of models per ensemble
+        F: number of features per pipeline
+
+        Args:
+            ensembles: List of list with the base model index to evaluate: [B, N]
+
+        Returns:
+            pipeline_features: torch tensor with the pipeline features: [B, N, F]    
+        """
+        raise NotImplementedError
     def recommend_pipelines(self, num_pipelines: int) -> list[int]:
         return np.random.randint(0, self.get_num_pipelines(), num_pipelines)

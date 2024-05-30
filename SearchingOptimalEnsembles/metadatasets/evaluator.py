@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import torch
 
 from .base_metadataset import BaseMetaDataset
@@ -46,10 +48,11 @@ class Evaluator(BaseMetaDataset):
         time_per_pipeline = self.get_time(ensembles).to(self.device)
         predictions = self.get_predictions(ensembles).to(self.device)
         targets = self.get_targets().to(self.device).to(self.device)
-        ensembles = torch.LongTensor(ensembles).to(self.device)
-
         targets = torch.tile(targets, (batch_size, 1)).to(self.device)
-        hp_candidates = self.hp_candidates[ensembles]
+        hp_candidates = self.get_features(ensembles)
+
+        ensembles = torch.LongTensor(ensembles).to(self.device)
+        
         metric = []
         metric_per_pipeline = []
         total_num_samples = predictions.shape[-2]

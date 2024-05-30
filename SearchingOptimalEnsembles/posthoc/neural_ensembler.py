@@ -388,6 +388,7 @@ class NeuralEnsembler(BaseEnsembler):
         return loss, l1, div
 
     def load_model_from_checkpoint(self, checkpoint: str = "neural_ensembler.pt"):
+        raise NotImplementedError()
         
 
 class ENetPS(nn.Module): # Parallel Samples
