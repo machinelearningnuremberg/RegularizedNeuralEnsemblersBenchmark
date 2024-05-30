@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import numpy as np
 import torch
 from torch import nn
 from torch.optim import Adam
 from typing_extensions import Literal
+import wandb
 
 from ..metadatasets.base_metadataset import BaseMetaDataset
 from ..samplers.random_sampler import RandomSampler
@@ -60,8 +64,9 @@ class NeuralEnsembler(BaseEnsembler):
         metadataset: BaseMetaDataset,
         device: torch.device = torch.device("cuda"),
         prediction_device: torch.device = torch.device("cpu"),
-        learning_rate=0.0001,
-        epochs=1000,
+        learning_rate: float =0.0001,
+        epochs: int = 1000,
+        use_wandb: bool = False,
         ne_hidden_dim: int = 512,
         ne_context_size: int = 32,
         ne_reg_term_div: float = 0.1,
@@ -71,6 +76,7 @@ class NeuralEnsembler(BaseEnsembler):
         ne_use_context: bool = True,
         ne_reg_term_norm: float = 0.01,
         ne_net_type: str = "sas",
+        ne_num_heads: int = 1,
         ne_mode: Literal["inference", "pretraining"] = "inference",
         **kwargs,
     ) -> None:
@@ -93,13 +99,19 @@ class NeuralEnsembler(BaseEnsembler):
         self.criterion = nn.CrossEntropyLoss()
         self.learning_rate = learning_rate
         self.epochs = epochs
+        self.use_wandb = use_wandb
+        self.num_heads = ne_num_heads
+        self.project_name = "Training_NE"
+        if self.use_wandb:
+            wandb.init(
+                project=self.project_name
+            )
 
     def set_state(
         self,
         metadataset: BaseMetaDataset,
         device: torch.device = torch.device("cuda"),
         mode: str = "inference",
-        predefined_pipeline_ids: list[int] = None
     ) -> None:
         self.metadataset = metadataset
         self.device = device
@@ -108,7 +120,7 @@ class NeuralEnsembler(BaseEnsembler):
     def update_context_size(
         self, context_size: int = None
     ):
-        self.context_size = context_size        
+        self.context_size = context_size  
 
     def batched_prediction(
         self, X, base_functions, y=None, X_context=None, y_context=None, mask_context=None
@@ -273,7 +285,7 @@ class NeuralEnsembler(BaseEnsembler):
             return (X_train, base_functions_train, y_train, X_context, y_context, mask_context)
         
     def get_batch_for_pretraining(self):
-        dataset_name = np.random.choice(self.metadataset.dataset_names, 1).item()
+        dataset_name = np.random.choice(self.metadataset.meta_splits["meta-train"], 1).item()
         self.metadataset.set_state(dataset_name=dataset_name)
         num_samples = self.metadataset.get_num_samples()
         samples_idx = np.random.randint(0, num_samples, self.context_size)
@@ -338,19 +350,20 @@ class NeuralEnsembler(BaseEnsembler):
         else:
             raise NotImplementedError()
 
-        net = NetClass(
+        model = NetClass(
             input_dim=input_dim,
             hidden_dim=self.hidden_dim,
             output_dim=output_dim,
             add_y=self.add_y,
             num_layers=self.num_layers,
+            num_heads=self.num_heads
         )
         y_train = torch.tensor(y_train, dtype=torch.long)
-        optimizer = Adam(net.parameters(), lr=self.learning_rate)
-        net.train()
+        optimizer = Adam(model.parameters(), lr=self.learning_rate)
+        model.train()
 
-        X_train, y_train, base_functions_train, net = self.send_to_device(
-            X_train, y_train, base_functions_train, net
+        X_train, y_train, base_functions_train, model = self.send_to_device(
+            X_train, y_train, base_functions_train, model
         )
 
         for epoch in range(self.epochs):
@@ -364,17 +377,33 @@ class NeuralEnsembler(BaseEnsembler):
             else:
                 raise NotImplementedError
             
-            loss, div, l1 = self.fit_one_epoch(net, optimizer, batch_data)
+            loss, div, l1, w = self.fit_one_epoch(model, optimizer, batch_data)
             print("Epoch", epoch, "Loss", loss.item(), "Div Loss", div.item())
 
-        net.eval()
-        self.training = False
-        return net
+            if self.use_wandb and self.mode=="pretraining":
+                wandb.log({"epoch": epoch,
+                          "loss": loss.item(),
+                          "div_loss": div.item(),
+                          "l1_loss": l1.item(),
+                          "w_mean": w.mean(),
+                          "w_max": w.max(),
+                          "w_min": w.min(),
+                          "w_std": w.std()
+                         }
+                        )
 
-    def fit_one_epoch(self, net, optimizer, batch_data):
+        model.eval()
+
+        if self.mode == "pretraining":
+            self.save_checkpoint(model, optimizer, epoch, loss.item())
+
+        self.training = False
+        return model
+
+    def fit_one_epoch(self, model, optimizer, batch_data):
         X_batch, base_functions_batch, y_batch = batch_data[:3]
         _, num_samples, num_classes, num_base_functions = X_batch.shape
-        output, w = net(*batch_data)
+        output, w = model(*batch_data)
         logits = self.metadataset.get_logits_from_probabilities(output)
         loss = self.criterion(logits.reshape(-1, num_classes), y_batch.reshape(-1))
         div = div_loss(w, base_functions_batch)
@@ -382,13 +411,44 @@ class NeuralEnsembler(BaseEnsembler):
         loss -= self.reg_term_div * div
         loss += self.reg_term_norm * l1
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
         optimizer.step()
 
-        return loss, l1, div
+        return loss, l1, div, w
 
-    def load_model_from_checkpoint(self, checkpoint: str = "neural_ensembler.pt"):
+    def save_checkpoint(self, model,
+                        optimizer: dict = None,
+                        epoch: int = 0,
+                        loss: float = 0.0,
+                        checkpoint_name: str = None):
+        if checkpoint_name is None:
+            test_id =  self.metadataset.meta_split_ids[-1][0]
+            checkpoint_name = f"neural_ensembler_{test_id}.pt"
+        complete_path = Path(os.path.abspath(__file__)).parent.parent.parent / "checkpoints" / checkpoint_name
+        torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'loss': loss,
+                    }, complete_path)
         
+    def load_checkpoint(self, model,
+                        optimizer: dict = None,
+                        checkpoint_name: str = None):
+        
+        if checkpoint_name is None:
+            test_id =  self.metadataset.meta_split_ids[-1][0]
+            checkpoint_name = f"neural_ensembler_{test_id}.pt"
+        complete_path = Path(os.path.abspath(__file__)).parent.parent / "checkpoints" / checkpoint_name
+        checkpoint = torch.load(complete_path)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        if optimizer is not None:
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        epoch = checkpoint['epoch']
+        loss = checkpoint['loss']
+
+        return model, optimizer, epoch, loss
+  
 
 class ENetPS(nn.Module): # Parallel Samples
     def __init__(

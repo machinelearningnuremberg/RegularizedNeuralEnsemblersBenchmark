@@ -17,12 +17,13 @@ if __name__ == "__main__":
     task_id = 5
     metric_name = "error"
     data_version = "micro"
-    pretrain = False
+    pretrain = True
     DATA_DIR = None
+    pretrain_epochs = 100_000
 
     name = "quicktune"
     name = "tabrepo"
-    # name = "pipelinebench"
+    #name = "pipelinebench"
 
     if name == "quicktune":
         DATA_DIR = "/work/dlclarge2/janowski-quicktune/predictions"
@@ -76,13 +77,14 @@ if __name__ == "__main__":
     ne = NeuralEnsembler(metadataset=metadataset,
                          ne_add_y=True,
                          ne_use_context=True,
-                         epochs=100,
+                         epochs=0,
                          ne_reg_term_div=0.,
                          ne_reg_term_norm=0.,
-                         ne_num_layers=4)
+                         ne_num_layers=4,
+                         use_wandb=True)
 
     if pretrain:
-        ne.pretrain_net(X_obs, pretrain_epochs=1000)
+        ne.pretrain_net(X_obs, pretrain_epochs=pretrain_epochs)
         
     metadataset.set_state(dataset_names[task_id])
 
