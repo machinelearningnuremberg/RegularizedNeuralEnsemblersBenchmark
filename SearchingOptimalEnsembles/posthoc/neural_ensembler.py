@@ -102,7 +102,7 @@ class NeuralEnsembler(BaseEnsembler):
         self.use_wandb = use_wandb
         self.num_heads = ne_num_heads
         self.project_name = "Training_NE"
-        if self.use_wandb:
+        if self.use_wandb and self.mode == "pretraining":
             wandb.init(
                 project=self.project_name
             )

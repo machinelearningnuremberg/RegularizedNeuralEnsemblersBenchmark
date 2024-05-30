@@ -258,6 +258,8 @@ def run(
         num_existing_pipelines = metadataset.get_num_pipelines()
         X_obs = np.arange(num_existing_pipelines)
         np.random.shuffle(X_obs)
+        incumbent_ensemble = X_obs.tolist()
+
     X_obs = X_obs.tolist()
 
     if apply_posthoc_ensemble_at_end:
@@ -268,7 +270,7 @@ def run(
     (test_metric, 
      test_metric_per_pipeline,
      test_metadataset) = eval(
-        incumbent_ensemble,
+        X_obs,
         metadataset_name=metadataset_name,
         dataset_id=dataset_id,
         meta_split_id=meta_split_id,

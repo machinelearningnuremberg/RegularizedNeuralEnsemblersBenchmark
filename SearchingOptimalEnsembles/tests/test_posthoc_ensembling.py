@@ -17,12 +17,12 @@ if __name__ == "__main__":
     task_id = 5
     metric_name = "error"
     data_version = "micro"
-    pretrain = True
+    pretrain = False
     DATA_DIR = None
     pretrain_epochs = 100_000
 
     name = "quicktune"
-    name = "tabrepo"
+    #name = "tabrepo"
     #name = "pipelinebench"
 
     if name == "quicktune":
@@ -75,13 +75,14 @@ if __name__ == "__main__":
     X_obs = [i for i in range(len(metadataset.hp_candidates_ids))]
 
     ne = NeuralEnsembler(metadataset=metadataset,
-                         ne_add_y=True,
+                         ne_add_y=False,
                          ne_use_context=True,
+                         ne_context_size=4,
                          epochs=0,
                          ne_reg_term_div=0.,
                          ne_reg_term_norm=0.,
                          ne_num_layers=4,
-                         use_wandb=True)
+                         use_wandb=False)
 
     if pretrain:
         ne.pretrain_net(X_obs, pretrain_epochs=pretrain_epochs)

@@ -70,10 +70,6 @@ class BaseMetaDataset:
         self.best_performance: torch.Tensor
         self.worst_performance: torch.Tensor
 
-    def _initialize(self):
-        """Initialize the meta-dataset. This method should be called in the child class."""
-        self.dataset_names = self.get_dataset_names()
-        self.meta_splits = self._get_meta_splits()
 
     @abstractmethod
     def get_dataset_names(self) -> list[str]:
@@ -124,57 +120,7 @@ class BaseMetaDataset:
 
         raise NotImplementedError
 
-    def _get_meta_splits(self) -> dict[str, list[str]]:
-        """Internal method to get meta splits for datasets.
 
-        Args:
-            data_pct (tuple(tuple(float), float, float ), optional):
-                ID of the cross validation partition assigned to meta-train, meta-val and meta-test.
-                The dfault assumes 5-fold cross (meta-) validation.
-        Returns:
-            dict[str, list[str]]: Dictionary containing meta train, val, and test splits.
-
-        """
-        rnd_gen = np.random.default_rng(self.seed)
-        dataset_names = self.dataset_names.copy()
-        rnd_gen.shuffle(dataset_names)
-
-        meta_train_splits, meta_val_splits, meta_test_splits = self.meta_split_ids
-
-        meta_splits: dict[str, list[str]] = {
-            "meta-train": [],
-            "meta-valid": [],
-            "meta-test": [],
-        }
-        num_splits = len(meta_train_splits) + len(meta_test_splits) + len(meta_val_splits)
-        for i, dataset in enumerate(dataset_names):
-            split_id = i % num_splits
-            if split_id in meta_train_splits:
-                meta_splits["meta-train"].append(dataset)
-            elif split_id in meta_test_splits:
-                meta_splits["meta-test"].append(dataset)
-            elif split_id in meta_val_splits:
-                meta_splits["meta-valid"].append(dataset)
-            else:
-                raise ValueError("Dataset not assigned to any split")
-        return meta_splits
-
-    def set_state(self, dataset_name: str):
-        """
-        Set the dataset to be used for training and evaluation.
-        This method should be called before sampling.
-
-            Args:
-                dataset_name (str): Name of the dataset.
-
-        """
-
-        self.dataset_name = dataset_name
-        self.hp_candidates, self.hp_candidates_ids = self._get_hp_candidates_and_indices()
-        (
-            self.worst_performance,
-            self.best_performance,
-        ) = self._get_worst_and_best_performance()
 
     @abstractmethod
     def evaluate_ensembles(
@@ -267,6 +213,65 @@ class BaseMetaDataset:
             time: torch tensor with the time per pipeline and ensemble: [B, N]    
         """
         raise NotImplementedError
+    
+    def _initialize(self):
+        """Initialize the meta-dataset. This method should be called in the child class."""
+        self.dataset_names = self.get_dataset_names()
+        self.meta_splits = self._get_meta_splits()
+
+
+
+    def _get_meta_splits(self) -> dict[str, list[str]]:
+        """Internal method to get meta splits for datasets.
+
+        Args:
+            data_pct (tuple(tuple(float), float, float ), optional):
+                ID of the cross validation partition assigned to meta-train, meta-val and meta-test.
+                The dfault assumes 5-fold cross (meta-) validation.
+        Returns:
+            dict[str, list[str]]: Dictionary containing meta train, val, and test splits.
+
+        """
+        rnd_gen = np.random.default_rng(self.seed)
+        dataset_names = self.dataset_names.copy()
+        rnd_gen.shuffle(dataset_names)
+
+        meta_train_splits, meta_val_splits, meta_test_splits = self.meta_split_ids
+
+        meta_splits: dict[str, list[str]] = {
+            "meta-train": [],
+            "meta-valid": [],
+            "meta-test": [],
+        }
+        num_splits = len(meta_train_splits) + len(meta_test_splits) + len(meta_val_splits)
+        for i, dataset in enumerate(dataset_names):
+            split_id = i % num_splits
+            if split_id in meta_train_splits:
+                meta_splits["meta-train"].append(dataset)
+            elif split_id in meta_test_splits:
+                meta_splits["meta-test"].append(dataset)
+            elif split_id in meta_val_splits:
+                meta_splits["meta-valid"].append(dataset)
+            else:
+                raise ValueError("Dataset not assigned to any split")
+        return meta_splits
+
+    def set_state(self, dataset_name: str):
+        """
+        Set the dataset to be used for training and evaluation.
+        This method should be called before sampling.
+
+            Args:
+                dataset_name (str): Name of the dataset.
+
+        """
+
+        self.dataset_name = dataset_name
+        self.hp_candidates, self.hp_candidates_ids = self._get_hp_candidates_and_indices()
+        (
+            self.worst_performance,
+            self.best_performance,
+        ) = self._get_worst_and_best_performance()
 
     def compute_normalized_score(self, score: torch.Tensor) -> torch.Tensor:
         """Compute the normalized score.
@@ -324,80 +329,6 @@ class BaseMetaDataset:
         logits = log_p + C.unsqueeze(-1)
         return logits
 
-    @abstractmethod
-    def get_num_samples(self) -> int:
-        """
-        Returns the number of samples for the current loaded dataset.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_num_classes(self) -> int:
-        """
-        Returns the number of classes for the current loaded dataset.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
-
-        """
-        Returns the ensemble predictions for every sample in the active dataset.
-
-        B: number of ensembles
-        N: number of models per ensemble
-        M: number of samplers per ensemble
-        C: number of classes per ensemble
-
-        Args:
-            ensembles: List of list with the base model index to evaluate: [B, N]
-
-        Returns:
-            prediction: torch tensor with the probabilistic prediction per class: [B, N, M, C]    
-        """
-        raise NotImplementedError
     
-    @abstractmethod
-    def get_targets(self) -> torch.Tensor:
-        """
-        Returns the target associated to every sample in the active dataset.
-
-        M: number of samplers per ensemble
-        Returns:
-            target: torch tensor with the target per sample: [M]    
-        """
-        raise NotImplementedError
-    
-    @abstractmethod
-    def get_time(self, ensembles: list[list[int]]) -> torch.Tensor:
-        """
-        Returns the target associated to every sample in the active dataset.
-
-        B: number of ensembles
-        N: number of models per ensemble
-        Args:
-            ensembles: List of list with the base model index to evaluate: [B, N]
-
-        Returns:
-            time: torch tensor with the time per pipeline and ensemble: [B, N]    
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:
-        """
-        Returns the pipeline features associated to every ensemble.
-
-        B: number of ensembles
-        N: number of models per ensemble
-        F: number of features per pipeline
-
-        Args:
-            ensembles: List of list with the base model index to evaluate: [B, N]
-
-        Returns:
-            pipeline_features: torch tensor with the pipeline features: [B, N, F]    
-        """
-        raise NotImplementedError
     def recommend_pipelines(self, num_pipelines: int) -> list[int]:
         return np.random.randint(0, self.get_num_pipelines(), num_pipelines)
