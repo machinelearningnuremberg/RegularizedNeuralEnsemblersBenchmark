@@ -46,7 +46,7 @@ if __name__ == "__main__":
                          ne_num_layers=4,
                          ne_num_heads=4,
                          ne_context_size=128,
-                         use_wandb=True)
+                         use_wandb=False)
 
     if pretrain:
         ne.pretrain_net(X_obs, pretrain_epochs=pretrain_epochs,
