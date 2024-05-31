@@ -14,15 +14,17 @@ def test_posthoc_ensembling():
 
 
 if __name__ == "__main__":
-    task_id = 5
+    task_id = 8
     metric_name = "error"
     data_version = "micro"
     pretrain = False
     DATA_DIR = None
     pretrain_epochs = 100_000
+    checkpoint_name = "auto"
+    checkpoint_name = None
 
     name = "quicktune"
-    #name = "tabrepo"
+    name = "tabrepo"
     #name = "pipelinebench"
 
     if name == "quicktune":
@@ -37,7 +39,7 @@ if __name__ == "__main__":
     metadataset = md_class(
         data_dir=DATA_DIR, metric_name=metric_name, data_version=data_version
     )
-    dataset_names = metadataset.get_dataset_names()
+    dataset_names = metadataset.meta_splits["meta-test"]
     metadataset.set_state(dataset_names[task_id])
     num_samples = metadataset.get_num_samples()
     num_classes = metadataset.get_num_classes()
@@ -75,14 +77,18 @@ if __name__ == "__main__":
     X_obs = [i for i in range(len(metadataset.hp_candidates_ids))]
 
     ne = NeuralEnsembler(metadataset=metadataset,
-                         ne_add_y=False,
+                         ne_add_y=True,
                          ne_use_context=True,
-                         ne_context_size=4,
-                         epochs=0,
+                         epochs=1000,
                          ne_reg_term_div=0.,
                          ne_reg_term_norm=0.,
                          ne_num_layers=4,
+                         ne_num_heads=4,
+                         ne_context_size=24,
+                         ne_eval_context_size=1,
+                         ne_checkpoint_name=checkpoint_name,
                          use_wandb=False)
+    
 
     if pretrain:
         ne.pretrain_net(X_obs, pretrain_epochs=pretrain_epochs)
@@ -117,7 +123,10 @@ if __name__ == "__main__":
     print("Oracle from val evaluated on test:", val.item())
 
     ne.set_state(metadataset=metadataset_test)
-    weights = ne.get_weights(X_obs)
+
+    X_context, y_context = ne.get_context(X_obs, metadataset=metadataset)
+
+    weights = ne.get_weights(X_obs, X_context=X_context, y_context=y_context)
     (
         _,
         best_metric_test,

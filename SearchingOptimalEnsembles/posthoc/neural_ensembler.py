@@ -67,6 +67,7 @@ class NeuralEnsembler(BaseEnsembler):
         learning_rate: float =0.0001,
         epochs: int = 1000,
         use_wandb: bool = False,
+        checkpoint_freq: int = 1000,
         ne_hidden_dim: int = 512,
         ne_context_size: int = 32,
         ne_reg_term_div: float = 0.1,
@@ -78,6 +79,7 @@ class NeuralEnsembler(BaseEnsembler):
         ne_net_type: str = "sas",
         ne_num_heads: int = 1,
         ne_mode: Literal["inference", "pretraining"] = "inference",
+        ne_checkpoint_name: str = "auto",
         **kwargs,
     ) -> None:
         super().__init__(metadataset=metadataset, device=device)
@@ -101,10 +103,14 @@ class NeuralEnsembler(BaseEnsembler):
         self.epochs = epochs
         self.use_wandb = use_wandb
         self.num_heads = ne_num_heads
+        self.checkpoint_freq = checkpoint_freq
+        self.checkpoint_name = ne_checkpoint_name
         self.project_name = "Training_NE"
+        
         if self.use_wandb and self.mode == "pretraining":
             wandb.init(
-                project=self.project_name
+                project=self.project_name,
+                settings=wandb.Settings(start_method="fork")
             )
 
     def set_state(
@@ -207,13 +213,18 @@ class NeuralEnsembler(BaseEnsembler):
             mask_upper = torch.cat([mask_upper_left_tile, mask_upper_right_tile], dim=1)
             mask_lower = torch.cat([mask_lower_left_tile, mask_lower_right_tile], dim=1)
             mask = torch.cat([mask_upper, mask_lower], dim=0).to(self.device)
+            mask = 1-mask
             mask = mask.bool()
-        #mask = None
+        
+        mask = None
         return mask
 
-    def get_context(self, X_obs, metadataset):
+    def get_context(self, X_obs, metadataset = None):
         # X_context are the base functions for val dataset for a subset fo samples
         # y_context are the
+        
+        if metadataset is None:
+            metadataset = self.metadataset
         X_context = None
         y_context = None
         if self.use_context:
@@ -284,8 +295,8 @@ class NeuralEnsembler(BaseEnsembler):
         else:
             return (X_train, base_functions_train, y_train, X_context, y_context, mask_context)
         
-    def get_batch_for_pretraining(self):
-        dataset_name = np.random.choice(self.metadataset.meta_splits["meta-train"], 1).item()
+    def get_batch_for_pretraining(self, meta_split="meta-valid"):
+        dataset_name = np.random.choice(self.metadataset.meta_splits[meta_split], 1).item()
         self.metadataset.set_state(dataset_name=dataset_name)
         num_samples = self.metadataset.get_num_samples()
         samples_idx = np.random.randint(0, num_samples, self.context_size)
@@ -319,6 +330,9 @@ class NeuralEnsembler(BaseEnsembler):
         self.learning_rate = finetuning_learning_rate
         self.epochs = finetuning_epochs
         self.mode = "inference"
+
+    def count_parameters(self, model):
+        return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
     def fit_net(
         self,
@@ -358,8 +372,13 @@ class NeuralEnsembler(BaseEnsembler):
             num_layers=self.num_layers,
             num_heads=self.num_heads
         )
+
         y_train = torch.tensor(y_train, dtype=torch.long)
         optimizer = Adam(model.parameters(), lr=self.learning_rate)
+
+        if self.checkpoint_name is not None:
+            self.load_checkpoint(model)
+
         model.train()
 
         X_train, y_train, base_functions_train, model = self.send_to_device(
@@ -380,17 +399,25 @@ class NeuralEnsembler(BaseEnsembler):
             loss, div, l1, w = self.fit_one_epoch(model, optimizer, batch_data)
             print("Epoch", epoch, "Loss", loss.item(), "Div Loss", div.item())
 
-            if self.use_wandb and self.mode=="pretraining":
-                wandb.log({"epoch": epoch,
-                          "loss": loss.item(),
-                          "div_loss": div.item(),
-                          "l1_loss": l1.item(),
-                          "w_mean": w.mean(),
-                          "w_max": w.max(),
-                          "w_min": w.min(),
-                          "w_std": w.std()
-                         }
-                        )
+            if self.mode == "pretraining":
+                if self.use_wandb:
+                    wandb.log({"epoch": epoch,
+                            "loss": loss.item(),
+                            "div_loss": div.item(),
+                            "l1_loss": l1.item(),
+                            "w_mean": w.mean(),
+                            "w_max": w.max(),
+                            "w_min": w.min(),
+                            "w_std": w.std(),
+                            "w_mean_max": w.max(-2)[0].mean()
+                            }
+                            )
+                
+                if (epoch % self.checkpoint_freq) == 0:
+                    self.save_checkpoint(model, optimizer, epoch, loss.item())
+                    val_loss = self.meta_validate(model)
+                    print("Epoch", epoch, "Val Loss", val_loss)
+
 
         model.eval()
 
@@ -400,6 +427,27 @@ class NeuralEnsembler(BaseEnsembler):
         self.training = False
         return model
 
+
+    def meta_validate(self, model, validation_iterations=100):
+        val_loss = 0
+        for i in range(validation_iterations):
+            batch_data = self.get_batch_for_pretraining(meta_split="meta-valid")
+            X_batch, base_functions_batch, y_batch = batch_data[:3]
+            _, num_samples, num_classes, num_base_functions = X_batch.shape
+
+            with torch.no_grad():
+                output, w = model(*batch_data)
+                logits = self.metadataset.get_logits_from_probabilities(output)
+                loss = self.criterion(logits.reshape(-1, num_classes), y_batch.reshape(-1)).item()
+                val_loss += loss
+        val_loss /= validation_iterations
+
+        if self.use_wandb and self.mode=="pretraining":
+            wandb.log({"meta_val_loss": val_loss
+                    }
+                )           
+        return val_loss
+            
     def fit_one_epoch(self, model, optimizer, batch_data):
         X_batch, base_functions_batch, y_batch = batch_data[:3]
         _, num_samples, num_classes, num_base_functions = X_batch.shape
@@ -419,27 +467,34 @@ class NeuralEnsembler(BaseEnsembler):
     def save_checkpoint(self, model,
                         optimizer: dict = None,
                         epoch: int = 0,
-                        loss: float = 0.0,
-                        checkpoint_name: str = None):
-        if checkpoint_name is None:
+                        loss: float = 0.0):
+        
+        if self.checkpoint_name == "auto":
             test_id =  self.metadataset.meta_split_ids[-1][0]
             checkpoint_name = f"neural_ensembler_{test_id}.pt"
+        else:
+            checkpoint_name = self.checkpoint_name
+
+        if optimizer is not None:
+            optimizer_state_dict = optimizer.state_dict()
         complete_path = Path(os.path.abspath(__file__)).parent.parent.parent / "checkpoints" / checkpoint_name
         torch.save({
                     'epoch': epoch,
                     'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
+                    'optimizer_state_dict': optimizer_state_dict,
                     'loss': loss,
                     }, complete_path)
         
     def load_checkpoint(self, model,
-                        optimizer: dict = None,
-                        checkpoint_name: str = None):
+                        optimizer: dict = None):
         
-        if checkpoint_name is None:
+        if self.checkpoint_name == "auto":
             test_id =  self.metadataset.meta_split_ids[-1][0]
             checkpoint_name = f"neural_ensembler_{test_id}.pt"
-        complete_path = Path(os.path.abspath(__file__)).parent.parent / "checkpoints" / checkpoint_name
+        else:
+            checkpoint_name = self.checkpoint_name
+
+        complete_path = Path(os.path.abspath(__file__)).parent.parent.parent / "checkpoints" / checkpoint_name
         checkpoint = torch.load(complete_path)
         model.load_state_dict(checkpoint['model_state_dict'])
         if optimizer is not None:
@@ -702,10 +757,7 @@ class ENetSAS(nn.Module):  # Sample as Sequence
             x = torch.cat([X_context, x], dim=1)
 
         if self.add_y:
-            if y is None or y_context is not None:
-                y = -1*torch.ones(batch_size, num_samples, num_classes, 1).to(x.device)
-            else:
-                y = nn.functional.one_hot(y, num_classes=num_classes).unsqueeze(3)
+            y = -1*torch.ones(batch_size, num_samples, num_classes, 1).to(x.device)
 
             if y_context is not None:
                 y_context = nn.functional.one_hot(y_context, num_classes=num_classes).unsqueeze(3)

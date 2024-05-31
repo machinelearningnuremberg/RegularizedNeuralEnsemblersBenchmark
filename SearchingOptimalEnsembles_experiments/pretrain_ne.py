@@ -10,7 +10,7 @@ from SearchingOptimalEnsembles.posthoc.neural_ensembler import NeuralEnsembler
 
 
 if __name__ == "__main__":
-    task_id = 5
+    task_id = 4
     metric_name = "error"
     data_version = "micro"
     pretrain = True
@@ -45,10 +45,10 @@ if __name__ == "__main__":
                          ne_reg_term_norm=0.,
                          ne_num_layers=4,
                          ne_num_heads=4,
-                         ne_context_size=128,
-                         use_wandb=False)
+                         ne_context_size=64,
+                         use_wandb=True,
+                         ne_mode="pretraining")
 
-    if pretrain:
-        ne.pretrain_net(X_obs, pretrain_epochs=pretrain_epochs,
-                        pretrain_learning_rate=pretrain_learning_rate)
-        
+    ne.pretrain_net(X_obs, pretrain_epochs=pretrain_epochs,
+                    pretrain_learning_rate=pretrain_learning_rate)
+    
