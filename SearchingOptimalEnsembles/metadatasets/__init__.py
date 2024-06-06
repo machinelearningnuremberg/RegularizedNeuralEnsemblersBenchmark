@@ -3,17 +3,18 @@ from __future__ import annotations
 from typing import Callable
 
 try:
-    from .nasbench201.metadataset import NASBench201MetaDataset
+    from .tabrepo.metadataset import TabRepoMetaDataset
 except ImportError:
-    NASBench201MetaDataset = None
+    TabRepoMetaDataset = None
 
 from .quicktune.metadataset import QuicktuneMetaDataset
 from .scikit_learn.metadataset import ScikitLearnMetaDataset
-from .tabrepo.metadataset import TabRepoMetaDataset
+from .nasbench201.metadataset import NASBench201MetaDataset
 
 MetaDatasetMapping: dict[str, Callable] = {
     "scikit-learn": ScikitLearnMetaDataset,
     "nasbench201": NASBench201MetaDataset,
     "quicktune": QuicktuneMetaDataset,
-    "tabrepo": TabRepoMetaDataset
+    "tabrepo": TabRepoMetaDataset,  
+
 }

@@ -120,8 +120,6 @@ class BaseMetaDataset:
 
         raise NotImplementedError
 
-
-
     @abstractmethod
     def evaluate_ensembles(
         self,
@@ -146,7 +144,6 @@ class BaseMetaDataset:
         """
 
         raise NotImplementedError
-
 
     @abstractmethod
     def get_num_samples(self) -> int:
@@ -218,8 +215,6 @@ class BaseMetaDataset:
         """Initialize the meta-dataset. This method should be called in the child class."""
         self.dataset_names = self.get_dataset_names()
         self.meta_splits = self._get_meta_splits()
-
-
 
     def _get_meta_splits(self) -> dict[str, list[str]]:
         """Internal method to get meta splits for datasets.
