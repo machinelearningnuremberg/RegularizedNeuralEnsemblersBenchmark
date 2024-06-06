@@ -8,7 +8,6 @@ import torch
 from torch import nn
 from torch.optim import Adam
 from typing_extensions import Literal
-import wandb
 
 from ..metadatasets.base_metadataset import BaseMetaDataset
 from ..samplers.random_sampler import RandomSampler
@@ -17,11 +16,18 @@ from .base_ensembler import BaseEnsembler
 # command to test:
 # python main.py --apply_posthoc_ensemble_at_end --ensembler_name neural --data_version micro --ne_use_context --project_name SOE --num_iterations 100 --metric_name error --dataset_id 2 --run_name neural45_2_4 --meta_split_id 4 --searcher_name None --ne_hidden_dim 128 --ne_context_size 8 --ne_reg_term_div 0.1 --ne_eval_context_size 32 --experiment_group neural45_2 --no_wandb
 
+try:
+    import wandb
+    WAND_AVAILABLE = True
+except: 
+    WAND_AVAILABLE = False
+
+
 class FeedforwardNetwork(nn.Module):
     def __init__(self, input_dim, output_dim, num_hidden_layers, hidden_dim):
         super(FeedforwardNetwork, self).__init__()
         layers = []
-        
+
         # Input layer
         layers.append(nn.Linear(input_dim, hidden_dim))
         layers.append(nn.ReLU())
@@ -53,7 +59,7 @@ def div_loss(w, base_observations):
 
 def l1_norm(w):
     # return torch.norm(w, p=1, dim=-1).mean()
-    return (torch.log(w + 10e-8)).mean()
+    return (w*torch.log(w + 10e-8)).mean()
 
 
 class NeuralEnsembler(BaseEnsembler):
@@ -68,18 +74,23 @@ class NeuralEnsembler(BaseEnsembler):
         epochs: int = 1000,
         use_wandb: bool = False,
         checkpoint_freq: int = 1000,
+        run_name: str = None,
         ne_hidden_dim: int = 512,
-        ne_context_size: int = 32,
+        ne_context_size: int = 128,
         ne_reg_term_div: float = 0.1,
-        ne_add_y: bool = False,
-        ne_eval_context_size: int = 50,
+        ne_add_y: bool = True,
+        ne_eval_context_size: int = 128,
         ne_num_layers: int = 2,
         ne_use_context: bool = True,
-        ne_reg_term_norm: float = 0.01,
+        ne_reg_term_norm: float = 0.0,
         ne_net_type: str = "sas",
-        ne_num_heads: int = 1,
+        ne_num_heads: int = 4,
         ne_mode: Literal["inference", "pretraining"] = "inference",
         ne_checkpoint_name: str = "auto",
+        ne_resume_from_checkpoint: bool = False,
+        ne_use_mask: bool = True,
+        ne_unique_weights_per_function: bool = False,
+        ne_dropout_rate: float = 0.,
         **kwargs,
     ) -> None:
         super().__init__(metadataset=metadataset, device=device)
@@ -106,11 +117,19 @@ class NeuralEnsembler(BaseEnsembler):
         self.checkpoint_freq = checkpoint_freq
         self.checkpoint_name = ne_checkpoint_name
         self.project_name = "Training_NE"
+        self.resume_from_checkpoint = ne_resume_from_checkpoint
+        self.use_mask = ne_use_mask
+        self.unique_weights_per_function = ne_unique_weights_per_function
+        self.run_name = run_name
+        self.num_pipelines = 64
+        self.dropout_rate = ne_dropout_rate
         
-        if self.use_wandb and self.mode == "pretraining":
+        if self.use_wandb and self.mode == "pretraining" and WAND_AVAILABLE:
             wandb.init(
                 project=self.project_name,
-                settings=wandb.Settings(start_method="fork")
+                name=self.run_name,
+                settings=wandb.Settings(start_method="fork"),
+
             )
 
     def set_state(
@@ -126,12 +145,12 @@ class NeuralEnsembler(BaseEnsembler):
     def update_context_size(
         self, context_size: int = None
     ):
-        self.context_size = context_size  
+        self.context_size = context_size
 
     def batched_prediction(
         self, X, base_functions, y=None, X_context=None, y_context=None, mask_context=None
     ):
-        
+
         _, num_samples, num_classes, num_pipelines = X.shape
         idx = np.arange(num_samples)
         # np.random.shuffle(idx)
@@ -150,7 +169,7 @@ class NeuralEnsembler(BaseEnsembler):
                 temp_mask = None
             temp_y = y[:, range_idx] if y is not None else None
 
-            with torch.no_grad():   
+            with torch.no_grad():
                 output, w = self.net(
                     x=X[:, range_idx],
                     base_functions=base_functions[:, range_idx],
@@ -193,16 +212,15 @@ class NeuralEnsembler(BaseEnsembler):
 
     def get_mask_context(self):
         mask = None
-        if self.use_context:
-
+        if self.use_context and self.use_mask:
             if self.mode == "inference":
                 actual_eval_context_size = min(
                     self.eval_context_size, self.metadataset.get_num_samples()
                 )
             else:
                 actual_eval_context_size = self.context_size
-                               
-                
+
+
             mask_upper_left_tile = torch.ones(self.context_size, self.context_size)
             mask_upper_right_tile = torch.zeros(
                 self.context_size, actual_eval_context_size
@@ -216,13 +234,12 @@ class NeuralEnsembler(BaseEnsembler):
             mask = 1-mask
             mask = mask.bool()
         
-        mask = None
         return mask
 
     def get_context(self, X_obs, metadataset = None):
         # X_context are the base functions for val dataset for a subset fo samples
         # y_context are the
-        
+
         if metadataset is None:
             metadataset = self.metadataset
         X_context = None
@@ -294,31 +311,37 @@ class NeuralEnsembler(BaseEnsembler):
 
         else:
             return (X_train, base_functions_train, y_train, X_context, y_context, mask_context)
-        
-    def get_batch_for_pretraining(self, meta_split="meta-valid"):
+
+    def get_batch_for_pretraining(self, meta_split="meta-train"):
         dataset_name = np.random.choice(self.metadataset.meta_splits[meta_split], 1).item()
         self.metadataset.set_state(dataset_name=dataset_name)
         num_samples = self.metadataset.get_num_samples()
         samples_idx = np.random.randint(0, num_samples, self.context_size)
 
+        if self.predefined_pipeline_ids is not None:
+            predefined_pipeline_ids = self.predefined_pipeline_ids
+        else:
+            predefined_pipeline_ids = np.random.randint(0, self.num_pipelines, self.metadataset.get_num_pipelines())
+
         #X and base functions are the same
         X = base_functions = (
             self.metadataset
-            .get_predictions([self.predefined_pipeline_ids])[0]
+            .get_predictions([predefined_pipeline_ids])[0]
             .transpose(0, 1)
             .transpose(2, 1)
             .unsqueeze(0)
         )[:,samples_idx]
         y = self.metadataset.get_targets()[samples_idx].unsqueeze(0).to(self.device)
 
-        X_context, y_context = self.get_context(self.predefined_pipeline_ids, self.metadataset)
+        X_context, y_context = self.get_context(predefined_pipeline_ids, self.metadataset)
         mask_context = self.get_mask_context()
 
         return self.send_to_device(X, base_functions, y, X_context, y_context, mask_context)
-    
-    def pretrain_net(self, predefined_pipeline_ids: list[int],
+
+    def pretrain_net(self, predefined_pipeline_ids: list[int] = None,
                       pretrain_learning_rate: float = 0.0001,
                       pretrain_epochs: int = 1000):
+        
         self.predefined_pipeline_ids = predefined_pipeline_ids
         X, base_functions, y = self.get_batch_for_pretraining()[:3]
         self.mode = "pretraining"
@@ -351,16 +374,16 @@ class NeuralEnsembler(BaseEnsembler):
             output_dim = base_functions_train.shape[-1]  # [NUMBER OF BASE FUNCTIONS]
         elif self.net_type == "cas":
             NetClass = ENetCAS
-            input_dim = base_functions_train.shape[-1]   
-            output_dim =  base_functions_train.shape[-1]  
+            input_dim = base_functions_train.shape[-1]
+            output_dim =  base_functions_train.shape[-1]
         elif self.net_type == "ps":
             NetClass = ENetPS
             input_dim = base_functions_train.shape[-1]
-            output_dim = base_functions_train.shape[-1]  
+            output_dim = base_functions_train.shape[-1]
         elif self.net_type == "simple":
             NetClass = ENetSimple
             input_dim = 1
-            output_dim = base_functions_train.shape[-1]*base_functions_train.shape[-2]      
+            output_dim = base_functions_train.shape[-1]*base_functions_train.shape[-2]
         else:
             raise NotImplementedError()
 
@@ -370,13 +393,15 @@ class NeuralEnsembler(BaseEnsembler):
             output_dim=output_dim,
             add_y=self.add_y,
             num_layers=self.num_layers,
-            num_heads=self.num_heads
+            num_heads=self.num_heads,
+            unique_weight_per_base_function=self.unique_weights_per_function,
+            dropout_rate=self.dropout_rate
         )
 
         y_train = torch.tensor(y_train, dtype=torch.long)
         optimizer = Adam(model.parameters(), lr=self.learning_rate)
 
-        if self.checkpoint_name is not None:
+        if self.resume_from_checkpoint:
             self.load_checkpoint(model)
 
         model.train()
@@ -384,10 +409,10 @@ class NeuralEnsembler(BaseEnsembler):
         X_train, y_train, base_functions_train, model = self.send_to_device(
             X_train, y_train, base_functions_train, model
         )
-
+        best_val_loss = np.inf
         for epoch in range(self.epochs):
             optimizer.zero_grad()
-    
+
             if self.mode == "inference":
                 batch_data = self.get_batch(X_train, base_functions_train, y_train)
             elif self.mode == "pretraining":
@@ -395,9 +420,9 @@ class NeuralEnsembler(BaseEnsembler):
                 batch_data = self.send_to_device(*batch_data)
             else:
                 raise NotImplementedError
-            
+
             loss, div, l1, w = self.fit_one_epoch(model, optimizer, batch_data)
-            print("Epoch", epoch, "Loss", loss.item(), "Div Loss", div.item())
+            print("Epoch", epoch, "Loss", loss.item(), "Div Loss", div.item(), "W:", w.median().item())
 
             if self.mode == "pretraining":
                 if self.use_wandb:
@@ -412,10 +437,12 @@ class NeuralEnsembler(BaseEnsembler):
                             "w_mean_max": w.max(-2)[0].mean()
                             }
                             )
-                
-                if (epoch % self.checkpoint_freq) == 0:
-                    self.save_checkpoint(model, optimizer, epoch, loss.item())
+
+                if (epoch % self.checkpoint_freq) == 0:                    
                     val_loss = self.meta_validate(model)
+                    if val_loss < best_val_loss:
+                        self.save_checkpoint(model, optimizer, epoch, loss.item())
+                    best_val_loss = val_loss
                     print("Epoch", epoch, "Val Loss", val_loss)
 
 
@@ -445,9 +472,9 @@ class NeuralEnsembler(BaseEnsembler):
         if self.use_wandb and self.mode=="pretraining":
             wandb.log({"meta_val_loss": val_loss
                     }
-                )           
+                )
         return val_loss
-            
+
     def fit_one_epoch(self, model, optimizer, batch_data):
         X_batch, base_functions_batch, y_batch = batch_data[:3]
         _, num_samples, num_classes, num_base_functions = X_batch.shape
@@ -468,7 +495,7 @@ class NeuralEnsembler(BaseEnsembler):
                         optimizer: dict = None,
                         epoch: int = 0,
                         loss: float = 0.0):
-        
+
         if self.checkpoint_name == "auto":
             test_id =  self.metadataset.meta_split_ids[-1][0]
             checkpoint_name = f"neural_ensembler_{test_id}.pt"
@@ -484,10 +511,10 @@ class NeuralEnsembler(BaseEnsembler):
                     'optimizer_state_dict': optimizer_state_dict,
                     'loss': loss,
                     }, complete_path)
-        
+
     def load_checkpoint(self, model,
                         optimizer: dict = None):
-        
+
         if self.checkpoint_name == "auto":
             test_id =  self.metadataset.meta_split_ids[-1][0]
             checkpoint_name = f"neural_ensembler_{test_id}.pt"
@@ -503,7 +530,7 @@ class NeuralEnsembler(BaseEnsembler):
         loss = checkpoint['loss']
 
         return model, optimizer, epoch, loss
-  
+
 
 class ENetPS(nn.Module): # Parallel Samples
     def __init__(
@@ -515,19 +542,20 @@ class ENetPS(nn.Module): # Parallel Samples
         num_heads=1,
         add_y=True,
         mask_prob=0.5,
+        **kwargs
     ):
         super().__init__()
         self.num_layers = num_layers
         self.hidden_dim = hidden_dim
         self.num_heads = num_heads
         self.add_y = add_y
-        self.mask_prob = mask_prob 
-        
-        self.ff = FeedforwardNetwork(input_dim=input_dim, 
+        self.mask_prob = mask_prob
+
+        self.ff = FeedforwardNetwork(input_dim=input_dim,
                                      output_dim=output_dim,
                                      num_hidden_layers=num_layers,
                                      hidden_dim=hidden_dim)
-        
+
     def forward(
         self, x, base_functions, y=None, X_context=None, y_context=None, mask_context=None
     ):
@@ -535,7 +563,7 @@ class ENetPS(nn.Module): # Parallel Samples
         batch_size, num_samples, num_classes, num_base_functions = x.shape
 
         x = self.ff(x)
- 
+
         w = x.reshape(batch_size, num_samples, -1)
         w_norm = torch.nn.functional.softmax(w, dim=-1)
         w_norm = w_norm.reshape(batch_size, num_samples, num_classes, num_base_functions)
@@ -543,7 +571,7 @@ class ENetPS(nn.Module): # Parallel Samples
         x = torch.multiply(base_functions, w_norm).sum(axis=-1)
         # x.shape: [BATCH_SIZE X NUM_SAMPLES, NUM_CLASSES]
         # w_norm.shape : [BATCH_SIZE X NUM_SAMPLES  X NUM_CLASSES X NUMBER OF BASE FUNCTIONS]
-        return x, w_norm       
+        return x, w_norm
 
 
 class ENetCAS(nn.Module): # Class as Sequence
@@ -584,7 +612,7 @@ class ENetCAS(nn.Module): # Class as Sequence
         x = self.embedding(x)
         x = self.encoder(x)
         x = self.output_layer(x)  # ((BATCH_SIZE X NUM_SAMPLES) X NUM_BASE_FUNCTIONS)
-        x = x.unsqueeze(0) #only valid for batch size =1 
+        x = x.unsqueeze(0) #only valid for batch size =1
         x = x.reshape((batch_size, num_samples, num_classes, num_base_functions))
         #x = torch.repeat_interleave(x.unsqueeze(2), num_classes, dim=2)
 
@@ -651,7 +679,7 @@ class ENetBAS(nn.Module):  # Base model as sequence
 
 
 
-class ENetSimple(nn.Module): 
+class ENetSimple(nn.Module):
     def __init__(
         self,
         input_dim=1,
@@ -663,6 +691,7 @@ class ENetSimple(nn.Module):
         num_heads=1,
         add_y=False,
         mask_prob=0.5,
+        **kwargs,
     ):
         super().__init__()
 
@@ -681,7 +710,7 @@ class ENetSimple(nn.Module):
     def forward(
         self, x, base_functions, y=None, X_context=None, y_context=None, mask_context=None
     ):
-        
+
         batch_size, num_samples, num_classes, num_base_functions = x.shape
         x = torch.repeat_interleave(
             self.weight.reshape(1, -1), base_functions.shape[1], dim=0
@@ -694,7 +723,7 @@ class ENetSimple(nn.Module):
             batch_size, num_samples, num_classes, num_base_functions
         )
         x = torch.multiply(base_functions, w_norm).sum(axis=-1)
-              
+
         return x, w_norm
 
 
@@ -709,7 +738,8 @@ class ENetSAS(nn.Module):  # Sample as Sequence
         num_heads=1,
         add_y=False,
         mask_prob=0.5,
-        inner_batch_size=50
+        inner_batch_size=50,
+        unique_weight_per_base_function=True
     ):
         super().__init__()
 
@@ -720,6 +750,7 @@ class ENetSAS(nn.Module):  # Sample as Sequence
         self.add_y = add_y
         self.mask_prob = mask_prob
         self.inner_batch_size = inner_batch_size
+        self.unique_weight_per_base_function = unique_weight_per_base_function
 
         if self.add_y:
             input_dim += 1
@@ -744,13 +775,22 @@ class ENetSAS(nn.Module):  # Sample as Sequence
             batch_first=True,
         )
 
+        if self.unique_weight_per_base_function:
+            self.third_encoder = nn.TransformerEncoderLayer(
+            d_model=hidden_dim,
+            nhead=num_heads,
+            dim_feedforward=hidden_dim,
+            batch_first=True,
+        )
+
+
         self.out_layer = nn.Linear(hidden_dim, output_dim)
         self.dropout_rate = dropout_rate
         self.dropout = nn.Dropout(p=self.dropout_rate)
 
 
     def get_batched_weights(self, x, base_functions, y=None, X_context=None, y_context=None, mask_context=None):
-        
+
         batch_size, num_samples, num_classes, num_base_functions = x.shape
 
         if X_context is not None:
@@ -764,17 +804,16 @@ class ENetSAS(nn.Module):  # Sample as Sequence
                 y = torch.cat([y_context, y], dim=1)
 
             x = torch.cat([x,y], dim=-1)
-        
+
         batch_size, num_samples, num_classes, num_base_functions = x.shape
         x = x.transpose(1, 2).reshape(-1, num_samples, num_base_functions)
-        
+
         # [(BATCH SIZE X NUMBER OF CLASSES) X NUMBER OF SAMPLES X NUMBER OF BASE FUNCTIONS]
         x = self.embedding(x)
         for encoder in self.first_encoder:
             x = encoder(x, src_mask=mask_context)
-        
+
         x = self.second_encoder(x, src_mask=mask_context)
-        x = self.out_layer(x)
         x = x.transpose(0, 1).unsqueeze(0)  # use batch size here
 
         return x
@@ -785,7 +824,7 @@ class ENetSAS(nn.Module):  # Sample as Sequence
         # X = [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
         batch_size, num_samples, num_classes, num_base_functions = x.shape
         num_query_samples = x.shape[1]
-        
+
         w = []
         idx = np.arange(num_classes)
         for i in range(0, num_classes, self.inner_batch_size):
@@ -797,7 +836,18 @@ class ENetSAS(nn.Module):  # Sample as Sequence
                                                y_context=y_context,
                                                mask_context=mask_context)
             w.append(temp_w)
+
         w = torch.cat(w, axis=2)
+
+        if self.unique_weight_per_base_function:
+            w = w.mean(axis=2)
+            w = self.third_encoder(w)
+            w = torch.repeat_interleave(
+                w.unsqueeze(2), num_classes, dim=2
+            )
+            
+        w = self.out_layer(w)
+        w = self.dropout(w)
 
         #num_classes changed
         batch_size, num_samples, num_classes, num_base_functions = w.shape

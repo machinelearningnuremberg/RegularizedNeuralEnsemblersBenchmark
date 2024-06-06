@@ -16,7 +16,7 @@ if __name__ == "__main__":
     pretrain = True
     DATA_DIR = None
     pretrain_learning_rate = 0.00001
-    pretrain_epochs = 800_000
+    pretrain_epochs = 1_000_000
 
     name = "tabrepo"
 
@@ -33,22 +33,29 @@ if __name__ == "__main__":
         data_dir=DATA_DIR, metric_name=metric_name, data_version=data_version
     )
 
-
+    run_name = "64pipelines_512hidden_128context_000001lr_1000check"
     # X refers to the pipelines
     X_obs = [i for i in range(len(metadataset.hp_candidates_ids))]
+    #X_obs = np.random.choice(X_obs, 128)
+    X_obs = None
 
     ne = NeuralEnsembler(metadataset=metadataset,
                          ne_add_y=True,
                          ne_use_context=True,
                          epochs=0,
-                         ne_reg_term_div=0.,
+                         ne_reg_term_div=0,
                          ne_reg_term_norm=0.,
-                         ne_num_layers=4,
+                         ne_num_layers=2,
                          ne_num_heads=4,
-                         ne_context_size=64,
+                         ne_context_size=128,
                          use_wandb=True,
-                         ne_mode="pretraining")
+                         ne_mode="pretraining",
+                         ne_hidden_dim=512,
+                         ne_checkpoint_name=f"{run_name}.pt",
+                         ne_use_mask=True,
+                         ne_unique_weights_per_function=True,
+                         checkpoint_freq=100,
+                         run_name=run_name)
 
     ne.pretrain_net(X_obs, pretrain_epochs=pretrain_epochs,
                     pretrain_learning_rate=pretrain_learning_rate)
-    

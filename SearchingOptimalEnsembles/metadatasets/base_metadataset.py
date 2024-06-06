@@ -295,15 +295,17 @@ class BaseMetaDataset:
 
         if best_reference_performance is None:
             if self.best_performance is None:
-                best_reference_performance = self.best_performance
-            else:
                 best_reference_performance = 0.
+            else:
+                best_reference_performance = self.best_performance
+
 
         if worst_reference_performance is None:
             if self.worst_performance is None:
-                worst_reference_performance = self.worst_performance
-            else:
                 worst_reference_performance = 1.
+            else:
+                worst_reference_performance = self.worst_performance
+
 
         if best_reference_performance != worst_reference_performance:
             normalized_value = (performance-best_reference_performance)/(worst_reference_performance-best_reference_performance)

@@ -1,6 +1,7 @@
 # pylint: disable=all
 import numpy as np
 import torch
+import matplotlib.pyplot as plt
 
 import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
 import SearchingOptimalEnsembles.metadatasets.scikit_learn.metadataset as slmd
@@ -13,15 +14,29 @@ def test_posthoc_ensembling():
     pass
 
 
+def mask_top(w, q=0.99):
+    q_w = torch.quantile(w, q, dim=0)
+    w*=(w > q_w).float()
+    w_sum = w.sum(axis=0)
+    w_sum[w_sum==0] = 1
+    w/= w_sum
+    return w
+
+def plot_histogram(w):
+    a=np.histogram(w, bins=100)
+    plt.scatter( a[1][:-1], a[0])
+    plt.savefig("w.png")
+
 if __name__ == "__main__":
-    task_id = 8
+    task_id = 12
     metric_name = "error"
     data_version = "micro"
     pretrain = False
     DATA_DIR = None
     pretrain_epochs = 100_000
     checkpoint_name = "auto"
-    checkpoint_name = None
+    checkpoint_name = "all_128samples_128context_64hidden_unique_1div_neural_1mask.pt"
+    #checkpoint_name = None
 
     name = "quicktune"
     name = "tabrepo"
@@ -79,20 +94,27 @@ if __name__ == "__main__":
     ne = NeuralEnsembler(metadataset=metadataset,
                          ne_add_y=True,
                          ne_use_context=True,
+                         learning_rate=0.001,
                          epochs=1000,
-                         ne_reg_term_div=0.,
+                         ne_reg_term_div=0.0,
                          ne_reg_term_norm=0.,
-                         ne_num_layers=4,
-                         ne_num_heads=4,
-                         ne_context_size=24,
-                         ne_eval_context_size=1,
+                         ne_num_layers=2,
+                         ne_num_heads=1,
+                         ne_context_size=256,
+                         ne_hidden_dim=16,
+                         ne_use_mask=True,
+                         ne_eval_context_size=128,
                          ne_checkpoint_name=checkpoint_name,
-                         use_wandb=False)
-    
+                         ne_resume_from_checkpoint=False,
+                         ne_unique_weights_per_function=False,
+                         ne_dropout_rate=0.1,
+                         use_wandb=False,
+                         ne_net_type="simple")
+
 
     if pretrain:
         ne.pretrain_net(X_obs, pretrain_epochs=pretrain_epochs)
-        
+
     metadataset.set_state(dataset_names[task_id])
 
     best_ensemble, best_metric = ne.sample(X_obs)
@@ -134,6 +156,7 @@ if __name__ == "__main__":
         _,
     ) = metadataset_test.evaluate_ensembles_with_weights([best_ensemble], weights)
 
+    print("Number of validation samples:", metadataset.get_num_samples())
     print(
         "Best metric val using val, single pipeline:",
         metric_per_pipeline_val.min().item(),

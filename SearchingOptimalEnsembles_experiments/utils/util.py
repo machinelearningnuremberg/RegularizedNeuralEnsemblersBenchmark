@@ -49,7 +49,7 @@ COMPLEX_KEYS = {
             "score_with_rank",
             "lr",
         ],
-        "rf": ["num_estimators"],
+        "rf": ["n_estimators"],
         "gp": [],
         "lightgbm": [],
     },

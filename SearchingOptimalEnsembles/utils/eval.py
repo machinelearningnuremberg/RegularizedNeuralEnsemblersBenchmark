@@ -43,7 +43,7 @@ def eval(
         if hasattr(ensembler, "get_weights"):
             # if ensemble is None:
             #    ensemble = np.arange(len(metadataset.hp_candidates_ids)).tolist()
-            ensembler.update_context_size(100)
+            #ensembler.update_context_size(100)
             X_context, y_context = ensembler.get_context(ensemble, val_metadataset)
             weights = ensembler.get_weights(
                 ensemble, X_context=X_context, y_context=y_context

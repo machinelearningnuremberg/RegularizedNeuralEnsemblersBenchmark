@@ -45,9 +45,9 @@ class TabRepoMetaDataset(Evaluator):
         return dataset_names
     
     def set_state(self, dataset_name: str, fold: int = 0):
-        super().set_state(dataset_name=dataset_name)
         self.fold = fold
-        self.dataset_metadata = self.repo.dataset_metadata(self.dataset_name)
+        self.dataset_metadata = self.repo.dataset_metadata(dataset_name)
+        super().set_state(dataset_name=dataset_name)
         self.probing_data = self.get_predictions([[0]])
         self.num_samples = self.probing_data.shape[-2]
         self.num_classes = self.probing_data.shape[-1]
@@ -177,12 +177,17 @@ class TabRepoMetaDataset(Evaluator):
 
     def _get_worst_and_best_performance(self) -> tuple[torch.Tensor, torch.Tensor]:
         #TODO: search the actual worst and best values
-        self.worst_performance = 1.
-        self.best_performance = 0.
+        unique_pipelines = self.hp_candidates_ids.unsqueeze(0).T.tolist()
+        _, metrics, _, _ = self.evaluate_ensembles(unique_pipelines)
+
+        self.worst_performance = metrics.max().item()
+        self.best_performance = metrics.min().item()
         return self.worst_performance, self.best_performance
     
     def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:
-        return self.hp_candidates[ensembles]
+        #TODO: find better structure for this function
+        return torch.tensor(np.array(self.hp_candidates)[ensembles])
+    
     def score_ensemble(self, ensemble: list[int]):
         score, _ = self.repo.evaluate_ensemble(datasets =[self.dataset_name],
                                             configs=self.config_names[ensemble],

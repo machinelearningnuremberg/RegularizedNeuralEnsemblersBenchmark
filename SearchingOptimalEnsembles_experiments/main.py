@@ -68,19 +68,23 @@ if __name__ == "__main__":
     parser.add_argument("--num_seeds", type=int, default=1)
     parser.add_argument("--optional_dim", type=int, default=None)
     ############################## LEO ARGS #######################################
-    parser.add_argument("--num_estimators", type=int, default=100)
+    parser.add_argument("--n_estimators", type=int, default=100)
     parser.add_argument("--leo_surrogate_name", type=str, default="RF")
     ############################### ACQUISITION ARGS ##############################
     parser.add_argument("--acquisition_name", type=str, default="ei")
     parser.add_argument("--beta", type=float, default=0.0)
     ###############################NEURAL ENSEMBLER ARGS #########################
     parser.add_argument("--ne_hidden_dim", type=int, default=512)
+    parser.add_argument("--ne_reg_term_norm", type=float, default=0.)
     parser.add_argument("--ne_context_size", type=int, default=32)
     parser.add_argument("--ne_eval_context_size", type=int, default=256)
     parser.add_argument("--ne_reg_term_div", type=float, default=0.1)
     parser.add_argument("--ne_add_y", action="store_true")
     parser.add_argument("--ne_use_context", action="store_true")
     parser.add_argument("--ne_mode", type=str, default="inference")
+    parser.add_argument("--ne_num_layers", type=int, default=2)
+    parser.add_argument("--ne_dropout_rate", type=float, default=0.)
+    parser.add_argument("--ne_net_type", type=str, default="sas")
     ##############################################################################
     parser.add_argument("--sampler_name", type=str, default="random")
     parser.add_argument("--ensembler_name", type=str, default="random")
