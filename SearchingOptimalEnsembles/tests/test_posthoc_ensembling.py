@@ -28,7 +28,7 @@ def plot_histogram(w):
     plt.savefig("w.png")
 
 if __name__ == "__main__":
-    task_id = 12
+    task_id = 5
     metric_name = "error"
     data_version = "micro"
     pretrain = False
@@ -101,15 +101,15 @@ if __name__ == "__main__":
                          ne_num_layers=2,
                          ne_num_heads=1,
                          ne_context_size=256,
-                         ne_hidden_dim=16,
+                         ne_hidden_dim=32,
                          ne_use_mask=True,
                          ne_eval_context_size=128,
                          ne_checkpoint_name=checkpoint_name,
                          ne_resume_from_checkpoint=False,
                          ne_unique_weights_per_function=False,
-                         ne_dropout_rate=0.1,
+                         ne_dropout_rate=0.,
                          use_wandb=False,
-                         ne_net_type="simple")
+                         ne_net_type="sas")
 
 
     if pretrain:
