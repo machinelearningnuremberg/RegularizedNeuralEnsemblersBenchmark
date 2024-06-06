@@ -114,31 +114,38 @@ class NASBench201MetaDataset(Evaluator):
     # TODO: we should save dataframes to disk and load them from there
     def load_data(self, dataset):
         
-        split = self.split
-        if split == "valid":
-            split = "val"
+        split = "val" if self.split == "valid" else self.split
+
+        data_path = self.data_dir / "nb201_preds" / dataset / str(self.seed)
+        # Retrieve all model files
+        model_files = list(data_path.glob("*.pt"))
+
+        # Randomize model files order
+        np.random.shuffle(model_files)
+
+        # Use only up to the number of models specified in data_version_map
+        selected_model_files = model_files[:self.data_version_map[self.data_version]]
 
         all_data = []
         all_configs = []
+        new_model_id = 1  # Start indexing from 1
 
-        data_path = self.data_dir / "nb201_preds" / dataset / str(self.seed)
-        model_files = list(data_path.glob("*.pt"))[:self.data_version_map[self.data_version]]
-
-        for model_file in tqdm(model_files, desc=f"Processing {dataset}-{self.seed}-{split}"):
+        for model_file in tqdm(selected_model_files, desc=f"Processing {dataset}-{self.seed}-{split}"):
             data = torch.load(model_file)
-            model_id = int(model_file.stem)  # Model ID from file name
-
+            # Use a new sequential model_id instead of file stem
             preds = data['preds'][split].tensors[0].numpy()
 
-            # Create an index with model_id and an index range for each datapoint
-            index = pd.MultiIndex.from_product([[model_id], range(len(preds))], names=['model_id', 'datapoint_id'])
+            # Create an index with new_model_id and an index range for each datapoint
+            index = pd.MultiIndex.from_product([[new_model_id], range(len(preds))], names=['model_id', 'datapoint_id'])
             df = pd.DataFrame(preds, index=index, columns=[f'pred_class_{i}' for i in range(preds.shape[1])])
             all_data.append(df)
 
             config = self.parse_config(data['config'])
-            index = pd.Index([model_id], name='model_id')
-            df = pd.DataFrame([config], index=index)
-            all_configs.append(df)
+            index = pd.Index([new_model_id], name='model_id')
+            config_df = pd.DataFrame([config], index=index)
+            all_configs.append(config_df)
+
+            new_model_id += 1  # Increment model_id for the next model
 
         # Concatenate all dataframes ensuring they all have the same structure
         if all_data:
