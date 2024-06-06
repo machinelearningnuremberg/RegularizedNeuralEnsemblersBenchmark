@@ -825,6 +825,15 @@ class ENetSAS(nn.Module):  # Sample as Sequence
         batch_size, num_samples, num_classes, num_base_functions = x.shape
         num_query_samples = x.shape[1]
 
+        if self.dropout_rate > 0 and self.training:
+            mask= (torch.rand(size=(num_base_functions,)) > self.dropout_rate).float().to(x.device)
+            for i, dim in enumerate([batch_size, num_samples, num_classes]):
+                mask = torch.repeat_interleave(
+                    mask.unsqueeze(i), dim, dim=i
+                )
+            x = (x*mask)/(1-self.dropout_rate)
+            base_functions = base_functions*mask
+
         w = []
         idx = np.arange(num_classes)
         for i in range(0, num_classes, self.inner_batch_size):
