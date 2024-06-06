@@ -6,13 +6,16 @@ import numpy as np
 import wandb
 from scipy.stats import rankdata
 import itertools
+import pandas as pd
+from pathlib import Path
+
 base_font_size = 14
 until_iteration = 100
-current_file_path = os.path.dirname(os.path.abspath(__file__))
+current_file_path = Path(os.path.dirname(os.path.abspath(__file__)))
 
 api = wandb.Api()
 user_name = "spinedaa"
-project_name = "SearchingOptimalEnsembles"
+project_name = "SOE_tabrepo"
 group_name = "RS00"
 output_folder = "saved_plots"
 os.makedirs(os.path.join(current_file_path, output_folder), exist_ok=True)
@@ -22,221 +25,90 @@ results = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdic
 
 
 #group_names = ["RS00", "DRE03", "DRE04", "DRE05", "DRE07"]
-group_names = ["RS01_1", "LEO02_1", "DIVBO01_1", "DRE11_1", "DKL03_1"]
-group_names = ["RS01_0", "LEO02_0", "DIVBO01_0", "DRE11_0", "DKL03_0"]
-group_names = ["DRE15_1", "DRE15_5","DRE15_9", "DRE15_13", "DRE15_19", "DRE15_23", "DRE16_23", "DRE16_5"]
-#group_names = ["DRE16_1", "DRE16_5","DRE16_9", "DRE16_13", "DRE16_19", "DRE16_23"]
-group_names = ["DRE15_5", "DRE15_19", "DRE15_23", "DRE16_23", "DRE16_5"]
+group_names = ["neural12_0", "greedy7_0", "neural19_0"]
+#group_names = ["neural16_0", "greedy9_2", "greedy9_1", "greedy9_0"]
 
-group_names = [f"DRE16_{i}" for i in range(1, 23, 2)]
-group_names = [f"DRE18_{i}" for i in range(0, 16)]
+group_dict = {
+    "neural26_0": "Neural_32hd_None",
+    "neural26_1": "Neural_16hd_None",
+    "neural26_2": "Neural_32hd_random",
+    "neural26_3": "Neural_16hd_random",
+    "neural26_4": "Neural_32hd_leo",
+    "neural26_5": "Neural_16hd_leo",
+    "neural26_6": "Neural_32hd_divbo",
+    "neural26_7": "Neural_16hd_divbo",
+    "neural27_0": "Neural_32hd_None_simple",
+    "neural27_3": "Neural_32hd_random_simple",
+    "neural27_5": "Neural_32hd_leo_simple",
+    "neural27_7": "Neural_32hd_divbo_simple",
+    "greedy15_0": "Greedy_20hd_None",
+    "greedy15_1": "Greedy_10hd_None",
+    "greedy15_2": "Greedy_20hd_random",
+    "greedy15_3": "Greedy_10hd_random",
+    "greedy15_4": "Greedy_20hd_leo",
+    "greedy15_5": "Greedy_10hd_leo",
+    "greedy15_6": "Greedy_20hd_divbo",
+    "greedy15_7": "Greedy_10hd_divbo",
+    "leo4_0": "LEO",
+    "random4_0": "Random",
+    "divbo4_0": "DivBO"
+}
 
 
+# group_dict = {
+#     "neural23_2": "Neural_32hd_random",
+#     "greedy14_2": "Greedy_20hd_random",
+#     "greedy14_3": "Greedy_10hd_random",
+#     "leo3_0": "LEO",
+#     "random3_0": "Random",
+#     "divbo3_0": "DivBO"
+# }
 
-group_names = ["DRE17_13", "DRE18_14", "DIVBO03_0"]
-group_names = ["DIVBO03_1", "DIVBO01_1"]
-group_names = ["DIVBO04_0", "DRE20_1", "DRE20_0"]
-group_names = [f"DRE21_{i}" for i in range(0, 11)]
-group_names = [f"DRE21_{i}" for i in range(11, 23)] + ["DRE21_5", "DIVBO04_0"]
-#group_names = ["DIVBO04_0", "DRE21_17"]
+group_dict = {
+    "neural26_2": "Neural_32hd_random",
+    "greedy15_2": "Greedy_20hd_random",
+    "leo4_0": "LEO",
+    "random4_0": "Random",
+    "divbo4_0": "DivBO"
+}
 
-until_iteration = 100
-
-for group_name in group_names:
-    print("w")
-    # Fetch runs
-    runs = api.runs(
-        f"{user_name}/{project_name}",
-        filters={"$and": [{"group": group_name}, {"state": "finished"}]},
-    )
-
-    for run in runs:
-        history = run.history(
-            keys=["incumbent (norm)", "searcher_iteration"], pandas=False
+download = False
+test_metrics = []
+for group_name, results_group_name in group_dict.items():
+    print("Processing group name:", group_name)
+    file_name = results_group_name + ".csv"
+    if download: 
+        temp_test_metrics = []
+        # Fetch runs
+        runs = api.runs(
+            f"{user_name}/{project_name}",
+            filters={"$and": [{"group": group_name}, {"state": "finished"}]},
         )
-        max_num_pipelines = run.config["max_num_pipelines"]
-        dataset_id = run.config["dataset_id"]
-        seed = str(run.config["seed"])
-
-        if history:
-            incumbent_values = [record["incumbent (norm)"] for record in history]
-            iteration_values = [record["searcher_iteration"] for record in history]
-
-            if len(incumbent_values) >= until_iteration:
-                results[max_num_pipelines][group_name][str(dataset_id) + seed] = incumbent_values[:until_iteration]
-num_datasets = 6
-num_groups = len(group_names)
-max_num_pipelines_values = [1, 2, 4, 6, 8, 10]
-max_num_pipelines_values = [5]
-#group_names = ["RS00", "DRE06", "LEO00"]
-#group_names = ["RS01_1", "DRE10_1", "DRE11_1", "LEO02_1", "DIVBO01_1"]
-dataset_ids = ['micro_set0_RESISC_v1', 'micro_set1_MD_5_BIS_v1', 'micro_set2_BTS_v1', 'micro_set1_INS_2_v1', 'micro_set2_PRT_v1', 'micro_set2_INS_v1']
-#dataset_ids = ['credit-approval', 'PhishingWebsites', 'ozone-level-8hr', 'pc1', 'cmc']
-dataset_ids = list(range(num_datasets))
-seeds = [0,1,2]
-dataset_seed_ids = list(itertools.product(dataset_ids, seeds))
-dataset_seed_ids = [str(a)+str(b) for a, b in dataset_seed_ids]
-for max_num_pipelines in max_num_pipelines_values:
-    results_matrix = []
-
-    for dataset_seed_id in dataset_seed_ids:
-        temp_results = []
-        omit_dataset = False
-        for group_name in group_names:
-            if dataset_seed_id in results[max_num_pipelines][group_name].keys():
-                incumbent_values = results[max_num_pipelines][group_name][dataset_seed_id]
-                if len(incumbent_values) >= until_iteration:
-                    temp_results.append(incumbent_values[:until_iteration])
-                else:
-                    print(
-                        "Problem with dataset_id:", dataset_seed_id, "in group_name:", group_name
-                    )
-           
-            else:
-                omit_dataset = True
-                print(
-                    "Problem with dataset_id:", dataset_seed_id, "in group_name:", group_name
-                )
-
-        if not omit_dataset:
-            results_matrix.append(temp_results)
-        else:
-            print("Omitting dataset_id:", dataset_id)
-
-    results_matrix = np.array(results_matrix)
-
-    regret = results_matrix.mean(axis=0)
-
-    if results_matrix.shape[0] == 0:
-        print("Omitting max_num_pipelines:", max_num_pipelines)
-        continue
-
-    rank = rankdata(results_matrix, axis=1).mean(axis=0)
-
-    plt.figure()
-    plt.plot(rank.T)
-    plt.legend(group_names)
-    plt.savefig(
-        os.path.join(current_file_path, output_folder, f"rank15_{max_num_pipelines}.png")
-    )
-
-    plt.figure()
-    plt.plot(regret.T)
-    plt.legend(group_names)
-    plt.savefig(
-        os.path.join(current_file_path, output_folder, f"regret15_{max_num_pipelines}.png")
-    )
-
-
-group_name = "DRE07"
-
-results_matrix = []
-
-max_num_pipelines_values = [1, 2, 4, 6, 8, 10]
-for dataset_id in range(0, num_datasets):
-    temp_results = []
-    omit_dataset = False
-    for max_num_pipelines in max_num_pipelines_values:
-        if dataset_id in results[max_num_pipelines][group_name].keys():
-            incumbent_values = results[max_num_pipelines][group_name][dataset_id]
-        else:
-            omit_dataset = True
-        if len(incumbent_values) == until_iteration:
-            temp_results.append(incumbent_values)
-        else:
-            print("Problem with dataset_id:", dataset_id, "in group_name:", group_name)
-    if not omit_dataset:
-        results_matrix.append(temp_results)
+        
+        for run in runs:
+            history = run.history(
+                keys=["incumbent_ensemble_test_metric", "incumbent_ensemble_metric"], pandas=False
+            )
+            max_num_pipelines = run.config["max_num_pipelines"]
+            seed = str(run.config["seed"])
+            dataset_id = run.config["dataset_id"]
+            meta_split_id = run.config["meta_split_id"]
+            history[0]["group_name"] = group_name
+            history[0]["dataset_complete_id"] = f"{dataset_id}-{meta_split_id}"
+            history[0].pop("_step")
+            temp_test_metrics.append(history[0])
+        
+        test_metrics.extend(temp_test_metrics)
+        pd.DataFrame(temp_test_metrics).to_csv(current_file_path / "saved_results" / file_name)
     else:
-        print("Omitting dataset_id:", dataset_id)
+        data = pd.read_csv(current_file_path / "saved_results" / file_name)
+        test_metrics.append(data)
 
+if download:
+    data = pd.DataFrame(test_metrics)
+else:
+    data = pd.concat(test_metrics)
+data = pd.pivot_table(data, values="incumbent_ensemble_test_metric", index="dataset_complete_id", columns="group_name")
+print(data.rank(axis=1).mean())
+print(data.mean(axis=0))
 
-results_matrix = np.array(results_matrix)
-
-regret = results_matrix.mean(axis=0)
-
-rank = rankdata(results_matrix, axis=1).mean(axis=0)
-
-plt.figure()
-plt.plot(rank.T)
-plt.legend(max_num_pipelines_values)
-plt.savefig(
-    os.path.join(
-        current_file_path, output_folder, f"{group_name}_max_num_pipelines_rank.png"
-    )
-)
-
-plt.figure()
-plt.plot(regret.T)
-plt.legend(max_num_pipelines_values)
-plt.savefig(
-    os.path.join(
-        current_file_path, output_folder, f"{group_name}_max_num_pipelines_regret.png"
-    )
-)
-
-
-group_name = "DRE02"
-results = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
-runs = api.runs(
-    f"{user_name}/{project_name}",
-    filters={"$and": [{"group": group_name}, {"state": "finished"}]},
-)
-
-for run in runs:
-    history = run.history(keys=["incumbent (norm)", "searcher_iteration"], pandas=False)
-    max_num_pipelines = run.config["max_num_pipelines"]
-    dataset_id = run.config["dataset_id"]
-    config_id = run.name
-
-    if history:
-        incumbent_values = [record["incumbent (norm)"] for record in history]
-        iteration_values = [record["searcher_iteration"] for record in history]
-
-        results[config_id][dataset_id] = incumbent_values
-
-
-results_matrix = []
-config_ids = list(results.keys())
-config_ids.remove("dre_5")
-config_ids.remove(5)
-config_ids = [config_ids[i] for i in [7, 30, 19, 27, 26, 10]]
-
-for dataset_id in [0, 2, 3, 5]:
-    temp_results = []
-    omit_dataset = False
-    for name in config_ids:
-        if dataset_id in results[name].keys():
-            incumbent_values = results[name][dataset_id]
-        else:
-            omit_dataset = True
-            print("Problem in dataset_id:", dataset_id, "in config_id:", name)
-        if len(incumbent_values) == until_iteration:
-            temp_results.append(incumbent_values)
-        else:
-            print("Problem with dataset_id:", dataset_id, "in group_name:", group_name)
-    if not omit_dataset:
-        results_matrix.append(temp_results)
-    else:
-        print("Omitting dataset_id:", dataset_id)
-
-
-results_matrix = np.array(results_matrix)
-
-regret = results_matrix.mean(axis=0)
-
-rank = rankdata(results_matrix, axis=1).mean(axis=0)
-
-plt.figure()
-plt.plot(rank.T)
-plt.legend(config_ids)
-plt.savefig(
-    os.path.join(current_file_path, output_folder, f"{group_name}_comparison.png")
-)
-
-plt.figure()
-plt.plot(regret.T)
-plt.legend(config_ids)
-plt.savefig(
-    os.path.join(current_file_path, output_folder, f"{group_name}_comparison.png")
-)

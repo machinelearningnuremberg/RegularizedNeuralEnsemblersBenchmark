@@ -55,6 +55,10 @@ def run(
     ne_use_context: bool = True,
     ne_eval_context_size: int = 256,
     ne_mode: str = "inference",
+    ne_reg_term_norm: float = 0.,
+    ne_num_layers: int = 2,
+    ne_dropout_rate: float = 0.,
+    ne_net_type: str = "sas",
     #############################################
     dataset_id: int = 0,
     meta_split_id: int = 0,
@@ -124,7 +128,11 @@ def run(
         "ne_add_y": ne_add_y,
         "ne_use_context": ne_use_context,
         "ne_eval_context_size": ne_eval_context_size,
-        "ne_mode": ne_mode
+        "ne_mode": ne_mode,
+        "ne_reg_term_norm": ne_reg_term_norm,
+        "ne_num_layers" : ne_num_layers,
+        "ne_dropout_rate": ne_dropout_rate,
+        "ne_net_type": ne_net_type
     }
     posthoc_ensembler = instance_from_map(
         EnsemblerMapping,
@@ -280,17 +288,17 @@ def run(
         ensembler=posthoc_ensembler,
         val_metadataset=metadataset,
     )
-    (_, _, val_metric_per_pipeline,_)   = metadataset.evaluate_ensembles([np.arange(metadataset.get_num_pipelines()).tolist()])
-    (_, _, test_metric_per_pipeline,_)   = test_metadataset.evaluate_ensembles([np.arange(metadataset.get_num_pipelines()).tolist()])
 
     if hasattr(metadataset, "normalize_performance"):
+        #(_, _, val_metric_per_pipeline,_) = metadataset.evaluate_ensembles([np.arange(metadataset.get_num_pipelines()).tolist()])
+        #(_, _, test_metric_per_pipeline,_) = test_metadataset.evaluate_ensembles([np.arange(metadataset.get_num_pipelines()).tolist()])
         incumbent = metadataset.normalize_performance(incumbent)
-        best_performance_idx = torch.argmin(val_metric_per_pipeline).item()
-        worst_performance_idx = torch.argmax(val_metric_per_pipeline).item()
-        best_reference_performance = test_metric_per_pipeline[0][best_performance_idx]
-        worst_reference_performance = test_metric_per_pipeline[0][worst_performance_idx]
-
-        test_metric = test_metadataset.normalize_performance(test_metric, best_reference_performance, worst_reference_performance)
+        #best_performance_idx = torch.argmin(val_metric_per_pipeline).item()
+        #worst_performance_idx = torch.argmax(val_metric_per_pipeline).item()
+        #best_reference_performance = test_metric_per_pipeline[0][best_performance_idx]
+        #worst_reference_performance = test_metric_per_pipeline[0][worst_performance_idx]
+        #test_metric = test_metadataset.normalize_performance(test_metric, best_reference_performance, worst_reference_performance)
+        test_metric = test_metadataset.normalize_performance(test_metric)
 
     if wandb.run is not None:
         wandb.log(

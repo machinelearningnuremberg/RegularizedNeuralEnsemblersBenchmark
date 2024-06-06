@@ -13,6 +13,7 @@ LOGS/
 slurm_scripts/*
 SearchingOptimalEnsembles_experiments/cluster_scripts/slurm/all_experiments.txt
 checkpoints/
+SearchingOptimalEnsembles_experiments/plots/saved_results/*
 
 # Documentation
 site/*

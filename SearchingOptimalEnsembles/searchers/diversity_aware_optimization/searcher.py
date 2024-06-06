@@ -104,11 +104,11 @@ class DivBO(BaseSearcher):
             surrogate = create_surrogate("gp")
         elif surrogate_name == "rf":
             surrogate = create_surrogate(
-                "rf", n_estimators=kwargs.get("num_estimators", 100)
+                "rf", n_estimators=kwargs.get("n_estimators", 100)
             )
         elif surrogate_name == "lightgbm":
             surrogate = create_surrogate(
-                "lightgbm", n_estimators=kwargs.get("num_estimators", 100), verbose=-1
+                "lightgbm", n_estimators=kwargs.get("n_estimators", 100), verbose=-1
             )
         else:
             raise NotImplementedError
