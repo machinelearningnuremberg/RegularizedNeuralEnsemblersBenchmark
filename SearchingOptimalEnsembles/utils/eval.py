@@ -41,14 +41,13 @@ def eval(
     weights = None
     if ensembler is not None:
         if hasattr(ensembler, "get_weights"):
-            # if ensemble is None:
-            #    ensemble = np.arange(len(metadataset.hp_candidates_ids)).tolist()
-            #ensembler.update_context_size(100)
-            X_context, y_context = ensembler.get_context(ensemble, val_metadataset)
+            X_context = None
+            y_context = None
+            if hasattr(ensembler, "get_context"):
+                X_context, y_context = ensembler.get_context(ensemble, val_metadataset)
             weights = ensembler.get_weights(
                 ensemble, X_context=X_context, y_context=y_context
             )
-            print(weights.mean())
 
     if weights is None:
         _, metric, metric_per_pipeline, _ = metadataset.evaluate_ensembles([ensemble])

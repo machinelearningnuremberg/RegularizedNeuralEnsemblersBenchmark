@@ -15,18 +15,8 @@ current_file_path = Path(os.path.dirname(os.path.abspath(__file__)))
 
 api = wandb.Api()
 user_name = "spinedaa"
-project_name = "SOE_tabrepo"
-group_name = "RS00"
-output_folder = "saved_plots"
-os.makedirs(os.path.join(current_file_path, output_folder), exist_ok=True)
+project_name = "SOE"
 
-# Dictionary to hold results
-results = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
-
-
-#group_names = ["RS00", "DRE03", "DRE04", "DRE05", "DRE07"]
-group_names = ["neural12_0", "greedy7_0", "neural19_0"]
-#group_names = ["neural16_0", "greedy9_2", "greedy9_1", "greedy9_0"]
 
 group_dict = {
     "neural26_0": "Neural_32hd_None",
@@ -55,6 +45,20 @@ group_dict = {
 }
 
 
+group_dict = {
+    "neural30_0": "Neural_32hd_None_0do",
+    "neural30_1": "Neural_32hd_None_01do",
+    "neural30_2": "Neural_32hd_None_025do",
+    "neural30_3": "Neural_32hd_None_05do",
+    "neural30_4": "Neural_32hd_None_075do",
+    "neural30_5": "Neural_32hd_random_0do",
+    "neural30_6": "Neural_32hd_random_01do",
+    "neural30_7": "Neural_32hd_random_025do",
+    "neural30_8": "Neural_32hd_random_05do",
+    "neural30_9": "Neural_32hd_random_075do",
+}
+
+
 # group_dict = {
 #     "neural23_2": "Neural_32hd_random",
 #     "greedy14_2": "Greedy_20hd_random",
@@ -65,8 +69,41 @@ group_dict = {
 # }
 
 group_dict = {
-    "neural26_2": "Neural_32hd_random",
+    "neural30_7": "Neural_32hd_random_025do",
+    #"neural30_3": "Neural_32hd_None_05do",
+    "neural30_0": "Neural_32hd_random_0do",
+    #"neural30_5": "Neural_32hd_None_0do",
+    "cmaes1_0" :"cmaes1",
     "greedy15_2": "Greedy_20hd_random",
+    "leo4_0": "LEO",
+    "random4_0": "Random",
+    "divbo4_0": "DivBO"
+}
+
+group_dict = {
+    "neural65_0": "Neural_32hd_None_025do",
+    "neural65_1": "Neural_32hd_None_05do",
+    "neural65_2": "Neural_32hd_random_025do",
+    "neural65_3": "Neural_32hd_random_05do",
+    "neural67_0": "Neural_32hd_None_0do",
+    "neural67_1": "Neural_32hd_random_0do",
+    "greedy10_0": "Greedy_20m_None",
+    "greedy10_1": "Greedy_10m_None",
+    "greedy10_2": "Greedy_20m_random",
+    "greedy10_3": "Greedy_10m_random",
+    "leo4_0": "LEO",
+    "divbo4_0": "DivBO",
+    "random4_0": "Random",
+    "cmaes1_0": "CMAES"
+}
+
+group_dict = {
+    "neural67_0": "Neural_32hd_random_0do",
+    #"neural30_3": "Neural_32hd_None_05do",
+    "neural65_0": "Neural_32hd_random_025do",
+    #"neural30_5": "Neural_32hd_None_0do",
+    "cmaes1_0" :"CMAES",
+    "greedy15_2": "Greedy_20m_random",
     "leo4_0": "LEO",
     "random4_0": "Random",
     "divbo4_0": "DivBO"
@@ -77,6 +114,8 @@ test_metrics = []
 for group_name, results_group_name in group_dict.items():
     print("Processing group name:", group_name)
     file_name = results_group_name + ".csv"
+    save_path = current_file_path / ".." / "results" / project_name
+    save_path.mkdir(exist_ok=True, parents=True)
     if download: 
         temp_test_metrics = []
         # Fetch runs
@@ -84,7 +123,7 @@ for group_name, results_group_name in group_dict.items():
             f"{user_name}/{project_name}",
             filters={"$and": [{"group": group_name}, {"state": "finished"}]},
         )
-        
+
         for run in runs:
             history = run.history(
                 keys=["incumbent_ensemble_test_metric", "incumbent_ensemble_metric"], pandas=False
@@ -93,15 +132,16 @@ for group_name, results_group_name in group_dict.items():
             seed = str(run.config["seed"])
             dataset_id = run.config["dataset_id"]
             meta_split_id = run.config["meta_split_id"]
-            history[0]["group_name"] = group_name
+            history[0]["group_name"] = results_group_name
             history[0]["dataset_complete_id"] = f"{dataset_id}-{meta_split_id}"
             history[0].pop("_step")
             temp_test_metrics.append(history[0])
         
         test_metrics.extend(temp_test_metrics)
-        pd.DataFrame(temp_test_metrics).to_csv(current_file_path / "saved_results" / file_name)
+        pd.DataFrame(temp_test_metrics).to_csv(save_path / file_name)
     else:
-        data = pd.read_csv(current_file_path / "saved_results" / file_name)
+        data = pd.read_csv(save_path / file_name)
+        data["group_name"] = results_group_name
         test_metrics.append(data)
 
 if download:

@@ -189,7 +189,6 @@ experiments:
         - 0.75
 
 
-
   greedy13:
     base_command: "--apply_posthoc_ensemble_at_end --ensembler_name greedy"
     hyper_grid:
@@ -225,6 +224,14 @@ experiments:
       max_num_pipelines:
         - 20
         - 10
+
+
+  cmaes1:
+    base_command: "--apply_posthoc_ensemble_at_end --ensembler_name cmaes"
+    hyper_grid:
+      searcher_name:
+        - random
+
 
   divbo1:
     base_command: ""

@@ -43,6 +43,8 @@ class NASBench201MetaDataset(Evaluator):
         "extended": 15625
     }
 
+
+    num_classes = {}
     splits = ["val", "test"]  
 
     def __init__(
