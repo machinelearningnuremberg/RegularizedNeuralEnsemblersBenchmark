@@ -18,4 +18,3 @@ if __name__ == "__main__":
 
         metadataset.score_ensemble([1,2])
         metadataset._get_worst_and_best_performance()
-

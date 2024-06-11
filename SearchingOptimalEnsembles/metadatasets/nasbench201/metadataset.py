@@ -19,7 +19,7 @@ import torch
 from pathlib import Path
 from tqdm import tqdm
 
-# TODO: confirm with Arber 
+# TODO: confirm with Arber
 def _data_transforms_cifar10():
     CIFAR_MEAN = [0.49139968, 0.48215827, 0.44653124]
     CIFAR_STD = [0.24703233, 0.24348505, 0.26158768]
@@ -33,9 +33,9 @@ def _data_transforms_cifar10():
 
 class NASBench201MetaDataset(Evaluator):
 
-    _preds = pd.DataFrame()  
-    _dataset = pd.DataFrame()  
-    _configs = pd.DataFrame() 
+    _preds = pd.DataFrame()
+    _dataset = pd.DataFrame()
+    _configs = pd.DataFrame()
 
     data_version_map = {
         "micro": 200,
@@ -45,7 +45,7 @@ class NASBench201MetaDataset(Evaluator):
 
 
     num_classes = {}
-    splits = ["val", "test"]  
+    splits = ["val", "test"]
 
     def __init__(
         self,
@@ -70,12 +70,12 @@ class NASBench201MetaDataset(Evaluator):
         self.data_version = data_version
 
         self._initialize()
-        
+
     def set_state(self, dataset_name: str):
         self.logger.debug(f"Setting dataset: {dataset_name}")
 
         assert dataset_name in self.get_dataset_names(), f"Invalid dataset name: {dataset_name}"
-        
+
         transform = _data_transforms_cifar10()
         self.load_dataset(transform)
         self.load_data(dataset_name)
@@ -91,7 +91,7 @@ class NASBench201MetaDataset(Evaluator):
         # Load the full training dataset (intended for train) but use for valid/test split
         full_dataset = dset.CIFAR10(root=self.data_dir, train=True, download=True, transform=transform)
 
-        # Splitting the dataset 
+        # Splitting the dataset
         num_samples = len(full_dataset)
         valid_size = int(0.5 * num_samples)
         test_size = int(0.2 * num_samples)
@@ -115,7 +115,7 @@ class NASBench201MetaDataset(Evaluator):
 
     # TODO: we should save dataframes to disk and load them from there
     def load_data(self, dataset):
-        
+
         split = self.split
         if split == "valid":
             split = "val"
@@ -157,7 +157,7 @@ class NASBench201MetaDataset(Evaluator):
 
     def get_dataset_names(self) -> list[str]:
         return ["cifar10"]
-    
+
     def one_hot_encode_configs(self, configs_df):
         # Assuming configuration keys are the column headers
         all_ops = pd.get_dummies(configs_df, prefix='', prefix_sep='').groupby(level=0).max()
@@ -170,12 +170,12 @@ class NASBench201MetaDataset(Evaluator):
         # Convert numpy arrays to torch tensors
         hp_candidates = self._configs.values
         hp_candidates = torch.tensor(hp_candidates, dtype=torch.float32)
-        
+
         hp_candidates_ids = list(self._configs.index)
         hp_candidates_ids = torch.tensor(hp_candidates_ids, dtype=torch.int32)
 
         return hp_candidates, hp_candidates_ids
-    
+
     def _get_worst_and_best_performance(self) -> tuple[torch.Tensor, torch.Tensor]:
         if self._preds.empty:
             raise ValueError("Prediction data is empty. Ensure data is loaded and processed correctly.")
@@ -208,13 +208,13 @@ class NASBench201MetaDataset(Evaluator):
         best_performance = performance_tensor.max()
 
         return worst_performance, best_performance
-    
+
     def get_num_classes(self) -> int:
         return 10
-    
+
     def get_num_samples(self) -> int:
         return len(self._preds.index.get_level_values('datapoint_id').unique())
-    
+
     def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:
 
         # Flatten the list of lists to get all model IDs in ensembles
@@ -225,12 +225,12 @@ class NASBench201MetaDataset(Evaluator):
         features_tensor = torch.tensor(features_df.values, dtype=torch.float32)
 
         return features_tensor
-    
+
     def get_targets(self) -> torch.Tensor:
         return torch.tensor(self._dataset['label'].values, dtype=torch.int32)
 
     def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
-        
+
         y_proba_np = self._get_probabilities(ensembles=ensembles)
         # Convert the numpy array to torch tensor
         y_proba = torch.tensor(y_proba_np, dtype=torch.float32)
@@ -238,7 +238,7 @@ class NASBench201MetaDataset(Evaluator):
         y_proba = y_proba.permute(0, 2, 1, 3)
 
         return y_proba
-    
+
     # TODO: efficiency!
     def _get_probabilities(self, ensembles: list[list[int]]) -> np.ndarray:
 
@@ -258,7 +258,6 @@ class NASBench201MetaDataset(Evaluator):
                     y_proba[i, index, j, :] = preds.values  # Note the addition of 'j' to index ensemble members
 
         return y_proba
-        
+
     def get_time(self, ensembles: list[list[int]]) -> torch.Tensor:
         return torch.zeros(len(ensembles), len(ensembles[0]))
-  

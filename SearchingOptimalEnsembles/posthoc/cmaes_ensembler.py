@@ -55,7 +55,7 @@ class CMAESEnsembler(BaseEnsembler):
         self.cmaes = None
 
     def get_weights(self, *args, **kwargs):
-        
+
         num_samples = self.metadataset.get_num_samples()
         num_classes = self.metadataset.get_num_classes()
         weights = torch.FloatTensor(self.cmaes.weights_).unsqueeze(0) # change when omitting the batch size
@@ -85,9 +85,9 @@ class CMAESEnsembler(BaseEnsembler):
         for model_id in X_obs:
             model_prediction = self.metadataset.get_predictions([[model_id]])[0][0].numpy()
             predictions.append(model_prediction)
-        
+
         labels = self.metadataset.get_targets().numpy()
-        self.cmaes.ensemble_fit(predictions=predictions, 
+        self.cmaes.ensemble_fit(predictions=predictions,
                                 labels=labels)
         ensemble = X_obs
         weights = self.get_weights()

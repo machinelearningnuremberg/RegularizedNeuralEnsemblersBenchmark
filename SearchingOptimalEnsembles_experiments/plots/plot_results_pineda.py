@@ -116,7 +116,7 @@ for group_name, results_group_name in group_dict.items():
     file_name = results_group_name + ".csv"
     save_path = current_file_path / ".." / "results" / project_name
     save_path.mkdir(exist_ok=True, parents=True)
-    if download: 
+    if download:
         temp_test_metrics = []
         # Fetch runs
         runs = api.runs(
@@ -136,7 +136,7 @@ for group_name, results_group_name in group_dict.items():
             history[0]["dataset_complete_id"] = f"{dataset_id}-{meta_split_id}"
             history[0].pop("_step")
             temp_test_metrics.append(history[0])
-        
+
         test_metrics.extend(temp_test_metrics)
         pd.DataFrame(temp_test_metrics).to_csv(save_path / file_name)
     else:
@@ -151,4 +151,3 @@ else:
 data = pd.pivot_table(data, values="incumbent_ensemble_test_metric", index="dataset_complete_id", columns="group_name")
 print(data.rank(axis=1).mean())
 print(data.mean(axis=0))
-
