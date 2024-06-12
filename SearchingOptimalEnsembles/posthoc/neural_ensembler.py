@@ -687,7 +687,7 @@ class ENetSimple(nn.Module):
         output_dim=1,
         num_layers=2,
         simple_coefficients=False,
-        dropout_rate=0,
+        dropout_rate=0.,
         num_heads=1,
         add_y=False,
         mask_prob=0.5,
@@ -701,6 +701,7 @@ class ENetSimple(nn.Module):
         self.num_heads = num_heads
         self.add_y = add_y
         self.mask_prob = mask_prob
+        self.dropout_rate = dropout_rate
 
         custom_weights_fc1 = torch.randn(
             output_dim
@@ -712,6 +713,15 @@ class ENetSimple(nn.Module):
     ):
 
         batch_size, num_samples, num_classes, num_base_functions = x.shape
+        if self.dropout_rate > 0 and self.training:
+            mask= (torch.rand(size=(num_base_functions,)) > self.dropout_rate).float().to(x.device)
+            for i, dim in enumerate([batch_size, num_samples, num_classes]):
+                mask = torch.repeat_interleave(
+                    mask.unsqueeze(i), dim, dim=i
+                )
+            x = (x*mask)/(1-self.dropout_rate)
+            base_functions = base_functions*mask
+
         x = torch.repeat_interleave(
             self.weight.reshape(1, -1), base_functions.shape[1], dim=0
         )
