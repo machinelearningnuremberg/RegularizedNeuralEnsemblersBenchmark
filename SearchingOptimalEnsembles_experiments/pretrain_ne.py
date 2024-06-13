@@ -12,10 +12,10 @@ from SearchingOptimalEnsembles.posthoc.neural_ensembler import NeuralEnsembler
 if __name__ == "__main__":
     task_id = 4
     metric_name = "error"
-    data_version = "micro"
+    data_version = "version3_class"
     pretrain = True
     DATA_DIR = None
-    pretrain_learning_rate = 0.00001
+    pretrain_learning_rate = 0.000001
     pretrain_epochs = 1_000_000
 
     name = "tabrepo"
@@ -33,7 +33,7 @@ if __name__ == "__main__":
         data_dir=DATA_DIR, metric_name=metric_name, data_version=data_version
     )
 
-    run_name = "64pipelines_512hidden_128context_000001lr_1000check"
+    run_name = "another_test"
     # X refers to the pipelines
     X_obs = [i for i in range(len(metadataset.hp_candidates_ids))]
     #X_obs = np.random.choice(X_obs, 128)
@@ -46,11 +46,11 @@ if __name__ == "__main__":
                          ne_reg_term_div=0,
                          ne_reg_term_norm=0.,
                          ne_num_layers=2,
-                         ne_num_heads=4,
+                         ne_num_heads=1,
                          ne_context_size=128,
                          use_wandb=True,
                          ne_mode="pretraining",
-                         ne_hidden_dim=512,
+                         ne_hidden_dim=64,
                          ne_checkpoint_name=f"{run_name}.pt",
                          ne_use_mask=True,
                          ne_unique_weights_per_function=True,

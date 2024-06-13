@@ -78,7 +78,7 @@ if __name__ == "__main__":
     parser.add_argument("--ne_reg_term_norm", type=float, default=0.)
     parser.add_argument("--ne_context_size", type=int, default=32)
     parser.add_argument("--ne_eval_context_size", type=int, default=256)
-    parser.add_argument("--ne_reg_term_div", type=float, default=0.1)
+    parser.add_argument("--ne_reg_term_div", type=float, default=0.)
     parser.add_argument("--ne_add_y", action="store_true")
     parser.add_argument("--ne_use_context", action="store_true")
     parser.add_argument("--ne_mode", type=str, default="inference")

@@ -238,12 +238,13 @@ class NeuralEnsembler(BaseEnsembler):
     def get_mask_context(self):
         mask = None
         if self.use_context and self.use_mask:
-            if self.mode == "inference":
+            if not self.training:
                 actual_eval_context_size = min(
                     self.eval_context_size, self.metadataset.get_num_samples()
                 )
+
             else:
-                actual_eval_context_size = self.context_size
+                actual_eval_context_size = self.eval_context_size
 
 
             mask_upper_left_tile = torch.ones(self.context_size, self.context_size)
@@ -329,10 +330,11 @@ class NeuralEnsembler(BaseEnsembler):
         X_context = y_context = mask_context = None
     
         if self.net_type == "sas":
-    
+            #if self.use_context:
+            #    X_context, y_context = self.get_context(self.X_obs, self.metadataset)
+            #    mask_context = self.get_mask_context()
+                
             idx = np.random.randint(0, num_samples,self.eval_context_size)
-            X_context, y_context = self.get_context(self.X_obs, self.metadataset)
-            mask_context = self.get_mask_context()
             return (X_train[:, idx], base_functions_train[:, idx], y_train[:, idx],  X_context, y_context, mask_context)
 
         else:
