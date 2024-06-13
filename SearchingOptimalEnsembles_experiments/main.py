@@ -82,7 +82,7 @@ if __name__ == "__main__":
     parser.add_argument("--ne_add_y", action="store_true")
     parser.add_argument("--ne_use_context", action="store_true")
     parser.add_argument("--ne_mode", type=str, default="inference")
-    parser.add_argument("--ne_num_layers", type=int, default=2)
+    parser.add_argument("--ne_num_layers", type=int, default=3)
     parser.add_argument("--ne_dropout_rate", type=float, default=0.)
     parser.add_argument("--ne_net_type", type=str, default="sas")
     ##############################################################################

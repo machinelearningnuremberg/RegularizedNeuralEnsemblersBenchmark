@@ -75,6 +75,8 @@ class NeuralEnsembler(BaseEnsembler):
         use_wandb: bool = False,
         checkpoint_freq: int = 1000,
         run_name: str = None,
+        num_pipelines: int = 64,
+        project_name: str = "Training_NE",
         ne_hidden_dim: int = 512,
         ne_context_size: int = 128,
         ne_reg_term_div: float = 0.1,
@@ -91,6 +93,7 @@ class NeuralEnsembler(BaseEnsembler):
         ne_use_mask: bool = True,
         ne_unique_weights_per_function: bool = False,
         ne_dropout_rate: float = 0.,
+
         **kwargs,
     ) -> None:
         super().__init__(metadataset=metadataset, device=device)
@@ -107,23 +110,32 @@ class NeuralEnsembler(BaseEnsembler):
         self.net_type = ne_net_type
         self.prediction_device = prediction_device
         self.mode = ne_mode
-        self.training = True
-        self.predefined_pipeline_ids = None
-        self.criterion = nn.CrossEntropyLoss()
+
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.use_wandb = use_wandb
         self.num_heads = ne_num_heads
         self.checkpoint_freq = checkpoint_freq
         self.checkpoint_name = ne_checkpoint_name
-        self.project_name = "Training_NE"
         self.resume_from_checkpoint = ne_resume_from_checkpoint
         self.use_mask = ne_use_mask
         self.unique_weights_per_function = ne_unique_weights_per_function
         self.run_name = run_name
-        self.num_pipelines = 64
+        self.num_pipelines = num_pipelines #used for pretraining
         self.dropout_rate = ne_dropout_rate
-        
+
+        self.project_name = project_name # for wandb
+        self.training = True
+        self.predefined_pipeline_ids = None
+        self.y_max = 1
+
+        if self.metadataset.metric_name == "relative_absolute_error":
+            self.criterion = nn.L1Loss()
+            self.task_type = "regression"
+        else:
+            self.criterion = nn.CrossEntropyLoss()
+            self.task_type = "classification"
+   
         if self.use_wandb and self.mode == "pretraining" and WAND_AVAILABLE:
             wandb.init(
                 project=self.project_name,
@@ -156,6 +168,19 @@ class NeuralEnsembler(BaseEnsembler):
         # np.random.shuffle(idx)
         outputs = []
         weights = []
+
+        if self.task_type == "regression":
+            #base_functions is not necessary to transform because they permit to mantain the original scale
+            X /= self.y_max
+
+            if y is not None:
+                y /= self.y_max
+            
+            if y_context is not None:
+                y_context /= self.y_max
+
+            if  X_context is not None:
+                X_context /= self.y_max
 
         for i in range(0, num_samples, self.eval_context_size):
             range_idx = idx[range(i, min(i + self.eval_context_size, num_samples))]
@@ -264,6 +289,7 @@ class NeuralEnsembler(BaseEnsembler):
 
     def sample(self, X_obs, **kwargs) -> tuple[list, float]:
         """Fit neural ensembler, output ensemble WITH weights"""
+        self.X_obs = X_obs
         best_ensemble = None
         weights = None
         # this has to change when using more batches
@@ -301,13 +327,13 @@ class NeuralEnsembler(BaseEnsembler):
     def get_batch(self, X_train, base_functions_train, y_train):
         _, num_samples, num_classes, num_base_functions = X_train.shape
         X_context = y_context = mask_context = None
-        if self.net_type == "bas":
-            idx = np.random.randint(0, num_base_functions, self.context_size)
-            return (X_train[..., idx], base_functions_train[..., idx], y_train)
-
-        elif self.net_type == "sas":
-            idx = np.random.randint(0, num_samples, self.context_size)
-            return (X_train[:, idx], base_functions_train[:, idx], y_train[:, idx])
+    
+        if self.net_type == "sas":
+    
+            idx = np.random.randint(0, num_samples,self.eval_context_size)
+            X_context, y_context = self.get_context(self.X_obs, self.metadataset)
+            mask_context = self.get_mask_context()
+            return (X_train[:, idx], base_functions_train[:, idx], y_train[:, idx],  X_context, y_context, mask_context)
 
         else:
             return (X_train, base_functions_train, y_train, X_context, y_context, mask_context)
@@ -364,22 +390,11 @@ class NeuralEnsembler(BaseEnsembler):
         base_functions_train
     ):
         self.training = True
-        if self.net_type == "bas":
-            NetClass = ENetBAS
-            input_dim = base_functions_train.shape[-2]  # NUMBER OF CLASSES
-            output_dim = 1
-        elif self.net_type == "sas":
+
+        if self.net_type == "sas":
             NetClass = ENetSAS
             input_dim = X_train.shape[-1]
             output_dim = base_functions_train.shape[-1]  # [NUMBER OF BASE FUNCTIONS]
-        elif self.net_type == "cas":
-            NetClass = ENetCAS
-            input_dim = base_functions_train.shape[-1]
-            output_dim =  base_functions_train.shape[-1]
-        elif self.net_type == "ps":
-            NetClass = ENetPS
-            input_dim = base_functions_train.shape[-1]
-            output_dim = base_functions_train.shape[-1]
         elif self.net_type == "simple":
             NetClass = ENetSimple
             input_dim = 1
@@ -397,19 +412,29 @@ class NeuralEnsembler(BaseEnsembler):
             unique_weight_per_base_function=self.unique_weights_per_function,
             dropout_rate=self.dropout_rate
         )
+        best_val_loss = np.inf
 
-        y_train = torch.tensor(y_train, dtype=torch.long)
+        if self.task_type == "regression":
+            self.y_max = base_functions_train.max()
+            y_train /= self.y_max
+            base_functions_train /= self.y_max
+            X_train /= self.y_max
+
+        elif self.task_type == "classification":
+            y_train = torch.tensor(y_train, dtype=torch.long)
+
         optimizer = Adam(model.parameters(), lr=self.learning_rate)
 
         if self.resume_from_checkpoint:
             self.load_checkpoint(model)
 
-        model.train()
 
         X_train, y_train, base_functions_train, model = self.send_to_device(
             X_train, y_train, base_functions_train, model
         )
-        best_val_loss = np.inf
+
+        model.train()
+
         for epoch in range(self.epochs):
             optimizer.zero_grad()
 
@@ -444,8 +469,6 @@ class NeuralEnsembler(BaseEnsembler):
                         self.save_checkpoint(model, optimizer, epoch, loss.item())
                     best_val_loss = val_loss
                     print("Epoch", epoch, "Val Loss", val_loss)
-
-
         model.eval()
 
         if self.mode == "pretraining":
@@ -479,12 +502,18 @@ class NeuralEnsembler(BaseEnsembler):
         X_batch, base_functions_batch, y_batch = batch_data[:3]
         _, num_samples, num_classes, num_base_functions = X_batch.shape
         output, w = model(*batch_data)
-        logits = self.metadataset.get_logits_from_probabilities(output)
-        loss = self.criterion(logits.reshape(-1, num_classes), y_batch.reshape(-1))
-        div = div_loss(w, base_functions_batch)
-        l1 = l1_norm(w)
-        loss -= self.reg_term_div * div
-        loss += self.reg_term_norm * l1
+
+        if self.task_type == "classification":
+            logits = self.metadataset.get_logits_from_probabilities(output)
+            loss = self.criterion(logits.reshape(-1, num_classes), y_batch.reshape(-1))
+            div = div_loss(w, base_functions_batch)
+            l1 = l1_norm(w)
+            loss -= self.reg_term_div * div
+            loss += self.reg_term_norm * l1
+        else: #assuming task is regression
+            loss = self.criterion(output.reshape(-1), y_batch.reshape(-1))
+            l1 = torch.tensor([0])
+            div = torch.tensor([0])
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
         optimizer.step()
@@ -531,151 +560,6 @@ class NeuralEnsembler(BaseEnsembler):
 
         return model, optimizer, epoch, loss
 
-
-class ENetPS(nn.Module): # Parallel Samples
-    def __init__(
-        self,
-        input_dim=1, #number of pipelines
-        hidden_dim=128,
-        output_dim=1, #number of pipelines
-        num_layers=2,
-        num_heads=1,
-        add_y=True,
-        mask_prob=0.5,
-        **kwargs
-    ):
-        super().__init__()
-        self.num_layers = num_layers
-        self.hidden_dim = hidden_dim
-        self.num_heads = num_heads
-        self.add_y = add_y
-        self.mask_prob = mask_prob
-
-        self.ff = FeedforwardNetwork(input_dim=input_dim,
-                                     output_dim=output_dim,
-                                     num_hidden_layers=num_layers,
-                                     hidden_dim=hidden_dim)
-
-    def forward(
-        self, x, base_functions, y=None, X_context=None, y_context=None, mask_context=None
-    ):
-        # x = [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
-        batch_size, num_samples, num_classes, num_base_functions = x.shape
-
-        x = self.ff(x)
-
-        w = x.reshape(batch_size, num_samples, -1)
-        w_norm = torch.nn.functional.softmax(w, dim=-1)
-        w_norm = w_norm.reshape(batch_size, num_samples, num_classes, num_base_functions)
-
-        x = torch.multiply(base_functions, w_norm).sum(axis=-1)
-        # x.shape: [BATCH_SIZE X NUM_SAMPLES, NUM_CLASSES]
-        # w_norm.shape : [BATCH_SIZE X NUM_SAMPLES  X NUM_CLASSES X NUMBER OF BASE FUNCTIONS]
-        return x, w_norm
-
-
-class ENetCAS(nn.Module): # Class as Sequence
-    def __init__(
-        self,
-        input_dim=1, #number of pipelines
-        hidden_dim=128,
-        output_dim=1,
-        num_layers=3,
-        num_heads=1,
-        add_y=True,
-        mask_prob=0.5,
-    ):
-        super().__init__()
-
-        self.num_layers = num_layers
-        self.hidden_dim = hidden_dim
-        self.num_heads = num_heads
-        self.add_y = add_y
-        self.mask_prob = mask_prob
-
-        self.embedding = nn.Linear(input_dim, hidden_dim)
-        # input = [BATCH SIZE X NUMBER OF SAMPLES X NUMBER OF BASE FUNCTIONS X NUMBER OF CLASSES]
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=hidden_dim, nhead=num_heads, dim_feedforward=hidden_dim
-        )
-
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        self.output_layer = nn.Linear(hidden_dim, output_dim)
-
-    def forward(
-        self, x, base_functions, y=None, X_context=None, y_context=None, mask_context=None
-    ):
-        # x = [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
-        batch_size, num_samples, num_classes, num_base_functions = x.shape
-
-        x = x.reshape(-1, num_classes, num_base_functions)
-        x = self.embedding(x)
-        x = self.encoder(x)
-        x = self.output_layer(x)  # ((BATCH_SIZE X NUM_SAMPLES) X NUM_BASE_FUNCTIONS)
-        x = x.unsqueeze(0) #only valid for batch size =1
-        x = x.reshape((batch_size, num_samples, num_classes, num_base_functions))
-        #x = torch.repeat_interleave(x.unsqueeze(2), num_classes, dim=2)
-
-        w = x.reshape(batch_size, num_samples, -1)
-        w_norm = torch.nn.functional.softmax(w, dim=-1)
-        w_norm = w_norm.reshape(batch_size, num_samples, num_classes, num_base_functions)
-
-        x = torch.multiply(base_functions, w_norm).sum(axis=-1)
-        # x.shape: [BATCH_SIZE X NUM_SAMPLES, NUM_CLASSES]
-        # w_norm.shape : [BATCH_SIZE X NUM_SAMPLES  X NUM_CLASSES X NUMBER OF BASE FUNCTIONS]
-        return x, w_norm
-
-
-
-class ENetBAS(nn.Module):  # Base model as sequence
-    def __init__(
-        self,
-        input_dim=1,
-        hidden_dim=128,
-        output_dim=1,
-        num_layers=3,
-        num_heads=1,
-        add_y=True,
-        mask_prob=0.5,
-    ):
-        super().__init__()
-
-        self.num_layers = num_layers
-        self.hidden_dim = hidden_dim
-        self.num_heads = num_heads
-        self.add_y = add_y
-        self.mask_prob = mask_prob
-
-        self.embedding = nn.Linear(input_dim, hidden_dim)
-        # input = [BATCH SIZE X NUMBER OF SAMPLES X NUMBER OF BASE FUNCTIONS X NUMBER OF CLASSES]
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=hidden_dim, nhead=num_heads, dim_feedforward=hidden_dim
-        )
-
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        self.output_layer = nn.Linear(hidden_dim, output_dim)
-
-    def forward(
-        self, x, base_functions, y=None, X_context=None, y_context=None, mask_context=None
-    ):
-        # x = [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
-        batch_size, num_samples, num_classes, num_base_functions = x.shape
-
-        x = x.transpose(2,3).reshape(-1, num_base_functions, num_classes)
-        x = self.embedding(x)
-        x = self.encoder(x)
-        x = self.output_layer(x)  # ((BATCH_SIZE X NUM_SAMPLES) X NUM_BASE_FUNCTIONS)
-        x = x.reshape((batch_size, num_samples, num_base_functions))
-        x = torch.repeat_interleave(x.unsqueeze(2), num_classes, dim=2)
-
-        w = x.reshape(batch_size, num_samples, -1)
-        w_norm = torch.nn.functional.softmax(w, dim=-1)
-        w_norm = w_norm.reshape(batch_size, num_samples, num_classes, num_base_functions)
-
-        x = torch.multiply(base_functions, w_norm).sum(axis=-1)
-        # x.shape: [BATCH_SIZE X NUM_SAMPLES, NUM_CLASSES]
-        # w_norm.shape : [BATCH_SIZE X NUM_SAMPLES  X NUM_CLASSES X NUMBER OF BASE FUNCTIONS]
-        return x, w_norm
 
 
 
@@ -778,15 +662,9 @@ class ENetSAS(nn.Module):  # Sample as Sequence
         ]
         self.first_encoder = nn.ModuleList(first_encoder_modules)
 
-        self.second_encoder = nn.TransformerEncoderLayer(
-            d_model=hidden_dim,
-            nhead=num_heads,
-            dim_feedforward=hidden_dim,
-            batch_first=True,
-        )
 
         if self.unique_weight_per_base_function:
-            self.third_encoder = nn.TransformerEncoderLayer(
+            self.second_encoder = nn.TransformerEncoderLayer(
             d_model=hidden_dim,
             nhead=num_heads,
             dim_feedforward=hidden_dim,
@@ -810,7 +688,10 @@ class ENetSAS(nn.Module):  # Sample as Sequence
             y = -1*torch.ones(batch_size, num_samples, num_classes, 1).to(x.device)
 
             if y_context is not None:
-                y_context = nn.functional.one_hot(y_context, num_classes=num_classes).unsqueeze(3)
+                if num_classes > 1:
+                    y_context = nn.functional.one_hot(y_context, num_classes=num_classes).unsqueeze(3)
+                else:
+                    y_context = y_context.unsqueeze(2).unsqueeze(3).float()
                 y = torch.cat([y_context, y], dim=1)
 
             x = torch.cat([x,y], dim=-1)
@@ -823,7 +704,7 @@ class ENetSAS(nn.Module):  # Sample as Sequence
         for encoder in self.first_encoder:
             x = encoder(x, src_mask=mask_context)
 
-        x = self.second_encoder(x, src_mask=mask_context)
+        #x = self.second_encoder(x, src_mask=mask_context)
         x = x.transpose(0, 1).unsqueeze(0)  # use batch size here
 
         return x
@@ -860,13 +741,13 @@ class ENetSAS(nn.Module):  # Sample as Sequence
 
         if self.unique_weight_per_base_function:
             w = w.mean(axis=2)
-            w = self.third_encoder(w)
+            w = self.second_encoder(w)
             w = torch.repeat_interleave(
                 w.unsqueeze(2), num_classes, dim=2
             )
             
         w = self.out_layer(w)
-        w = self.dropout(w)
+        #w = self.dropout(w)
 
         #num_classes changed
         batch_size, num_samples, num_classes, num_base_functions = w.shape

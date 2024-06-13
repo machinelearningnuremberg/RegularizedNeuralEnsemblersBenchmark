@@ -9,7 +9,9 @@ from SearchingOptimalEnsembles.metadatasets.base_metadataset import META_SPLITS
 
 if __name__ == "__main__":
 
-    metadataset = tabrepod.TabRepoMetaDataset()
+    metadataset = tabrepod.TabRepoMetaDataset(#data_version="version3_class")
+                                              data_version="version3_reg",
+                                              metric_name="absolute_error")
     metadataset.set_state(metadataset.dataset_names[0])
     metadataset.evaluate_ensembles([[1,2,3],
                                     [4,5,6]])

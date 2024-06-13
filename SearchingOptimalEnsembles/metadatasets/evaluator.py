@@ -26,7 +26,10 @@ class Evaluator(BaseMetaDataset):
         )
         self.device = device
         self.processing_batch_size = processing_batch_size
+        self.cross_entropy = torch.nn.CrossEntropyLoss(reduction="none")
 
+        #following: https://lightning.ai/docs/torchmetrics/stable/regression/mean_absolute_percentage_error.html
+        self.absolute_relative_error = lambda y_true,y_pred: torch.abs(y_true-y_pred)/torch.max(torch.ones(1),torch.abs(y_true))
     
         #return torch.zeros(len(ensembles), 
         #                    len(ensembles[0]))
@@ -92,14 +95,12 @@ class Evaluator(BaseMetaDataset):
         ensemble_size = predictions.shape[1]
         temp_targets = torch.tile(targets.unsqueeze(1), (1, ensemble_size, 1))
 
-        cross_entropy = torch.nn.CrossEntropyLoss(reduction="none")
-
         if weights is not None:
             assert weights.shape == predictions.shape
-            weights = weights.to(self.device)
-            weighted_predictions = torch.multiply(predictions, weights)
         else:
-            weighted_predictions = predictions
+            weights = torch.ones_like(predictions).div(ensemble_size)
+        weights = weights.to(self.device)
+        weighted_predictions = torch.multiply(predictions, weights)
 
         if self.metric_name == "error":
             metric_per_sample = torch.ne(
@@ -113,9 +114,15 @@ class Evaluator(BaseMetaDataset):
             ).float()
             metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(axis=-1)
 
+        elif self.metric_name == "relative_absolute_error":
+            metric_per_sample = self.absolute_relative_error(temp_targets,predictions.squeeze(-1))
+            metric_per_pipeline = metric_per_sample.mean(-1)
+            metric_ensemble_per_sample = self.absolute_relative_error(temp_targets, weighted_predictions.sum(axis=1, keepdim=True).squeeze(-1))
+            metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(-1)
+
         elif self.metric_name == "nll":
             logits = self.get_logits_from_probabilities(predictions)
-            metric_per_sample = cross_entropy(
+            metric_per_sample = self.cross_entropy(
                 logits.reshape(-1, n_classes), temp_targets.reshape(-1)
             )
             metric_per_sample = metric_per_sample.reshape(batch_size, ensemble_size, -1)
@@ -125,7 +132,7 @@ class Evaluator(BaseMetaDataset):
             weighted_logits = self.get_logits_from_probabilities(
                 weighted_predictions.sum(1)
             )
-            metric_ensemble_per_sample = cross_entropy(
+            metric_ensemble_per_sample = self.cross_entropy(
                 weighted_logits.reshape(-1, n_classes), targets.reshape(-1)
             )
             metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(axis=-1)

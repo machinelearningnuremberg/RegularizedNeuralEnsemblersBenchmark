@@ -32,9 +32,9 @@ def plot_histogram(w):
     plt.savefig("w.png")
 
 if __name__ == "__main__":
-    task_id = 5
+    task_id = 2
     metric_name = "error"
-    data_version = "micro"
+    data_version = "version3_class"
     pretrain = False
     DATA_DIR = None
     pretrain_epochs = 100_000
@@ -113,11 +113,11 @@ if __name__ == "__main__":
     ne = NeuralEnsembler(metadataset=metadataset,
                          ne_add_y=True,
                          ne_use_context=True,
-                         learning_rate=0.001,
+                         learning_rate=0.0001,
                          epochs=1000,
                          ne_reg_term_div=0.0,
                          ne_reg_term_norm=0.,
-                         ne_num_layers=2,
+                         ne_num_layers=3,
                          ne_num_heads=1,
                          ne_context_size=256,
                          ne_hidden_dim=32,

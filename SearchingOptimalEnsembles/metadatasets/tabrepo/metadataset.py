@@ -6,6 +6,19 @@ from ..base_metadataset import BaseMetaDataset
 from ..evaluator import Evaluator
 from tabrepo import load_repository, get_context, list_contexts, EvaluationRepository
 
+DATA_VERSION_TO_CONTEXT = {"version0": "D244_F3_C1530_3",
+                           "version1": "D244_F3_C1530_10",
+                           "version2": "D244_F3_C1530_30",
+                           "version3": "D244_F3_C1530_100",
+                           "version4": "D244_F3_C1530_175",
+                           "version5": "D244_F3_C1530_200",
+                           "version6": "D244_F3_C1530"
+                                 }
+
+DATA_VERSION_TO_TASK_TYPE = {"class" : "Supervised Classification",
+                             "reg" : "Supervised Regression"}
+
+
 class TabRepoMetaDataset(Evaluator):
     def __init__(
         self,
@@ -15,21 +28,22 @@ class TabRepoMetaDataset(Evaluator):
         metric_name: str = "error",
         context_name: str = "D244_F3_C1530_100",
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
-        task_type: str = "Supervised Classification",
-        data_version: str = "None"
+        #task_type: str = "Supervised Classification", #Supervised Regression or #supervised classification
+        data_version: str = "version3_class"
     ):
-
+        
         self.data_dir = data_dir
         self.seed = seed
         self.split = split
         self.metric_name = metric_name
-        self.context_name = context_name
-        self.task_type = task_type
+        self.context_name = DATA_VERSION_TO_CONTEXT[data_version.split("_")[0]]
+        self.task_type = DATA_VERSION_TO_TASK_TYPE[data_version.split("_")[1]]
         self.context = get_context(name=context_name)
         self.hp_candidates_dict = self.context.load_configs_hyperparameters()
         self.repo = load_repository(context_name, cache=True)
         self.config_names = np.array(self.get_config_names())
         self.hp_candidates, self.hp_candidates_ids = self._get_hp_candidates_and_indices()
+
         super().__init__(
             data_dir=data_dir,
             meta_split_ids=meta_split_ids,
@@ -37,6 +51,9 @@ class TabRepoMetaDataset(Evaluator):
             split=split,
             metric_name=metric_name,
         )
+        if self.task_type == "Supervised Regression":
+            self.metric_name  = "relative_absolute_error"
+            
         self._initialize()
 
     def _filter_datasets(self, dataset_names):
@@ -57,7 +74,6 @@ class TabRepoMetaDataset(Evaluator):
 
     def get_config_names(self) -> list[str]:
         return self.repo.configs()
-
 
     def impute_candidates(self, df: pd.DataFrame) -> pd.DataFrame:
 
@@ -155,8 +171,13 @@ class TabRepoMetaDataset(Evaluator):
                 temp_predictions = torch.FloatTensor(self.repo.predict_test_multi(dataset=self.dataset_name, 
                                                 fold=self.fold,
                                                 configs=configs))
-                
-            temp_predictions = self._posprocess_binary_predictions(temp_predictions)
+            if self.task_type == "Supervised Classification":
+                temp_predictions = self._posprocess_binary_predictions(temp_predictions)
+            elif self.task_type == "Supervised Regression":
+                temp_predictions = temp_predictions.unsqueeze(-1)
+            else:
+                raise ValueError("Not valid task type.")
+            
             predictions.append(temp_predictions.unsqueeze(0))
         
         predictions = torch.cat(predictions, axis=0)
