@@ -16,7 +16,7 @@ except:
     trmd = None
 import SearchingOptimalEnsembles.metadatasets.nasbench201.metadataset as nbmd
 
-from ..posthoc.neural_ensembler import NeuralEnsembler
+from SearchingOptimalEnsembles.posthoc.neural_ensembler import NeuralEnsembler
 
 
 def test_posthoc_ensembling():
