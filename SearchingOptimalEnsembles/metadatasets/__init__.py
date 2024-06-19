@@ -4,17 +4,22 @@ from typing import Callable
 
 try:
     from .tabrepo.metadataset import TabRepoMetaDataset
-except ImportError:
+except Exception as e:
+    print(f"Error importing TabRepoMetaDataset: {e}")
     TabRepoMetaDataset = None
 
 from .quicktune.metadataset import QuicktuneMetaDataset
-from .scikit_learn.metadataset import ScikitLearnMetaDataset
+
+try:
+    from .scikit_learn.metadataset import ScikitLearnMetaDataset
+except Exception as e:
+    print(f"Error importing ScikitLearnMetaDataset: {e}")
+    ScikitLearnMetaDataset = None
 from .nasbench201.metadataset import NASBench201MetaDataset
 
 MetaDatasetMapping: dict[str, Callable] = {
     "scikit-learn": ScikitLearnMetaDataset,
     "nasbench201": NASBench201MetaDataset,
     "quicktune": QuicktuneMetaDataset,
-    "tabrepo": TabRepoMetaDataset,  
-
+    "tabrepo": TabRepoMetaDataset,
 }

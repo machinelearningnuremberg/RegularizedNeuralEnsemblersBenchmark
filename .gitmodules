@@ -1,0 +1,6 @@
+[submodule "SearchingOptimalEnsembles/metadatasets/tabrepo/tabrepo"]
+	path = SearchingOptimalEnsembles/metadatasets/tabrepo/tabrepo
+	url = https://github.com/autogluon/tabrepo.git
+[submodule "SearchingOptimalEnsembles/posthoc/phem/phem"]
+	path = SearchingOptimalEnsembles/posthoc/phem/phem
+	url = https://github.com/LennartPurucker/phem.git

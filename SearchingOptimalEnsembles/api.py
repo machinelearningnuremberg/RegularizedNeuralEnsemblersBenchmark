@@ -4,22 +4,21 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from typing_extensions import Literal
-
 import wandb
+from typing_extensions import Literal
 
 from .metadatasets import MetaDatasetMapping
 from .metadatasets.base_metadataset import META_SPLITS
 from .posthoc import EnsemblerMapping
 from .searchers import SearcherMapping
 from .utils.common import instance_from_map
-from .utils.eval import eval
+from .utils.eval import evaluate
 from .utils.logger import get_logger
 
 
 def run(
     worker_dir: str,
-    metadataset_name: Literal["scikit-learn", "nasbench201", "quicktune"],
+    metadataset_name: Literal["scikit-learn", "nasbench201", "quicktune", "tabrepo"],
     #############################################
     searcher_name: Literal["random", "bo", "None"] = "bo",
     initial_design_size: int = 5,
@@ -55,9 +54,9 @@ def run(
     ne_use_context: bool = True,
     ne_eval_context_size: int = 256,
     ne_mode: str = "inference",
-    ne_reg_term_norm: float = 0.,
+    ne_reg_term_norm: float = 0.0,
     ne_num_layers: int = 2,
-    ne_dropout_rate: float = 0.,
+    ne_dropout_rate: float = 0.0,
     ne_net_type: str = "sas",
     #############################################
     dataset_id: int = 0,
@@ -130,9 +129,9 @@ def run(
         "ne_eval_context_size": ne_eval_context_size,
         "ne_mode": ne_mode,
         "ne_reg_term_norm": ne_reg_term_norm,
-        "ne_num_layers" : ne_num_layers,
+        "ne_num_layers": ne_num_layers,
         "ne_dropout_rate": ne_dropout_rate,
-        "ne_net_type": ne_net_type
+        "ne_net_type": ne_net_type,
     }
     posthoc_ensembler = instance_from_map(
         EnsemblerMapping,
@@ -275,9 +274,7 @@ def run(
             X_obs, max_num_pipelines=max_num_pipelines
         )
 
-    (test_metric, 
-     test_metric_per_pipeline,
-     test_metadataset) = eval(
+    (test_metric, _, test_metadataset) = evaluate(
         X_obs,
         metadataset_name=metadataset_name,
         dataset_id=dataset_id,
@@ -290,14 +287,14 @@ def run(
     )
 
     if hasattr(metadataset, "normalize_performance"):
-        #(_, _, val_metric_per_pipeline,_) = metadataset.evaluate_ensembles([np.arange(metadataset.get_num_pipelines()).tolist()])
-        #(_, _, test_metric_per_pipeline,_) = test_metadataset.evaluate_ensembles([np.arange(metadataset.get_num_pipelines()).tolist()])
+        # (_, _, val_metric_per_pipeline,_) = metadataset.evaluate_ensembles([np.arange(metadataset.get_num_pipelines()).tolist()])
+        # (_, _, test_metric_per_pipeline,_) = test_metadataset.evaluate_ensembles([np.arange(metadataset.get_num_pipelines()).tolist()])
         incumbent = metadataset.normalize_performance(incumbent)
-        #best_performance_idx = torch.argmin(val_metric_per_pipeline).item()
-        #worst_performance_idx = torch.argmax(val_metric_per_pipeline).item()
-        #best_reference_performance = test_metric_per_pipeline[0][best_performance_idx]
-        #worst_reference_performance = test_metric_per_pipeline[0][worst_performance_idx]
-        #test_metric = test_metadataset.normalize_performance(test_metric, best_reference_performance, worst_reference_performance)
+        # best_performance_idx = torch.argmin(val_metric_per_pipeline).item()
+        # worst_performance_idx = torch.argmax(val_metric_per_pipeline).item()
+        # best_reference_performance = test_metric_per_pipeline[0][best_performance_idx]
+        # worst_reference_performance = test_metric_per_pipeline[0][worst_performance_idx]
+        # test_metric = test_metadataset.normalize_performance(test_metric, best_reference_performance, worst_reference_performance)
         test_metric = test_metadataset.normalize_performance(test_metric)
 
     if wandb.run is not None:

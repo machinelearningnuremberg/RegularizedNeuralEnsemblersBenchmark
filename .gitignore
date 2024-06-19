@@ -49,3 +49,4 @@ SearchingOptimalEnsembles_experiments/wandb/
 SearchingOptimalEnsembles_experiments/plots/saved_plots/
 SearchingOptimalEnsembles_experiments/cluster_scripts/slurm_pineda/bash_args/
 SearchingOptimalEnsembles_experiments/cluster_scripts/slurm_pineda/old_bash_args/
+SearchingOptimalEnsembles/metadatasets/tabrepo/tabrepo

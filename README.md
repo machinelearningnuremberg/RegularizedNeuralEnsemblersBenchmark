@@ -2,10 +2,10 @@
 
 <p align="center">
   <a href="https://github.com/releaunifreiburg/MetaLearningEnsembles">
-    <img src="https://img.shields.io/badge/Python-3.9-blue?style=for-the-badge&logo=python" />
+    <img src="https://img.shields.io/badge/Python-3.10-blue?style=for-the-badge&logo=python" />
   </a>&nbsp;
   <a href="https://pytorch.org/">
-    <img src="https://img.shields.io/badge/pytorch-1.9-orange?style=for-the-badge&logo=pytorch" alt="PyTorch Version" />
+    <img src="https://img.shields.io/badge/pytorch-2.0-orange?style=for-the-badge&logo=pytorch" alt="PyTorch Version" />
   </a>&nbsp;
   <a href="https://github.com/releaunifreiburg/MetaLearningEnsembles">
     <img src="https://img.shields.io/badge/open-source-9cf?style=for-the-badge&logo=Open-Source-Initiative" alt="Open Source" />
@@ -30,7 +30,7 @@ Consider running `~/.conda/bin/conda init` or `~/.conda/bin/conda init zsh`.
 Create the environment and activate it
 
 ```
-conda create -n searching_optimal_ensembles python=3.9
+conda create -n searching_optimal_ensembles python=3.10
 conda activate searching_optimal_ensembles
 ```
 
@@ -44,11 +44,14 @@ curl -sSL https://install.python-poetry.org | python3 -
 
 Consider appending `export PATH="$HOME/.local/bin:$PATH"` into `~/.zshrc` / `~/.bashrc`.
 
-### 3. Let poetry take care of all dependencies
+### 3. Install dependencies
 
 ```
-poetry install
+bash setup.sh
 ```
+
+This will determine the python version based on which the dependencies are installed.
+Currently Pipeline-Bench with model retraining is only available for Python 3.9 because of the 'auto-sklearn' dependency.
 
 To install a new dependency use `poetry add dependency` and commit the updated `pyproject.toml` to git.
 
