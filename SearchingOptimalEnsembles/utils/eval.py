@@ -8,7 +8,7 @@ from ..posthoc.base_ensembler import BaseEnsembler
 from ..utils.common import instance_from_map
 
 
-def eval(
+def evaluate(
     ensemble: list,
     metadataset_name: Literal["scikit-learn", "nasbench201", "quicktune"],
     dataset_id: int = 0,

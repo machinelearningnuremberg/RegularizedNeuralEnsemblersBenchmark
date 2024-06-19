@@ -81,33 +81,21 @@ group_dict = {
 }
 
 group_dict = {
-    "neural65_0": "Neural_32hd_None_025do",
-    "neural65_1": "Neural_32hd_None_05do",
-    "neural65_2": "Neural_32hd_random_025do",
-    "neural65_3": "Neural_32hd_random_05do",
-    "neural67_0": "Neural_32hd_None_0do",
-    "neural67_1": "Neural_32hd_random_0do",
-    "greedy10_0": "Greedy_20m_None",
-    "greedy10_1": "Greedy_10m_None",
-    "greedy10_2": "Greedy_20m_random",
-    "greedy10_3": "Greedy_10m_random",
-    "leo4_0": "LEO",
-    "divbo4_0": "DivBO",
-    "random4_0": "Random",
-    "cmaes1_0": "CMAES"
+    "neural75_1": "Neural75_32hd_None_025do",
+    "neural76_1": "Neural76_32hd_None_025do",
 }
 
-group_dict = {
-    "neural67_0": "Neural_32hd_random_0do",
-    #"neural30_3": "Neural_32hd_None_05do",
-    "neural65_0": "Neural_32hd_random_025do",
-    #"neural30_5": "Neural_32hd_None_0do",
-    "cmaes1_0" :"CMAES",
-    "greedy15_2": "Greedy_20m_random",
-    "leo4_0": "LEO",
-    "random4_0": "Random",
-    "divbo4_0": "DivBO"
-}
+# group_dict = {
+#     "neural67_0": "Neural_32hd_random_0do",
+#     #"neural30_3": "Neural_32hd_None_05do",
+#     "neural65_0": "Neural_32hd_random_025do",
+#     #"neural30_5": "Neural_32hd_None_0do",
+#     "cmaes1_0" :"CMAES",
+#     "greedy15_2": "Greedy_20m_random",
+#     "leo4_0": "LEO",
+#     "random4_0": "Random",
+#     "divbo4_0": "DivBO"
+# }
 
 download = False
 test_metrics = []

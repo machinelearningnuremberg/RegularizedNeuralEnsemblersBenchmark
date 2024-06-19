@@ -397,6 +397,10 @@ class NeuralEnsembler(BaseEnsembler):
             NetClass = ENetSAS
             input_dim = X_train.shape[-1]
             output_dim = base_functions_train.shape[-1]  # [NUMBER OF BASE FUNCTIONS]
+        elif self.net_type == "ffn":
+            NetClass = EFFNet
+            input_dim = X_train.shape[-1]
+            output_dim = base_functions_train.shape[-1]  # [NUMBER OF BASE FUNCTIONS]
         elif self.net_type == "simple":
             NetClass = ENetSimple
             input_dim = 1
@@ -664,7 +668,6 @@ class ENetSAS(nn.Module):  # Sample as Sequence
         ]
         self.first_encoder = nn.ModuleList(first_encoder_modules)
 
-
         if self.unique_weight_per_base_function:
             self.second_encoder = nn.TransformerEncoderLayer(
             d_model=hidden_dim,
@@ -672,7 +675,6 @@ class ENetSAS(nn.Module):  # Sample as Sequence
             dim_feedforward=hidden_dim,
             batch_first=True,
         )
-
 
         self.out_layer = nn.Linear(hidden_dim, output_dim)
         self.dropout_rate = dropout_rate
@@ -705,6 +707,126 @@ class ENetSAS(nn.Module):  # Sample as Sequence
         x = self.embedding(x)
         for encoder in self.first_encoder:
             x = encoder(x, src_mask=mask_context)
+
+        #x = self.second_encoder(x, src_mask=mask_context)
+        x = x.transpose(0, 1).unsqueeze(0)  # use batch size here
+
+        return x
+
+    def forward(
+        self, x, base_functions, y=None, X_context=None, y_context=None, mask_context=None
+    ):
+        # X = [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
+        batch_size, num_samples, num_classes, num_base_functions = x.shape
+        num_query_samples = x.shape[1]
+
+        if self.dropout_rate > 0 and self.training:
+            mask= (torch.rand(size=(num_base_functions,)) > self.dropout_rate).float().to(x.device)
+            for i, dim in enumerate([batch_size, num_samples, num_classes]):
+                mask = torch.repeat_interleave(
+                    mask.unsqueeze(i), dim, dim=i
+                )
+            x = (x*mask)/(1-self.dropout_rate)
+            base_functions = base_functions*mask
+
+        w = []
+        idx = np.arange(num_classes)
+        for i in range(0, num_classes, self.inner_batch_size):
+            range_idx = idx[range(i, min(i + self.inner_batch_size, num_classes))]
+            temp_w = self.get_batched_weights(x = x[:,:,range_idx],
+                                              base_functions = base_functions[:,:,range_idx],
+                                               y= y,
+                                               X_context=X_context[:,:,range_idx] if X_context is not None else None,
+                                               y_context=y_context,
+                                               mask_context=mask_context)
+            w.append(temp_w)
+
+        w = torch.cat(w, axis=2)
+
+        if self.unique_weight_per_base_function:
+            w = w.mean(axis=2)
+            w = self.second_encoder(w)
+            w = torch.repeat_interleave(
+                w.unsqueeze(2), num_classes, dim=2
+            )
+            
+        w = self.out_layer(w)
+
+        #num_classes changed
+        batch_size, num_samples, num_classes, num_base_functions = w.shape
+        w = w.reshape(batch_size, num_samples, -1)
+        w_norm = torch.nn.functional.softmax(w, dim=-1)
+        w_norm = w_norm.reshape(
+            batch_size, num_samples, num_classes, num_base_functions
+        )
+        w_norm = w_norm[:, -num_query_samples:]
+
+        x = torch.multiply(base_functions, w_norm).sum(axis=-1)
+        # x.shape: [BATCH_SIZE, NUM_SAMPLES, NUM_CLASSES]
+        # w_norm.shape : [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
+        return x, w_norm
+
+
+
+class EFFNet(nn.Module):  # Sample as Sequence
+    def __init__(
+        self,
+        input_dim=1,
+        hidden_dim=128,
+        output_dim=1,
+        num_layers=2,
+        dropout_rate=0,
+        num_heads=1,
+        add_y=False,
+        mask_prob=0.5,
+        inner_batch_size=50,
+        unique_weight_per_base_function=True
+    ):
+        super().__init__()
+
+        # input = [BATCH SIZE X NUMBER OF SAMPLES X NUMBER OF BASE FUNCTIONS X NUMBER OF CLASSES]
+        self.num_layers = num_layers
+        self.hidden_dim = hidden_dim
+        self.num_heads = num_heads
+        self.add_y = add_y
+        self.mask_prob = mask_prob
+        self.inner_batch_size = inner_batch_size
+        self.unique_weight_per_base_function = unique_weight_per_base_function
+
+        if self.add_y:
+            input_dim += 1
+
+        self.embedding = nn.Linear(input_dim, hidden_dim)
+
+        first_encoder_modules = [
+            nn.Sequential( nn.ReLU(), nn.Linear(hidden_dim, hidden_dim))
+            for _ in range(num_layers)
+        ]
+        first_encoder_modules.append(nn.ReLU())
+
+        self.first_encoder = nn.ModuleList(first_encoder_modules)
+        self.second_encoder = nn.Sequential(nn.Linear(hidden_dim, hidden_dim),nn.ReLU())
+
+        self.relu = nn.ReLU()
+        self.out_layer = nn.Linear(hidden_dim, output_dim)
+        self.dropout_rate = dropout_rate
+
+
+    def get_batched_weights(self, x, base_functions, y=None, X_context=None, y_context=None, mask_context=None):
+
+        batch_size, num_samples, num_classes, num_base_functions = x.shape
+
+        if self.add_y:
+            y = -1*torch.ones(batch_size, num_samples, num_classes, 1).to(x.device)
+            x = torch.cat([x,y], dim=-1)
+
+        batch_size, num_samples, num_classes, num_base_functions = x.shape
+        x = x.transpose(1, 2).reshape(-1, num_samples, num_base_functions)
+
+        # [(BATCH SIZE X NUMBER OF CLASSES) X NUMBER OF SAMPLES X NUMBER OF BASE FUNCTIONS]
+        x = self.embedding(x)
+        for encoder in self.first_encoder:
+            x = encoder(x)
 
         #x = self.second_encoder(x, src_mask=mask_context)
         x = x.transpose(0, 1).unsqueeze(0)  # use batch size here

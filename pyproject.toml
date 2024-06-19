@@ -35,7 +35,7 @@ tqdm = "^4.66.1"
 torch = { version = ">=2.0.0", extras = ["cu121"] }
 torchvision = { version = ">=0.15.0", extras = ["cu121"] }
 gpytorch = "1.6.0"
-wandb = ">=0.15.9"
+wandb = ">=0.15.12"
 scikit-learn = "1.4.0"
 lightgbm = { version = "^4.1.0", extras = ["scikit-learn"] }
 matplotlib = ">=3.9.0"

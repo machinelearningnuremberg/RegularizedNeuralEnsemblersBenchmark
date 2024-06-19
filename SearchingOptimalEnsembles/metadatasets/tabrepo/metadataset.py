@@ -133,6 +133,9 @@ class TabRepoMetaDataset(Evaluator):
 
         if self.task_type == "Supervised Classification":
             targets = targets.long()
+        elif self.task_type == "Supervised Regression":
+            targets = targets.float()
+            
         return targets
     
     def get_time(self, ensembles: list[list[int]]) -> torch.Tensor:
