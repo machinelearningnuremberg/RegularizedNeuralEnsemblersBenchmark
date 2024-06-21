@@ -50,7 +50,7 @@ if __name__ == "__main__":
     checkpoint_name = None
 
     # name = "quicktune"
-    name = "tabrepo"
+    name = "quicktune"
     # name = "pipelinebench"
     # name = "nasbench201"
 
