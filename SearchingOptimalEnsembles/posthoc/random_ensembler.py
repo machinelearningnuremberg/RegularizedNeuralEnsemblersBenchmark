@@ -31,6 +31,8 @@ class RandomEnsembler(BaseEnsembler):
     ) -> tuple[list, float]:
         """Sample from the ensembler."""
 
+        self.X_obs = X_obs
+
         num_suggestion_batches = kwargs.get("num_suggestion_batches", 5)
         num_suggestions_per_batch = kwargs.get("num_suggestions_per_batch", 1000)
         max_num_pipelines = kwargs.get("max_num_pipelines", 5)
@@ -55,4 +57,5 @@ class RandomEnsembler(BaseEnsembler):
 
         assert best_ensemble is not None, "Best ensemble is None"
 
+        self.best_ensemble = best_ensemble
         return best_ensemble, best_score

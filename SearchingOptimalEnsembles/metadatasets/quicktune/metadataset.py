@@ -12,6 +12,9 @@ from ..base_metadataset import BaseMetaDataset
 #TODO: Unify the name "hp_candidate" and "pipeline", it might be confusing
 
 class QuicktuneMetaDataset(BaseMetaDataset):
+    
+    metadataset_name = "quicktune"
+
     def __init__(
         self,
         data_dir: str = "/work/dlclarge2/janowski-quicktune/predictions",
@@ -33,6 +36,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             seed=seed,
             split=split,
             metric_name=metric_name,
+            data_version=data_version
         )
 
         self.feature_dim = 65
@@ -174,13 +178,16 @@ class QuicktuneMetaDataset(BaseMetaDataset):
 
         return self.hp_candidates, self.time, self.predictions, self.targets
 
-    def set_state(self, dataset_name: str):
+    def set_state(self, dataset_name: str, 
+                  split: str = "valid"):
+        
         if dataset_name != self.dataset_name:
             self.dataset_name = dataset_name
             self.get_dataset_info(dataset_name)
             self.get_statistics_dataset()
 
-            super().set_state(dataset_name=dataset_name)
+            super().set_state(dataset_name=dataset_name,
+                              split=split)
 
     def get_dataset_names(self) -> list[str]:
         dataset_names = os.listdir(os.path.join(self.data_dir, "per_dataset"))

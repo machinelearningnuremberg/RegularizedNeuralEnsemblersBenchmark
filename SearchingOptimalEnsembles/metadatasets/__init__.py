@@ -17,9 +17,16 @@ except Exception as e:
     ScikitLearnMetaDataset = None
 from .nasbench201.metadataset import NASBench201MetaDataset
 
+try:
+    from .custom.openml_metadataset import OpenMLMetaDataset
+except Exception as e:
+    print(f"Error importing Openml Dataset: {e}")
+    OpenMLMetaDataset = None
+
 MetaDatasetMapping: dict[str, Callable] = {
     "scikit-learn": ScikitLearnMetaDataset,
     "nasbench201": NASBench201MetaDataset,
     "quicktune": QuicktuneMetaDataset,
     "tabrepo": TabRepoMetaDataset,
+    "openml": OpenMLMetaDataset
 }

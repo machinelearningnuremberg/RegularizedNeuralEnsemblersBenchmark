@@ -23,6 +23,8 @@ class SingleBest(BaseEnsembler):
                **kwargs) -> tuple[list, float]:
 
         """Return single best on the validation performance"""
+
+        self.X_obs = X_obs
         ensembles = [[x] for x in X_obs]
         _, metric, _, _ = self.metadataset.evaluate_ensembles(ensembles)
 
@@ -30,4 +32,5 @@ class SingleBest(BaseEnsembler):
         best_ones = ensembles[torch.where(metric)==best_score]
         best_ensemble = [np.random.choice(best_ones)]
 
+        self.best_ensemble = best_ensemble
         return best_ensemble, best_score

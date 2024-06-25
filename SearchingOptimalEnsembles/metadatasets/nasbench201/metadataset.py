@@ -43,7 +43,7 @@ class NASBench201MetaDataset(Evaluator):
         "extended": 15625
     }
 
-
+    metadataset_name = "nasbench"
     num_classes = {}
     splits = ["val", "test"]
 
@@ -63,6 +63,7 @@ class NASBench201MetaDataset(Evaluator):
             seed=seed,
             split=split,
             metric_name=metric_name,
+            data_version=data_version
         )
 
         self.feature_dim = 6
@@ -71,7 +72,8 @@ class NASBench201MetaDataset(Evaluator):
 
         self._initialize()
 
-    def set_state(self, dataset_name: str):
+    def set_state(self, dataset_name: str,
+                  split: str = "valid"):
         self.logger.debug(f"Setting dataset: {dataset_name}")
 
         assert dataset_name in self.get_dataset_names(), f"Invalid dataset name: {dataset_name}"
@@ -80,7 +82,8 @@ class NASBench201MetaDataset(Evaluator):
         self.load_dataset(transform)
         self.load_data(dataset_name)
 
-        super().set_state(dataset_name)
+        super().set_state(dataset_name,
+                            split=split)
 
     # TODO: we should save dataframes to disk and load them from there
     def load_dataset(self, transform):

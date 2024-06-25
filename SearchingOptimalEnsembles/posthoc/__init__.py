@@ -10,6 +10,7 @@ except Exception as e:
     print(f"Error importing CMAESEnsembler: {e}")
     CMAESEnsembler = None
 from .single_best import SingleBest
+from .des_ensembler import DESEnsembler
 
 EnsemblerMapping: dict[str, Callable] = {
     "random": RandomEnsembler,
@@ -17,4 +18,5 @@ EnsemblerMapping: dict[str, Callable] = {
     "neural": NeuralEnsembler,
     "cmaes": CMAESEnsembler,
     "single": SingleBest,
+    "des": DESEnsembler
 }

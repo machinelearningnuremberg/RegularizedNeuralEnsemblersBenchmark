@@ -8,6 +8,9 @@ import torch
 from ..evaluator import Evaluator
 
 class ScikitLearnMetaDataset(Evaluator):
+
+    metadataset_name = "scikit-learn"
+
     def __init__(
         self,
         data_dir: str = "/work/dlclarge2/janowski-quicktune/pipeline_bench",
@@ -24,6 +27,7 @@ class ScikitLearnMetaDataset(Evaluator):
             seed=seed,
             split=split,
             metric_name=metric_name,
+            data_version=data_version
         )
 
         self.feature_dim = 196
@@ -52,7 +56,8 @@ class ScikitLearnMetaDataset(Evaluator):
             .tolist()
         )
 
-    def set_state(self, dataset_name: str):
+    def set_state(self, dataset_name: str,
+                  split: str = "valid"):
         self.logger.debug(f"Setting dataset: {dataset_name}")
 
         # Scikit-learn specific attributes
@@ -66,6 +71,7 @@ class ScikitLearnMetaDataset(Evaluator):
         )
         super().set_state(
             dataset_name=dataset_name,
+            split = split
         )
 
     def _get_hp_candidates_and_indices(

@@ -17,6 +17,7 @@ META_SPLITS = {
 
 
 class BaseMetaDataset:
+    metadataset_name = "base"
     def __init__(
         self,
         data_dir: str,
@@ -24,6 +25,7 @@ class BaseMetaDataset:
         seed: int = 42,
         split: str = "valid",
         metric_name: str = "nll",
+        data_version: str = None
     ):
         """Initialize the BaseMetaDataset.
 
@@ -57,7 +59,8 @@ class BaseMetaDataset:
         self.meta_split_ids = meta_split_ids
         self.meta_splits: dict[str, list[str]] = {}
         self.logger = get_logger(name="SEO-METADATASET", logging_level="debug")
-
+        self.data_version = data_version
+        
         self.feature_dim: int | None = None
 
         # To initialize call _initialize() in the child class
@@ -67,8 +70,9 @@ class BaseMetaDataset:
         self.dataset_name: str
         self.hp_candidates: torch.Tensor
         self.hp_candidates_ids: torch.Tensor
-        self.best_performance: torch.Tensor
-        self.worst_performance: torch.Tensor
+        self.best_performance: torch.Tensor | None = None
+        self.worst_performance: torch.Tensor | None = None
+    
 
 
     @abstractmethod
@@ -251,7 +255,8 @@ class BaseMetaDataset:
                 raise ValueError("Dataset not assigned to any split")
         return meta_splits
 
-    def set_state(self, dataset_name: str):
+    def set_state(self, dataset_name: str,
+                  split: str | None = None):
         """
         Set the dataset to be used for training and evaluation.
         This method should be called before sampling.
@@ -262,6 +267,7 @@ class BaseMetaDataset:
         """
 
         self.dataset_name = dataset_name
+        self.split = split or self.split
         self.hp_candidates, self.hp_candidates_ids = self._get_hp_candidates_and_indices()
         (
             self.worst_performance,

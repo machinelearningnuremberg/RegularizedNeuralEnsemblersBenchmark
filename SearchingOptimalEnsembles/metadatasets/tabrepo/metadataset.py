@@ -20,6 +20,7 @@ DATA_VERSION_TO_TASK_TYPE = {"class" : "Supervised Classification",
 
 
 class TabRepoMetaDataset(Evaluator):
+    metadataset_name = "tabrepo"
     def __init__(
         self,
         data_dir: str = None,
@@ -29,7 +30,8 @@ class TabRepoMetaDataset(Evaluator):
         context_name: str = "D244_F3_C1530_100",
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         #task_type: str = "Supervised Classification", #Supervised Regression or #supervised classification
-        data_version: str = "version3_class"
+        data_version: str = "version3_class",
+        **kwargs
     ):
         
         self.data_dir = data_dir
@@ -50,6 +52,7 @@ class TabRepoMetaDataset(Evaluator):
             seed=seed,
             split=split,
             metric_name=metric_name,
+            data_version=data_version
         )
         if self.task_type == "Supervised Regression":
             self.metric_name  = "relative_absolute_error"
@@ -61,10 +64,14 @@ class TabRepoMetaDataset(Evaluator):
                               if self.repo.dataset_metadata(x)["task_type"]==self.task_type]
         return dataset_names
     
-    def set_state(self, dataset_name: str, fold: int = 0):
+    def set_state(self, dataset_name: str, 
+                split: str = "valid",
+                fold: int = 0):
+        self.split = split
         self.fold = fold
         self.dataset_metadata = self.repo.dataset_metadata(dataset_name)
-        super().set_state(dataset_name=dataset_name)
+        super().set_state(dataset_name=dataset_name,
+                          split=split or self.split)
         self.probing_data = self.get_predictions([[0]])
         self.num_samples = self.probing_data.shape[-2]
         self.num_classes = self.probing_data.shape[-1]

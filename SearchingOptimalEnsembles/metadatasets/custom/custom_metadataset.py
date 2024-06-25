@@ -4,19 +4,22 @@ import torch
 
 from ..base_metadataset import BaseMetaDataset
 from ..evaluator import Evaluator
-from .search_space import sample_pipelines
+from .pipeline_samplers.random import RandomPipelineSampler
 
 class CustomMetaDataset(Evaluator):
     """This MetaDataset contains the evaluations of a specific dataset.
     The evaluations are built after the creation of the object given a set of base pipelines.
     If the base pipelines are not given, they are randomly initialized
     """
+    metadataset_name = "custom"
+
     def __init__(
         self,
         data_dir: str = None,
         seed: int = 42,
         split: str = "valid",
         metric_name: str = "error",
+        meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         data_version: str = None, #DatasetName
         task_type: str = "Supervised Classification",
         device: str = 'cpu'
@@ -36,10 +39,12 @@ class CustomMetaDataset(Evaluator):
           
         super().__init__(
             data_dir=data_dir,
+            meta_split_ids=meta_split_ids,
             seed=seed,
             split=split,
             metric_name=metric_name,
-            device=device
+            device=device,
+            data_version=data_version
         )
 
     def fit_base_pipelines(self):
@@ -53,10 +58,12 @@ class CustomMetaDataset(Evaluator):
     def set_state(self,
                   X_val: np.array,
                   y_val: np.array,
+                  X_test: np.array = None,
+                  y_test: np.array = None,
                   X_train: np.array = None,
                   y_train: np.array = None,
                   base_pipelines: list = None,
-                  hp_candidates: np.array = None
+                  hp_candidates: np.array = None,
                   ):
         """
         If base_pipelines are passed, they should be already fit.
@@ -67,11 +74,13 @@ class CustomMetaDataset(Evaluator):
         self.y_val = y_val
         self.X_train = X_train
         self.y_train = y_train
+        self.X_test = X_test
+        self.y_test = y_test
 
         if base_pipelines is None:
             #random pipelines
-            self.base_pipelines, self.hp_candidates = sample_pipelines(self.default_num_base_pipelines,
-                                                                        random_state=self.seed)
+            self.base_pipelines, self.hp_candidates = RandomPipelineSampler(self.default_num_base_pipelines,
+                                                                        random_state=self.seed).sample()
 
         else:
             self.base_pipelines = base_pipelines
@@ -93,6 +102,7 @@ class CustomMetaDataset(Evaluator):
             self.targets = torch.FloatTensor(self.y_val)
 
         self.precompute_predictions()
+
 
     def get_base_pipelines(self):
         return self.base_pipelines
@@ -167,3 +177,24 @@ class CustomMetaDataset(Evaluator):
     def get_predictions(self, ensembles: list):
         return self.predictions[torch.LongTensor(ensembles)]
     
+    def get_X_and_y_val(self):
+        return self.X_val, self.y_val
+    
+    def get_X_and_y_test(self):
+        return self.X_test, self.y_test
+
+    def get_num_samples(self):
+        if self.split == "valid":
+            return len(self.X_val)
+        elif self.split == "test":
+            return len(self.X_test)
+        else:
+            raise ValueError("Not valid split.")
+    
+
+    def score(self, y_pred, y_test):
+
+        if self.metric_name=="error":
+            return (y_pred.argmax(-1)!=y_test).mean()      
+        else:
+            raise NameError("Metric named is not defined in the score funciton.") 

@@ -15,6 +15,7 @@ class Evaluator(BaseMetaDataset):
         metric_name: str = "nll",
         device: torch.device = torch.device("cpu"),
         processing_batch_size: int = 1000,
+        data_version: str = None
     ):
         
         super().__init__(
@@ -23,6 +24,7 @@ class Evaluator(BaseMetaDataset):
             seed=seed,
             split=split,
             metric_name=metric_name,
+            data_version=data_version
         )
         self.device = device
         self.processing_batch_size = processing_batch_size

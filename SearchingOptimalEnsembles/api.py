@@ -273,29 +273,9 @@ def run(
         incumbent_ensemble, incumbent = posthoc_ensembler.sample(
             X_obs, max_num_pipelines=max_num_pipelines
         )
-
-    (test_metric, _, test_metadataset) = evaluate(
-        X_obs,
-        metadataset_name=metadataset_name,
-        dataset_id=dataset_id,
-        meta_split_id=meta_split_id,
-        data_version=data_version,
-        metric_name=metric_name,
-        split="test",
-        ensembler=posthoc_ensembler,
-        val_metadataset=metadataset,
-    )
-
-    if hasattr(metadataset, "normalize_performance"):
-        # (_, _, val_metric_per_pipeline,_) = metadataset.evaluate_ensembles([np.arange(metadataset.get_num_pipelines()).tolist()])
-        # (_, _, test_metric_per_pipeline,_) = test_metadataset.evaluate_ensembles([np.arange(metadataset.get_num_pipelines()).tolist()])
-        incumbent = metadataset.normalize_performance(incumbent)
-        # best_performance_idx = torch.argmin(val_metric_per_pipeline).item()
-        # worst_performance_idx = torch.argmax(val_metric_per_pipeline).item()
-        # best_reference_performance = test_metric_per_pipeline[0][best_performance_idx]
-        # worst_reference_performance = test_metric_per_pipeline[0][worst_performance_idx]
-        # test_metric = test_metadataset.normalize_performance(test_metric, best_reference_performance, worst_reference_performance)
-        test_metric = test_metadataset.normalize_performance(test_metric)
+    
+    incumbent = metadataset.normalize_performance(incumbent)
+    test_metric = posthoc_ensembler.evaluate_on_split(split="test")
 
     if wandb.run is not None:
         wandb.log(

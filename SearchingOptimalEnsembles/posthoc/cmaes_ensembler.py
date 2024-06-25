@@ -34,6 +34,7 @@ class CMAESEnsembler(BaseEnsembler):
         normalize_weights: str = "softmax",
         trim_weights: str = "ges-like",
         device: torch.device = torch.device("cpu"),
+        random_state: int = 42,
         **kwargs
     ):
         super().__init__(metadataset=metadataset, device=device)
@@ -41,6 +42,7 @@ class CMAESEnsembler(BaseEnsembler):
         self.n_iterations = n_iterations
         self.normalize_weights = normalize_weights
         self.trim_weights = trim_weights
+        self.random_state = random_state
         self.fitted_models = [None]
 
         if metric_name == "accuracy" or metric_name == "error":
@@ -70,6 +72,8 @@ class CMAESEnsembler(BaseEnsembler):
         X_obs,
         **kwargs,
     ) -> tuple[list, float]:
+        
+        self.X_obs = X_obs
 
         self.cmaes = CMAES(
             base_models=X_obs,
@@ -78,7 +82,7 @@ class CMAESEnsembler(BaseEnsembler):
             normalize_weights=self.normalize_weights,
             trim_weights=self.trim_weights,
             # If the ensemble requires the metric, we assume the labels to be encoded
-            random_state=1,
+            random_state=self.random_state,
         )
 
         predictions = []
@@ -89,8 +93,7 @@ class CMAESEnsembler(BaseEnsembler):
         labels = self.metadataset.get_targets().numpy()
         self.cmaes.ensemble_fit(predictions=predictions,
                                 labels=labels)
-        ensemble = X_obs
         weights = self.get_weights()
         _, metric, metric_per_pipeline, _  = self.metadataset.evaluate_ensembles_with_weights([X_obs], weights)
-
-        return ensemble, metric
+        self.best_ensemble = X_obs
+        return self.best_ensemble, metric

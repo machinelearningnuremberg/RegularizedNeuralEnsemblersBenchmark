@@ -30,10 +30,11 @@ class GreedyEnsembler(BaseEnsembler):
     ) -> tuple[list, float]:
         """Sample from the ensembler."""
 
+        self.X_obs = X_obs
         max_num_pipelines = kwargs.get("max_num_pipelines", 5)
         ensemble: list[int] = []
         best_metric = np.inf
-        
+
         #TODO: Fix the type of X_obs
         X_obs = np.array(X_obs).reshape(-1, 1).tolist()
 
@@ -60,4 +61,5 @@ class GreedyEnsembler(BaseEnsembler):
             if self.no_resample:
                 X_obs.pop(best_id)
 
+        self.best_ensemble = ensemble
         return ensemble, best_metric

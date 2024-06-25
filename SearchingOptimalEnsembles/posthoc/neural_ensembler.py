@@ -290,6 +290,7 @@ class NeuralEnsembler(BaseEnsembler):
 
     def sample(self, X_obs, **kwargs) -> tuple[list, float]:
         """Fit neural ensembler, output ensemble WITH weights"""
+        
         self.X_obs = X_obs
         best_ensemble = None
         weights = None
@@ -313,7 +314,7 @@ class NeuralEnsembler(BaseEnsembler):
         _, best_metric, _, _ = self.metadataset.evaluate_ensembles_with_weights(
             [best_ensemble], weights
         )
-
+        self.best_ensemble = best_ensemble
         return best_ensemble, best_metric
 
     def send_to_device(self, *args):
