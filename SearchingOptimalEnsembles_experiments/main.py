@@ -66,6 +66,7 @@ if __name__ == "__main__":
     parser.add_argument("--nu", type=float, default=1.5)
     parser.add_argument("--num_heads", type=int, default=8)
     parser.add_argument("--num_seeds", type=int, default=1)
+    parser.add_argument("--num_base_pipelines", type=int, default=20)
     parser.add_argument("--optional_dim", type=int, default=None)
     ############################## LEO ARGS #######################################
     parser.add_argument("--n_estimators", type=int, default=100)
@@ -85,6 +86,8 @@ if __name__ == "__main__":
     parser.add_argument("--ne_num_layers", type=int, default=3)
     parser.add_argument("--ne_dropout_rate", type=float, default=0.)
     parser.add_argument("--ne_net_type", type=str, default="sas")
+    ##################### DES#####################################################
+    parser.add_argument("--des_method_name", type=str, default="KNOP")
     ##############################################################################
     parser.add_argument("--sampler_name", type=str, default="random")
     parser.add_argument("--ensembler_name", type=str, default="random")

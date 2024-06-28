@@ -19,7 +19,9 @@ class OpenMLMetaDataset(CustomMetaDataset):
         metric_name: str = "error",
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         data_version: str = None, #DatasetName
-        task_type: str = "Supervised Classification"
+        task_type: str = "Supervised Classification",
+        num_base_pipelines: int = 20,
+        **kwargs
     ):
         super().__init__(
             data_dir=data_dir,
@@ -28,6 +30,7 @@ class OpenMLMetaDataset(CustomMetaDataset):
             split=split,
             metric_name=metric_name,
             data_version=data_version,
+            num_base_pipelines=num_base_pipelines,
             task_type=task_type
         )
         self._initialize()

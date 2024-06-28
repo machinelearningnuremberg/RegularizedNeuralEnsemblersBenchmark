@@ -20,7 +20,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
         data_dir: str = "/work/dlclarge2/janowski-quicktune/predictions",
         meta_split_ids=((0, 1, 2), (3,), (4,)),
         seed: int = 42,
-        split: str = "val",
+        split: str = "valid",
         metric_name: str = "error",
         ensemble_type: str = "soft",
         data_version: str = "micro",
@@ -142,7 +142,7 @@ class QuicktuneMetaDataset(BaseMetaDataset):
             self.aggregated_info[dataset_name]["predictions"]
         )
 
-        if self.split == "val":
+        if self.split == "valid":
             self.targets = self.targets[self.is_test_id == 0]
             self.predictions = self.predictions[:, self.is_test_id == 0, :]
 
@@ -180,14 +180,16 @@ class QuicktuneMetaDataset(BaseMetaDataset):
 
     def set_state(self, dataset_name: str, 
                   split: str = "valid"):
-        
+
+        self.split = split
         if dataset_name != self.dataset_name:
             self.dataset_name = dataset_name
             self.get_dataset_info(dataset_name)
             self.get_statistics_dataset()
 
-            super().set_state(dataset_name=dataset_name,
-                              split=split)
+        super().set_state(dataset_name=dataset_name,
+                            split=split)
+
 
     def get_dataset_names(self) -> list[str]:
         dataset_names = os.listdir(os.path.join(self.data_dir, "per_dataset"))

@@ -15,7 +15,6 @@ from .utils.common import instance_from_map
 from .utils.eval import evaluate
 from .utils.logger import get_logger
 
-
 def run(
     worker_dir: str,
     metadataset_name: Literal["scikit-learn", "nasbench201", "quicktune", "tabrepo"],
@@ -44,6 +43,7 @@ def run(
     num_inner_epochs: int = 1,
     batch_size: int = 16,
     max_num_pipelines: int = 1,
+    num_base_pipelines: int = 20,
     apply_posthoc_ensemble_each_iter: bool = False,
     apply_posthoc_ensemble_at_end: bool = True,
     #############################################
@@ -58,6 +58,8 @@ def run(
     ne_num_layers: int = 2,
     ne_dropout_rate: float = 0.0,
     ne_net_type: str = "sas",
+    #############################################
+    des_method_name: str = "KNOP",
     #############################################
     dataset_id: int = 0,
     meta_split_id: int = 0,
@@ -82,6 +84,7 @@ def run(
         "meta_split_ids": META_SPLITS[meta_split_id],
         "metric_name": metric_name,
         "data_version": data_version,
+        "num_base_pipelines": num_base_pipelines
     }
 
     metadataset = instance_from_map(
@@ -132,6 +135,7 @@ def run(
         "ne_num_layers": ne_num_layers,
         "ne_dropout_rate": ne_dropout_rate,
         "ne_net_type": ne_net_type,
+        "des_method_name": des_method_name
     }
     posthoc_ensembler = instance_from_map(
         EnsemblerMapping,
@@ -140,6 +144,7 @@ def run(
         kwargs=ensembler_args,
     )
 
+    incumbent = None
     if searcher is not None:
         if meta_num_epochs > 0:
             assert hasattr(
@@ -268,11 +273,9 @@ def run(
         incumbent_ensemble = X_obs.tolist()
 
     X_obs = X_obs.tolist()
-
-    if apply_posthoc_ensemble_at_end:
-        incumbent_ensemble, incumbent = posthoc_ensembler.sample(
-            X_obs, max_num_pipelines=max_num_pipelines
-        )
+    incumbent_ensemble, incumbent = posthoc_ensembler.sample(
+        X_obs, max_num_pipelines=max_num_pipelines
+    )
     
     incumbent = metadataset.normalize_performance(incumbent)
     test_metric = posthoc_ensembler.evaluate_on_split(split="test")

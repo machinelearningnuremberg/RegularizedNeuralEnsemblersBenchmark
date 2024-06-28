@@ -256,7 +256,7 @@ class BaseMetaDataset:
         return meta_splits
 
     def set_state(self, dataset_name: str,
-                  split: str | None = None):
+                  split: str = "valid"):
         """
         Set the dataset to be used for training and evaluation.
         This method should be called before sampling.
@@ -267,7 +267,7 @@ class BaseMetaDataset:
         """
 
         self.dataset_name = dataset_name
-        self.split = split or self.split
+        self.split = split
         self.hp_candidates, self.hp_candidates_ids = self._get_hp_candidates_and_indices()
         (
             self.worst_performance,

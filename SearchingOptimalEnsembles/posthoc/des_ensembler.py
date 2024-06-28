@@ -3,11 +3,16 @@ from __future__ import annotations
 import numpy as np
 import torch
 from deslib.des.knora_e import KNORAE
+from deslib.des.meta_des import METADES
+from deslib.des.knop import KNOP
 
 from ..metadatasets.base_metadataset import BaseMetaDataset
 from .base_ensembler import BaseEnsembler
 
-METHOD_TO_CLASS = {"KNORAE": KNORAE}
+METHOD_TO_CLASS = {"KNORAE": KNORAE,
+                   "MetaDES": METADES,
+                   "KNOP": KNOP}
+
 
 class DESEnsembler(BaseEnsembler):
 
@@ -58,7 +63,7 @@ class DESEnsembler(BaseEnsembler):
         y_pred = self.des_object.predict_proba(X_dsel)
         best_metric = self.metadataset.score(y_pred, y_dsel)
         
-        return best_metric, self.metadataset
+        return best_metric
 
        
 

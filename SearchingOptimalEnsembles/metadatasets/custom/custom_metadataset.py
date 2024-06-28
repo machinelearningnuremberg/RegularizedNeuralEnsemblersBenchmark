@@ -11,6 +11,7 @@ class CustomMetaDataset(Evaluator):
     The evaluations are built after the creation of the object given a set of base pipelines.
     If the base pipelines are not given, they are randomly initialized
     """
+    
     metadataset_name = "custom"
 
     def __init__(
@@ -22,7 +23,9 @@ class CustomMetaDataset(Evaluator):
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         data_version: str = None, #DatasetName
         task_type: str = "Supervised Classification",
-        device: str = 'cpu'
+        device: str = 'cpu',
+        num_base_pipelines: int = 20,
+        **kwargs
     ):
         self.data_dir = data_dir
         self.seed = seed
@@ -30,8 +33,8 @@ class CustomMetaDataset(Evaluator):
         self.metric_name = metric_name
         self.data_version = data_version
         self.task_type = task_type
-        self.default_num_base_pipelines = 20
-        self.base_pipelines = []
+        self.num_base_pipelines = num_base_pipelines
+        self.base_pipelines = None
         self.device = device
 
         if self.task_type == "Supervised Regression":
@@ -79,7 +82,8 @@ class CustomMetaDataset(Evaluator):
 
         if base_pipelines is None:
             #random pipelines
-            self.base_pipelines, self.hp_candidates = RandomPipelineSampler(self.default_num_base_pipelines,
+            if self.base_pipelines is None:
+                self.base_pipelines, self.hp_candidates = RandomPipelineSampler(self.num_base_pipelines,
                                                                         random_state=self.seed).sample()
 
         else:
@@ -92,7 +96,7 @@ class CustomMetaDataset(Evaluator):
         self.num_pipelines = len(self.base_pipelines)
         self.num_classes = len(np.unique(y_val))
         self.num_samples = len(y_val)
-        self.hp_indices = torch.FloatTensor(np.arange(self.num_pipelines))
+        self.hp_candidates_ids = torch.FloatTensor(np.arange(self.num_pipelines))
         self.hp_candidates = torch.FloatTensor(self.hp_candidates)
         self.dataset_names = []
 
