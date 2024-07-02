@@ -137,9 +137,9 @@ if __name__ == "__main__":
         ne_checkpoint_name=checkpoint_name,
         ne_resume_from_checkpoint=False,
         ne_unique_weights_per_function=False,
-        ne_dropout_rate=0.0,
+        ne_dropout_rate=0.25,
         use_wandb=False,
-        ne_net_type="sas",
+        ne_net_type="ffn",
     )
 
     if pretrain:
@@ -163,7 +163,7 @@ if __name__ == "__main__":
         split="test",
     )
 
-    metadataset_test.set_state(dataset_names[task_id])
+    metadataset_test.set_state(dataset_names[task_id], split="test")
 
     ensembles = [[i.item()] for i in metadataset.hp_candidates_ids]
     pipeline_hps, metric, metric_per_pipeline, _ = metadataset_test.evaluate_ensembles(

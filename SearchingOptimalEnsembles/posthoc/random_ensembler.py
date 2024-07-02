@@ -33,8 +33,8 @@ class RandomEnsembler(BaseEnsembler):
 
         self.X_obs = X_obs
 
-        num_suggestion_batches = kwargs.get("num_suggestion_batches", 5)
-        num_suggestions_per_batch = kwargs.get("num_suggestions_per_batch", 1000)
+        num_suggestion_batches = kwargs.get("num_suggestion_batches", 1)
+        num_suggestions_per_batch = kwargs.get("num_suggestions_per_batch", 1)
         max_num_pipelines = kwargs.get("max_num_pipelines", 5)
 
         best_score = np.inf
@@ -42,7 +42,7 @@ class RandomEnsembler(BaseEnsembler):
         for _ in range(num_suggestion_batches):
             num_pipelines = np.random.randint(1, max_num_pipelines + 1)
             ensembles = self.sampler.generate_ensembles(
-                candidates=X_obs,
+                candidates=np.array(X_obs),
                 num_pipelines=num_pipelines,
                 batch_size=num_suggestions_per_batch,
             )

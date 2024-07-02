@@ -135,7 +135,8 @@ def run(
         "ne_num_layers": ne_num_layers,
         "ne_dropout_rate": ne_dropout_rate,
         "ne_net_type": ne_net_type,
-        "des_method_name": des_method_name
+        "des_method_name": des_method_name,
+        "max_num_pipelines": max_num_pipelines
     }
     posthoc_ensembler = instance_from_map(
         EnsemblerMapping,
