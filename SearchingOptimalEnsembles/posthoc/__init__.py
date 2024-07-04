@@ -3,6 +3,7 @@ from typing import Callable
 from .greedy_ensembler import GreedyEnsembler
 from .neural_ensembler import NeuralEnsembler
 from .random_ensembler import RandomEnsembler
+from .sk_stacker import ScikitLearnStacker
 
 try:
     from .cmaes_ensembler import CMAESEnsembler
@@ -18,5 +19,6 @@ EnsemblerMapping: dict[str, Callable] = {
     "neural": NeuralEnsembler,
     "cmaes": CMAESEnsembler,
     "single": SingleBest,
-    "des": DESEnsembler
+    "des": DESEnsembler,
+    "sks": ScikitLearnStacker
 }

@@ -48,20 +48,12 @@ class BaseEnsembler:
         
         #self.metadataset.set_state(dataset_name=self.metadataset.dataset_name)
         #self.set_state(metadataset=self.metadataset, device=self.device)
-
-        weights = None
-        if hasattr(self, "get_weights"):
-            X_context = None
-            y_context = None
-            if hasattr(self, "get_context"):
-                self.metadataset.set_state(dataset_name=self.metadataset.dataset_name,
-                                           split = "valid")
-                X_context, y_context = self.get_context(self.best_ensemble)
-            weights = self.get_weights(
-                self.best_ensemble, X_context=X_context, y_context=y_context
-            )
         self.metadataset.set_state(dataset_name=self.metadataset.dataset_name,
                                     split = split)
+        weights = None
+        if hasattr(self, "get_weights"):
+          weights = self.get_weights(self.best_ensemble)
+
         if weights is None:
             _, metric, metric_per_pipeline, _ = self.metadataset.evaluate_ensembles([self.best_ensemble])
         else:

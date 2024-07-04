@@ -58,8 +58,10 @@ def run(
     ne_num_layers: int = 2,
     ne_dropout_rate: float = 0.0,
     ne_net_type: str = "sas",
+    ne_auto_dropout: bool = False,
     #############################################
     des_method_name: str = "KNOP",
+    sks_model_name: str = "random_forest",
     #############################################
     dataset_id: int = 0,
     meta_split_id: int = 0,
@@ -135,8 +137,10 @@ def run(
         "ne_num_layers": ne_num_layers,
         "ne_dropout_rate": ne_dropout_rate,
         "ne_net_type": ne_net_type,
+        "ne_auto_dropout": ne_auto_dropout,
         "des_method_name": des_method_name,
-        "max_num_pipelines": max_num_pipelines
+        "max_num_pipelines": max_num_pipelines,
+        "sks_model_name": sks_model_name
     }
     posthoc_ensembler = instance_from_map(
         EnsemblerMapping,

@@ -86,8 +86,10 @@ if __name__ == "__main__":
     parser.add_argument("--ne_num_layers", type=int, default=3)
     parser.add_argument("--ne_dropout_rate", type=float, default=0.)
     parser.add_argument("--ne_net_type", type=str, default="sas")
-    ##################### DES#####################################################
+    parser.add_argument("--ne_auto_dropout", action="store_true")
+    ##################### OTHERS #####################################################
     parser.add_argument("--des_method_name", type=str, default="KNOP")
+    parser.add_argument("--sks_model_name", type=str, default="random_forest")
     ##############################################################################
     parser.add_argument("--sampler_name", type=str, default="random")
     parser.add_argument("--ensembler_name", type=str, default="random")

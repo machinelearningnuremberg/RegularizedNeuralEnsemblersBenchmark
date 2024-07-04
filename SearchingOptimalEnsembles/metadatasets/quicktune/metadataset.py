@@ -182,10 +182,9 @@ class QuicktuneMetaDataset(BaseMetaDataset):
                   split: str = "valid"):
 
         self.split = split
-        if dataset_name != self.dataset_name:
-            self.dataset_name = dataset_name
-            self.get_dataset_info(dataset_name)
-            self.get_statistics_dataset()
+        self.dataset_name = dataset_name
+        self.get_dataset_info(dataset_name)
+        self.get_statistics_dataset()
 
         super().set_state(dataset_name=dataset_name,
                             split=split)
