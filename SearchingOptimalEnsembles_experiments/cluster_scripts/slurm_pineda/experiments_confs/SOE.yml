@@ -568,6 +568,112 @@ experiments:
       ne_net_type:
         - ffn
 
+  neural81:
+    base_command: " --ensembler_name neural --ne_omit_output_mask"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_dropout_rate:
+        - 0.0
+        - 0.25
+
+  neural82:
+    base_command: " --ensembler_name neural"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_dropout_rate:
+        - 0.0
+        - 0.25
+      ne_weight_thd: 
+        - 0.0
+        - 0.05
+
+  neural83:
+    base_command: " --ensembler_name neural --ne_auto_dropout"
+    hyper_grid:
+      searcher_name:
+        - None
+
+  neural84:
+    base_command: " --ensembler_name neural --ne_dropout_dist uniform"
+    hyper_grid:
+      searcher_name:
+        - None
+   
+  neural85:
+    base_command: " --ensembler_name neural --ne_dropout_dist truncated_normal"
+    hyper_grid:
+      searcher_name:
+        - None
+
+  neural86:
+    base_command: " --ensembler_name neural"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_dropout_rate:
+        - 0.0
+        - 0.25
+      ne_weight_thd: 
+        - 0.0
+        - 0.05
+      ne_hidden_dim:
+        - 128
+
+  neural87:
+    base_command: " --ensembler_name neural"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_dropout_rate:
+        - 0.0
+        - 0.25
+      ne_weight_thd: 
+        - 0.0
+        - 0.05
+      ne_hidden_dim:
+        - 32
+
+  neural88:
+    base_command: " --ensembler_name neural"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_dropout_rate:
+        - 0.0
+        - 0.25
+      ne_hidden_dim:
+        - 32
+
+  neural89:
+    base_command: " --ensembler_name neural"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_dropout_rate:
+        - 0.0
+        - 0.25
+      ne_hidden_dim:
+        - 32
+      ne_learning_rate:
+        - 0.0001
+
+  neural90:
+    base_command: " --ensembler_name neural"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_dropout_rate:
+        - 0.0
+        - 0.25
+      ne_hidden_dim:
+        - 32
+      ne_learning_rate:
+        - 0.0001
+        - 0.0005
+
+
   sks1:
     base_command: "--ensembler_name sks"
     hyper_grid:

@@ -75,7 +75,8 @@ if __name__ == "__main__":
     parser.add_argument("--acquisition_name", type=str, default="ei")
     parser.add_argument("--beta", type=float, default=0.0)
     ###############################NEURAL ENSEMBLER ARGS #########################
-    parser.add_argument("--ne_hidden_dim", type=int, default=512)
+    parser.add_argument("--ne_learning_rate", type=float, default=0.0001)
+    parser.add_argument("--ne_hidden_dim", type=int, default=32)
     parser.add_argument("--ne_reg_term_norm", type=float, default=0.)
     parser.add_argument("--ne_context_size", type=int, default=32)
     parser.add_argument("--ne_eval_context_size", type=int, default=256)
@@ -85,8 +86,11 @@ if __name__ == "__main__":
     parser.add_argument("--ne_mode", type=str, default="inference")
     parser.add_argument("--ne_num_layers", type=int, default=3)
     parser.add_argument("--ne_dropout_rate", type=float, default=0.)
-    parser.add_argument("--ne_net_type", type=str, default="sas")
+    parser.add_argument("--ne_net_type", type=str, default="ffn")
     parser.add_argument("--ne_auto_dropout", action="store_true")
+    parser.add_argument("--ne_weight_thd", type=float, default=0.)
+    parser.add_argument("--ne_dropout_dist", type=str, default=None)
+    parser.add_argument("--ne_omit_output_mask", action="store_true")
     ##################### OTHERS #####################################################
     parser.add_argument("--des_method_name", type=str, default="KNOP")
     parser.add_argument("--sks_model_name", type=str, default="random_forest")
