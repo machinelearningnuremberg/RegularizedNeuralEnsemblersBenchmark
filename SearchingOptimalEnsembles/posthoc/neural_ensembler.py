@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from scipy import stats
 import numpy as np
 import torch
 from torch import nn
@@ -51,19 +52,19 @@ class NeuralEnsembler(BaseEnsembler):
         metadataset: BaseMetaDataset,
         device: torch.device = torch.device("cuda"),
         prediction_device: torch.device = torch.device("cpu"),
-        learning_rate: float =0.0001,
         epochs: int = 1000,
         use_wandb: bool = False,
         checkpoint_freq: int = 1000,
         run_name: str = None,
         num_pipelines: int = 64,
         project_name: str = "Training_NE",
+        ne_learning_rate: float =0.0001,
         ne_hidden_dim: int = 512,
-        ne_reg_term_div: float = 0.1,
+        ne_reg_term_div: float = 0.0,
         ne_add_y: bool = True,
         ne_num_layers: int = 2,
         ne_reg_term_norm: float = 0.0,
-        ne_net_type: str = "sas",
+        ne_net_type: str = "ffn",
         ne_num_heads: int = 4,
         ne_mode: Literal["inference", "pretraining"] = "inference",
         ne_checkpoint_name: str = "auto",
@@ -73,7 +74,10 @@ class NeuralEnsembler(BaseEnsembler):
         ne_dropout_rate: float = 0.,
         ne_batch_size: int = 2048,
         ne_auto_dropout: bool = False,
-        **kwargs,
+        ne_weight_thd: float = 0.,
+        ne_dropout_dist: str | None = None,
+        ne_omit_output_mask: bool = True,
+        **kwargs
     ) -> None:
         super().__init__(metadataset=metadataset, device=device)
 
@@ -87,7 +91,7 @@ class NeuralEnsembler(BaseEnsembler):
         self.prediction_device = prediction_device
         self.mode = ne_mode
         self.ne_batch_size = ne_batch_size
-        self.learning_rate = learning_rate
+        self.learning_rate = ne_learning_rate
         self.epochs = epochs
         self.use_wandb = use_wandb
         self.num_heads = ne_num_heads
@@ -101,6 +105,9 @@ class NeuralEnsembler(BaseEnsembler):
         self.dropout_rate = ne_dropout_rate
         self.auto_dropout = ne_auto_dropout
         self.project_name = project_name # for wandb
+        self.weight_thd = ne_weight_thd
+        self.dropout_dist = ne_dropout_dist
+        self.omit_output_mask = ne_omit_output_mask
         self.training = True
         self.predefined_pipeline_ids = None
         self.y_max = 1
@@ -162,6 +169,9 @@ class NeuralEnsembler(BaseEnsembler):
             weights, axis=-2
         ).to(self.prediction_device)
 
+    def get_auto_weight_thd(self):
+        return 1 / (self.metadataset.get_num_classes() * self.metadataset.get_num_pipelines())
+
     def get_weights(self, X_obs, X_context=None, y_context=None):
         base_functions = (
             self.metadataset.get_predictions([X_obs])[0]
@@ -175,8 +185,21 @@ class NeuralEnsembler(BaseEnsembler):
             X=base_functions,
             base_functions=base_functions
         )
+        weights = self.prune_weights(weights)
         return weights
 
+    def prune_weights(self, weights):
+
+        if self.weight_thd == -1 :
+            weight_thd = self.get_auto_weight_thd()
+        else:
+            weight_thd = self.weight_thd
+        
+        weight_pruner = nn.Threshold(weight_thd, 0.)
+        weights = weight_pruner(weights)
+        weights_sum = weights.sum(-3, keepdim=True).sum(-1, keepdim=True)
+        weights /= weights_sum
+        return weights
 
     def sample(self, X_obs, **kwargs) -> tuple[list, float]:
         """Fit neural ensembler, output ensemble WITH weights"""
@@ -226,7 +249,8 @@ class NeuralEnsembler(BaseEnsembler):
         _, num_samples, num_classes, num_base_functions = X_train.shape
     
         idx = np.random.randint(0, min(self.ne_batch_size, num_samples), self.ne_batch_size)
-        return (X_train[:, idx], base_functions_train[:, idx], y_train[:, idx])
+       # return (X_train[:, idx], base_functions_train[:, idx], y_train[:, idx])
+        return (X_train, base_functions_train, y_train)
 
     def count_parameters(self, model):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -292,7 +316,9 @@ class NeuralEnsembler(BaseEnsembler):
             num_layers=self.num_layers,
             num_heads=self.num_heads,
             unique_weight_per_base_function=self.unique_weights_per_function,
-            dropout_rate=dropout_rate
+            dropout_rate=dropout_rate,
+            dropout_dist=self.dropout_dist,
+            omit_output_mask=self.omit_output_mask
         )
 
         if self.task_type == "regression":
@@ -315,7 +341,6 @@ class NeuralEnsembler(BaseEnsembler):
 
         model.train()
         for epoch in range(self.epochs):
-            optimizer.zero_grad()
             batch_data = self.get_batch(X_train, base_functions_train, y_train)
             loss, w = self.fit_one_epoch(model, optimizer, batch_data)
             print("Epoch", epoch, "Loss", loss.item(), "W:", w.median().item())
@@ -336,6 +361,7 @@ class NeuralEnsembler(BaseEnsembler):
         return val_loss
 
     def fit_one_epoch(self, model, optimizer, batch_data):
+        optimizer.zero_grad()
         X_batch, base_functions_batch, y_batch = batch_data[:3]
         _, num_samples, num_classes, num_base_functions = X_batch.shape
         output, w = model(X_batch, base_functions_batch)
@@ -470,7 +496,9 @@ class EFFNet(nn.Module):  # Sample as Sequence
         add_y=False,
         mask_prob=0.5,
         inner_batch_size=50,
-        unique_weight_per_base_function=True
+        unique_weight_per_base_function=False,
+        dropout_dist=None,
+        omit_output_mask=False
     ):
         super().__init__()
 
@@ -482,6 +510,8 @@ class EFFNet(nn.Module):  # Sample as Sequence
         self.mask_prob = mask_prob
         self.inner_batch_size = inner_batch_size
         self.unique_weight_per_base_function = unique_weight_per_base_function
+        self.dropout_dist = dropout_dist
+        self.omit_output_mask = omit_output_mask
 
         if unique_weight_per_base_function:
             num_layers=-1
@@ -499,6 +529,7 @@ class EFFNet(nn.Module):  # Sample as Sequence
         self.relu = nn.ReLU()
         self.out_layer = nn.Linear(hidden_dim, output_dim)
         self.dropout_rate = dropout_rate
+        self.dropout_is_active = (dropout_rate > 0.) or (dropout_dist != None)
 
 
     def get_batched_weights(self, x, base_functions):
@@ -515,20 +546,45 @@ class EFFNet(nn.Module):  # Sample as Sequence
 
         return x
 
+    def sample_dropout_rate(self):
+        if self.dropout_dist is None:
+            dropout_rate = self.dropout_rate
+        elif self.dropout_dist == "uniform":
+            dropout_rate = np.random.uniform()
+        elif self.dropout_dist == "truncated_normal":
+            loc = self.dropout_rate
+            scale = 0.1
+            quantile1 = stats.norm.cdf(0, loc=loc, scale=scale)
+            quantile2 = stats.norm.cdf(1, loc=loc, scale=scale)
+            dropout_rate = stats.norm.ppf(
+                    np.random.uniform(quantile1, quantile2, size=1),
+                    loc=loc,
+                    scale=scale,
+                ).item()       
+        else:
+            raise ValueError("Dropout dist is not implemented.")
+        return dropout_rate
+
+    def get_mask_and_scaling_factor(self, num_base_functions, device):
+        dropout_rate = self.sample_dropout_rate()
+        mask= (torch.rand(size=(num_base_functions,)) > dropout_rate).float().to(device)
+        scaling_factor = 1./(1.- dropout_rate)
+        return mask, scaling_factor
+
     def forward(
         self, x, base_functions
     ):
         # X = [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
         batch_size, num_samples, num_classes, num_base_functions = x.shape
-        num_query_samples = x.shape[1]
+        #num_query_samples = x.shape[1]
 
-        if self.dropout_rate > 0 and self.training:
-            mask= (torch.rand(size=(num_base_functions,)) > self.dropout_rate).float().to(x.device)
+        if self.dropout_is_active and self.training:
+            mask, scaling_factor = self.get_mask_and_scaling_factor(num_base_functions, x.device)
             for i, dim in enumerate([batch_size, num_samples, num_classes]):
                 mask = torch.repeat_interleave(
                     mask.unsqueeze(i), dim, dim=i
                 )
-            x = (x*mask)/(1-self.dropout_rate)
+            x = (x*mask)*scaling_factor
             base_functions = base_functions*mask
         else:
             mask = None
@@ -553,17 +609,19 @@ class EFFNet(nn.Module):  # Sample as Sequence
         w = self.out_layer(w)
 
         #num_classes changed
-        batch_size, num_samples, num_classes, num_base_functions = w.shape
+        #batch_size, num_samples, num_classes, num_base_functions = w.shape
         
-        if mask is not None:
+        if (mask is not None) and (not self.omit_output_mask):
             w = w.masked_fill(mask == 0, -1e9)
+
         w = w.reshape(batch_size, num_samples, -1)
         w_norm = torch.nn.functional.softmax(w, dim=-1)
+        
         w_norm = w_norm.reshape(
             batch_size, num_samples, num_classes, num_base_functions
         )
-        w_norm = w_norm[:, -num_query_samples:]
 
+        w_norm = torch.divide(w_norm, torch.FloatTensor([1/num_classes]).to(w_norm.device))
         x = torch.multiply(base_functions, w_norm).sum(axis=-1)
         # x.shape: [BATCH_SIZE, NUM_SAMPLES, NUM_CLASSES]
         # w_norm.shape : [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]

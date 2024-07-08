@@ -47,6 +47,7 @@ def run(
     apply_posthoc_ensemble_each_iter: bool = False,
     apply_posthoc_ensemble_at_end: bool = True,
     #############################################
+    ne_learning_rate: float = 0.0001,
     ne_hidden_dim: int = 512,
     ne_context_size: int = 32,
     ne_reg_term_div: float = 0.1,
@@ -59,6 +60,9 @@ def run(
     ne_dropout_rate: float = 0.0,
     ne_net_type: str = "sas",
     ne_auto_dropout: bool = False,
+    ne_weight_thd: float = 0.0,
+    ne_dropout_dist: str | None = None,
+    ne_omit_output_mask: bool = False,
     #############################################
     des_method_name: str = "KNOP",
     sks_model_name: str = "random_forest",
@@ -126,6 +130,7 @@ def run(
     ensembler_args = {
         "metadataset": metadataset,
         "device": device,
+        "ne_learning_rate": ne_learning_rate,
         "ne_hidden_dim": ne_hidden_dim,
         "ne_context_size": ne_context_size,
         "ne_reg_term_div": ne_reg_term_div,
@@ -138,6 +143,9 @@ def run(
         "ne_dropout_rate": ne_dropout_rate,
         "ne_net_type": ne_net_type,
         "ne_auto_dropout": ne_auto_dropout,
+        "ne_weight_thd": ne_weight_thd,
+        "ne_dropout_dist": ne_dropout_dist,
+        "ne_omit_output_mask": ne_omit_output_mask,
         "des_method_name": des_method_name,
         "max_num_pipelines": max_num_pipelines,
         "sks_model_name": sks_model_name
