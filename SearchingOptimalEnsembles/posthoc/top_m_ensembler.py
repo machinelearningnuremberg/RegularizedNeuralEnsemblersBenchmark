@@ -51,10 +51,10 @@ class TopMEnsembler(BaseEnsembler):
         ensemble = X_obs[best_ids].flatten().tolist()
 
         (
-            pipeline_hps,
+            _,
             metric,
-            metric_per_pipeline,
-            time_per_pipeline,
+            _,
+            _,
         ) = self.metadataset.evaluate_ensembles(ensembles=[ensemble])
 
         best_metric = metric[0]
