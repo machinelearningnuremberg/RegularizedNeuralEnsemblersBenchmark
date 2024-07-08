@@ -4,21 +4,23 @@ from .greedy_ensembler import GreedyEnsembler
 from .neural_ensembler import NeuralEnsembler
 from .random_ensembler import RandomEnsembler
 from .sk_stacker import ScikitLearnStacker
+from .top_m_ensembler import TopMEnsembler
 
 try:
     from .cmaes_ensembler import CMAESEnsembler
 except Exception as e:
     print(f"Error importing CMAESEnsembler: {e}")
     CMAESEnsembler = None
-from .single_best import SingleBest
 from .des_ensembler import DESEnsembler
+from .single_best import SingleBest
 
 EnsemblerMapping: dict[str, Callable] = {
     "random": RandomEnsembler,
     "greedy": GreedyEnsembler,
+    "topm": TopMEnsembler,
     "neural": NeuralEnsembler,
     "cmaes": CMAESEnsembler,
     "single": SingleBest,
     "des": DESEnsembler,
-    "sks": ScikitLearnStacker
+    "sks": ScikitLearnStacker,
 }
