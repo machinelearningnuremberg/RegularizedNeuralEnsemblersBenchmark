@@ -7,8 +7,9 @@ from ..metadatasets.base_metadataset import BaseMetaDataset
 from .base_ensembler import BaseEnsembler
 
 
-class GreedyEnsembler(BaseEnsembler):
-    """Greedy ensembler class."""
+class TopMEnsembler(BaseEnsembler):
+    """Top M ensembler class. It just selects the top M pipelines according to
+    the metric that is used to evaluate the performance and ensembels them."""
 
     def __init__(
         self,
@@ -32,34 +33,31 @@ class GreedyEnsembler(BaseEnsembler):
 
         self.X_obs = X_obs
         max_num_pipelines = kwargs.get("max_num_pipelines", 5)
-        ensemble: list[int] = []
-        best_metric = torch.inf
 
         # TODO: Fix the type of X_obs
-        X_obs = np.array(X_obs).reshape(-1, 1).tolist()
+        X_obs = np.array(X_obs).reshape(-1, 1)
 
-        for i in range(max_num_pipelines):
-            print(f"GreedyEnsembler: {i}")
-            temp_ensembles = (
-                np.concatenate(
-                    (np.array(X_obs), np.array([ensemble] * len(X_obs))), axis=1
-                )
-                .astype(int)
-                .tolist()
-            )
-            (
-                _,
-                metric,
-                _,
-                _,
-            ) = self.metadataset.evaluate_ensembles(ensembles=temp_ensembles)
+        print("Top M Ensembler")
+        # evaluate ensembles with only one pipeline to get single pipeline
+        # metrics
+        (
+            _,
+            temp_metric,
+            _,
+            _,
+        ) = self.metadataset.evaluate_ensembles(ensembles=X_obs.tolist())
 
-            best_id = metric.argmin()
-            best_metric = metric.min()
-            ensemble.append(X_obs[best_id][0])
+        best_ids = temp_metric.argsort()[:max_num_pipelines].numpy()
+        ensemble = X_obs[best_ids].flatten().tolist()
 
-            if self.no_resample:
-                X_obs.pop(best_id)
+        (
+            _,
+            metric,
+            _,
+            _,
+        ) = self.metadataset.evaluate_ensembles(ensembles=[ensemble])
+
+        best_metric = metric[0]
 
         self.best_ensemble = ensemble
         return ensemble, best_metric
