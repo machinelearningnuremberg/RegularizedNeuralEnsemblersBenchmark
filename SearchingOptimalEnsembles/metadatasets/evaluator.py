@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import torch
+from sklearn.metrics import roc_auc_score
 
 from .base_metadataset import BaseMetaDataset
 
@@ -122,6 +123,16 @@ class Evaluator(BaseMetaDataset):
             metric_ensemble_per_sample = self.absolute_relative_error(temp_targets, weighted_predictions.sum(axis=1, keepdim=True).squeeze(-1))
             metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(-1)
 
+        elif self.metric_name == "neg_roc_auc":
+            y_pred = predictions.mean(1)
+            metric = []
+            metric_per_pipeline = torch.zeros(predictions.shape[:2])
+            for i in range(y_pred.shape[0]):
+                metric.append(
+                    1-roc_auc_score(targets[i].numpy(), y_pred[i].numpy(), multi_class="ovo")
+                )
+            metric = torch.FloatTensor(metric).to(predictions.device)
+
         elif self.metric_name == "nll":
             logits = self.get_logits_from_probabilities(predictions)
             metric_per_sample = self.cross_entropy(
@@ -143,3 +154,18 @@ class Evaluator(BaseMetaDataset):
             raise ValueError("metric_name must be either error or nll")
 
         return metric, metric_per_pipeline
+    
+    def score_y_pred(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+        
+        if self.metric_name == "nll":
+            metric = torch.nn.CrossEntropyLoss()(y_pred, y_true)
+        elif self.metric_name == "error":
+            metric = (y_pred.argmax(-1) != y_true).float().mean()
+        elif self.metric_name == "absolute_relative_error":
+            metric = torch.nn.L1Loss()(y_true, y_pred)
+        elif self.metric_name == "neg_roc_auc":
+            metric = 1-roc_auc_score(y_true.detach().cpu().numpy(), y_pred.detach().cpu().numpy(), multi_class="ovo")
+        else:
+            raise ValueError("Metric name is not known.")
+        
+        return metric

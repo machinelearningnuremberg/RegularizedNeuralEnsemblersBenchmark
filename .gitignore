@@ -14,6 +14,7 @@ slurm_scripts/*
 SearchingOptimalEnsembles_experiments/cluster_scripts/slurm/all_experiments.txt
 checkpoints/
 SearchingOptimalEnsembles_experiments/plots/saved_results/*
+SearchingOptimalEnsembles_experiments/cluster_scripts/slurm_pineda/bash_args/*
 
 # Documentation
 site/*

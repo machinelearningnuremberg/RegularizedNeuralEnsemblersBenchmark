@@ -63,6 +63,7 @@ def run(
     ne_weight_thd: float = 0.0,
     ne_dropout_dist: str | None = None,
     ne_omit_output_mask: bool = False,
+    ne_net_mode: str = "combined",
     #############################################
     des_method_name: str = "KNOP",
     sks_model_name: str = "random_forest",
@@ -146,6 +147,7 @@ def run(
         "ne_weight_thd": ne_weight_thd,
         "ne_dropout_dist": ne_dropout_dist,
         "ne_omit_output_mask": ne_omit_output_mask,
+        "ne_net_mode": ne_net_mode, 
         "des_method_name": des_method_name,
         "max_num_pipelines": max_num_pipelines,
         "sks_model_name": sks_model_name
@@ -206,9 +208,7 @@ def run(
             wandb.log(
                 {
                     "searcher_iteration": 0,
-                    "incumbent (norm)": metadataset.compute_normalized_score(
-                        torch.tensor(incumbent)
-                    ),
+                    "incumbent (norm)": metadataset.normalize_performance(incumbent)
                 }
             )
 
@@ -268,9 +268,7 @@ def run(
                 wandb.log(
                     {
                         "searcher_iteration": iteration + 1,
-                        "incumbent (norm)": metadataset.compute_normalized_score(
-                            torch.tensor(incumbent)
-                        ),
+                        "incumbent (norm)": metadataset.normalize_performance(incumbent)
                     }
                 )
 

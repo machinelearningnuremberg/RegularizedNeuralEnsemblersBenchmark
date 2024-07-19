@@ -274,21 +274,7 @@ class BaseMetaDataset:
             self.best_performance,
         ) = self._get_worst_and_best_performance()
 
-    def compute_normalized_score(self, score: torch.Tensor) -> torch.Tensor:
-        """Compute the normalized score.
 
-        Args:
-            score (torch.Tensor): The score tensor.
-
-        Returns:
-            torch.Tensor: The normalized score tensor.
-        """
-        if self.best_performance is not None and self.worst_performance is not None:
-            score = (score - self.best_performance) / (
-                self.worst_performance - self.best_performance
-            )
-
-        return score
     
     def normalize_performance(self, performance: float,
                               best_reference_performance: float = None,

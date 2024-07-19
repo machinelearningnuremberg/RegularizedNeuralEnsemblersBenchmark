@@ -61,7 +61,7 @@ class DESEnsembler(BaseEnsembler):
                                    split=split)
         X_dsel, y_dsel = self.metadataset.get_X_and_y()
         y_pred = self.des_object.predict_proba(X_dsel)
-        best_metric = self.metadataset.score(y_pred, y_dsel)
+        best_metric = self.metadataset.score_y_pred(y_pred, y_dsel)
         
         return best_metric
 

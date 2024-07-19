@@ -91,6 +91,7 @@ if __name__ == "__main__":
     parser.add_argument("--ne_weight_thd", type=float, default=0.)
     parser.add_argument("--ne_dropout_dist", type=str, default=None)
     parser.add_argument("--ne_omit_output_mask", action="store_true")
+    parser.add_argument("--ne_net_mode", type=str, default="combined")
     ##################### OTHERS #####################################################
     parser.add_argument("--des_method_name", type=str, default="KNOP")
     parser.add_argument("--sks_model_name", type=str, default="random_forest")

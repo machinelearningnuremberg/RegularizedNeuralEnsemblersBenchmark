@@ -8,10 +8,11 @@ import pandas as pd
 import torch
 
 from ..base_metadataset import BaseMetaDataset
+from ..evaluator import Evaluator
 
 #TODO: Unify the name "hp_candidate" and "pipeline", it might be confusing
 
-class QuicktuneMetaDataset(BaseMetaDataset):
+class QuicktuneMetaDataset(Evaluator):
     
     metadataset_name = "quicktune"
 
@@ -206,119 +207,8 @@ class QuicktuneMetaDataset(BaseMetaDataset):
     def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
         return torch.nn.Softmax(dim=-1)(self.predictions[torch.LongTensor(ensembles)])
 
-    def evaluate_ensembles(
-        self, ensembles: list[list[int]]
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        return self._evaluate_ensembles(ensembles=ensembles, weights=None)
-
-    def evaluate_ensembles_with_weights(
-        self, ensembles: list[list[int]], weights: list[float]
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        return self._evaluate_ensembles(ensembles=ensembles, weights=weights)
-
-    def _evaluate_ensembles(self, ensembles: list[list[int]], weights: torch.Tensor):
-        batch_size = len(ensembles)
-        ensembles = torch.LongTensor(ensembles).to(self.device)
-        # hp_candidates, time, predictions, targets = self.get_dataset_info(self.dataset_name)
-
-        time_per_pipeline = self.time[ensembles]
-
-        # Predictions shape: [Num. ensembles X Num. pipelines X Num Samples X Num. Classes]
-        # predictions = self.predictions[ensembles].to(self.device)
-
-        predictions = self.get_predictions(ensembles).to(self.device)
-
-        targets = torch.tile(self.targets.unsqueeze(0), (batch_size, 1)).to(self.device)
-        hp_candidates = self.hp_candidates[ensembles]
-        metric = []
-        metric_per_pipeline = []
-        total_num_samples = predictions.shape[-2]
-        for i in range(0, total_num_samples, self.processing_batch_size):
-            range_idx = list(
-                range(i, min(i + self.processing_batch_size, total_num_samples))
-            )
-            current_samples_ratio = len(range_idx) / total_num_samples
-            temp_predictions = predictions[..., range_idx, :]
-            temp_targets = targets[:, range_idx]
-            if weights is not None:
-                temp_weights = weights[..., range_idx, :]
-            else:
-                temp_weights = None
-            temp_metric, temp_metric_per_pipeline = self._compute_metrics(
-                temp_predictions, temp_targets, temp_weights, batch_size
-            )
-            metric.append(temp_metric.unsqueeze(-1) * current_samples_ratio)
-            metric_per_pipeline.append(
-                temp_metric_per_pipeline.unsqueeze(-1) * current_samples_ratio
-            )
-
-        metric = torch.cat(metric, axis=-1).sum(-1)
-        metric_per_pipeline = torch.cat(metric_per_pipeline, axis=-1).sum(-1)
-
-        return hp_candidates, metric, metric_per_pipeline, time_per_pipeline
-
-    def get_logits_from_probabilities(self, probabilities):
-        log_p = torch.log(probabilities + 10e-8)
-        C = -log_p.mean(-1)
-        logits = log_p + C.unsqueeze(-1)
-        return logits
-
     def get_num_samples(self):
         return self.predictions.shape[1]
-
-    def _compute_metrics(
-        self,
-        predictions: torch.Tensor,
-        targets: torch.Tensor,
-        weights: torch.Tensor,
-        batch_size: int,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        n_classes = predictions.shape[-1]
-        ensemble_size = predictions.shape[1]
-        temp_targets = torch.tile(targets.unsqueeze(1), (1, ensemble_size, 1))
-
-        cross_entropy = torch.nn.CrossEntropyLoss(reduction="none")
-
-        if weights is not None:
-            assert weights.shape == predictions.shape
-            weights = weights.to(self.device)
-            weighted_predictions = torch.multiply(predictions, weights)
-        else:
-            weighted_predictions = predictions
-
-        if self.metric_name == "error":
-            metric_per_sample = torch.ne(
-                predictions.reshape(-1, n_classes).argmax(-1), temp_targets.reshape(-1)
-            ).float()
-            metric_per_sample = metric_per_sample.reshape(batch_size, ensemble_size, -1)
-            metric_per_pipeline = metric_per_sample.mean(axis=2)
-            metric_ensemble_per_sample = torch.ne(
-                weighted_predictions.sum(1).reshape(-1, n_classes).argmax(-1),
-                targets.reshape(-1),
-            ).float()
-            metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(axis=-1)
-
-        elif self.metric_name == "nll":
-            logits = self.get_logits_from_probabilities(predictions)
-            metric_per_sample = cross_entropy(
-                logits.reshape(-1, n_classes), temp_targets.reshape(-1)
-            )
-            metric_per_sample = metric_per_sample.reshape(batch_size, ensemble_size, -1)
-            metric_per_pipeline = metric_per_sample.mean(axis=-1)
-
-            # logits
-            weighted_logits = self.get_logits_from_probabilities(
-                weighted_predictions.sum(1)
-            )
-            metric_ensemble_per_sample = cross_entropy(
-                weighted_logits.reshape(-1, n_classes), targets.reshape(-1)
-            )
-            metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(axis=-1)
-
-        else:
-            raise ValueError("metric_name must be either error or nll")
-
-        return metric, metric_per_pipeline
 
     def get_num_classes(self) -> int:
         return self.predictions.shape[-1]
@@ -328,3 +218,113 @@ class QuicktuneMetaDataset(BaseMetaDataset):
 
     def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:
         return self.hp_candidates[ensembles]
+    
+    def get_time(self, ensembles: list[list[int]]) -> torch.Tensor:
+        time_per_pipeline = self.time[ensembles]
+        return time_per_pipeline
+    
+    # def evaluate_ensembles(
+    #     self, ensembles: list[list[int]]
+    # ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    #     return self._evaluate_ensembles(ensembles=ensembles, weights=None)
+
+    # def evaluate_ensembles_with_weights(
+    #     self, ensembles: list[list[int]], weights: list[float]
+    # ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    #     return self._evaluate_ensembles(ensembles=ensembles, weights=weights)
+
+    # def _evaluate_ensembles(self, ensembles: list[list[int]], weights: torch.Tensor):
+    #     batch_size = len(ensembles)
+    #     ensembles = torch.LongTensor(ensembles).to(self.device)
+    #     # hp_candidates, time, predictions, targets = self.get_dataset_info(self.dataset_name)
+
+    #     time_per_pipeline = self.time[ensembles]
+
+    #     # Predictions shape: [Num. ensembles X Num. pipelines X Num Samples X Num. Classes]
+    #     # predictions = self.predictions[ensembles].to(self.device)
+
+    #     predictions = self.get_predictions(ensembles).to(self.device)
+
+    #     targets = torch.tile(self.targets.unsqueeze(0), (batch_size, 1)).to(self.device)
+    #     hp_candidates = self.hp_candidates[ensembles]
+    #     metric = []
+    #     metric_per_pipeline = []
+    #     total_num_samples = predictions.shape[-2]
+    #     for i in range(0, total_num_samples, self.processing_batch_size):
+    #         range_idx = list(
+    #             range(i, min(i + self.processing_batch_size, total_num_samples))
+    #         )
+    #         current_samples_ratio = len(range_idx) / total_num_samples
+    #         temp_predictions = predictions[..., range_idx, :]
+    #         temp_targets = targets[:, range_idx]
+    #         if weights is not None:
+    #             temp_weights = weights[..., range_idx, :]
+    #         else:
+    #             temp_weights = None
+    #         temp_metric, temp_metric_per_pipeline = self._compute_metrics(
+    #             temp_predictions, temp_targets, temp_weights, batch_size
+    #         )
+    #         metric.append(temp_metric.unsqueeze(-1) * current_samples_ratio)
+    #         metric_per_pipeline.append(
+    #             temp_metric_per_pipeline.unsqueeze(-1) * current_samples_ratio
+    #         )
+
+    #     metric = torch.cat(metric, axis=-1).sum(-1)
+    #     metric_per_pipeline = torch.cat(metric_per_pipeline, axis=-1).sum(-1)
+
+    #     return hp_candidates, metric, metric_per_pipeline, time_per_pipeline
+
+
+    # def _compute_metrics(
+    #     self,
+    #     predictions: torch.Tensor,
+    #     targets: torch.Tensor,
+    #     weights: torch.Tensor,
+    #     batch_size: int,
+    # ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    #     n_classes = predictions.shape[-1]
+    #     ensemble_size = predictions.shape[1]
+    #     temp_targets = torch.tile(targets.unsqueeze(1), (1, ensemble_size, 1))
+
+    #     cross_entropy = torch.nn.CrossEntropyLoss(reduction="none")
+
+    #     if weights is not None:
+    #         assert weights.shape == predictions.shape
+    #         weights = weights.to(self.device)
+    #         weighted_predictions = torch.multiply(predictions, weights)
+    #     else:
+    #         weighted_predictions = predictions
+
+    #     if self.metric_name == "error":
+    #         metric_per_sample = torch.ne(
+    #             predictions.reshape(-1, n_classes).argmax(-1), temp_targets.reshape(-1)
+    #         ).float()
+    #         metric_per_sample = metric_per_sample.reshape(batch_size, ensemble_size, -1)
+    #         metric_per_pipeline = metric_per_sample.mean(axis=2)
+    #         metric_ensemble_per_sample = torch.ne(
+    #             weighted_predictions.sum(1).reshape(-1, n_classes).argmax(-1),
+    #             targets.reshape(-1),
+    #         ).float()
+    #         metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(axis=-1)
+
+    #     elif self.metric_name == "nll":
+    #         logits = self.get_logits_from_probabilities(predictions)
+    #         metric_per_sample = cross_entropy(
+    #             logits.reshape(-1, n_classes), temp_targets.reshape(-1)
+    #         )
+    #         metric_per_sample = metric_per_sample.reshape(batch_size, ensemble_size, -1)
+    #         metric_per_pipeline = metric_per_sample.mean(axis=-1)
+
+    #         # logits
+    #         weighted_logits = self.get_logits_from_probabilities(
+    #             weighted_predictions.sum(1)
+    #         )
+    #         metric_ensemble_per_sample = cross_entropy(
+    #             weighted_logits.reshape(-1, n_classes), targets.reshape(-1)
+    #         )
+    #         metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(axis=-1)
+
+    #     else:
+    #         raise ValueError("metric_name must be either error or nll")
+
+    #     return metric, metric_per_pipeline
