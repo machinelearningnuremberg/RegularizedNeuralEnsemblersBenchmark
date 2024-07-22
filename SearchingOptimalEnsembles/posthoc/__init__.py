@@ -12,7 +12,11 @@ try:
 except Exception as e:
     print(f"Error importing CMAESEnsembler: {e}")
     CMAESEnsembler = None
-from .des_ensembler import DESEnsembler
+try:
+    from .des_ensembler import DESEnsembler
+except Exception as e:
+    print(f"Error importing DESEnsembler: {e}")
+    DESEnsembler = None
 from .single_best import SingleBest
 
 EnsemblerMapping: dict[str, Callable] = {

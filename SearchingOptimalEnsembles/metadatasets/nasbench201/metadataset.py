@@ -1,61 +1,36 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import dask.array as da
+import dask.dataframe as dd
+import numpy as np
+import pandas as pd
 import torch
+from tqdm import tqdm
 
 from ..evaluator import Evaluator
 
-import pandas as pd
-
-import numpy as np
-import torch
-
-from pathlib import Path
-
-from tqdm import tqdm
-
-from torchvision import datasets as dset
-from torchvision import transforms
-import torch
-from pathlib import Path
-from tqdm import tqdm
-
-# TODO: confirm with Arber
-def _data_transforms_cifar10():
-    CIFAR_MEAN = [0.49139968, 0.48215827, 0.44653124]
-    CIFAR_STD = [0.24703233, 0.24348505, 0.26158768]
-
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
-    ])
-
-    return transform
 
 class NASBench201MetaDataset(Evaluator):
+    _predictions = pd.DataFrame()
+    _labels = pd.DataFrame()
+    _features = pd.DataFrame()
 
-    _preds = pd.DataFrame()
-    _dataset = pd.DataFrame()
-    _configs = pd.DataFrame()
+    data_version_map = {"micro": 100, "mini": 1000, "extended": 15625}
 
-    data_version_map = {
-        "micro": 200,
-        "mini": 1000,
-        "extended": 15625
-    }
-
-    metadataset_name = "nasbench"
     num_classes = {}
     splits = ["val", "test"]
 
     def __init__(
         self,
-        data_dir: str = "/work/dlclarge2/janowski-quicktune/nb201_data",
+        data_dir: str = "/work/dlclarge2/janowski-quicktune/nb201_data/nb201_preds",
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         seed: int = 0,
         split: str = "valid",
         metric_name: str = "error",
         data_version: str = "micro",
-        **kwargs,
+        **kwargs,  # pylint: disable=unused-argument
     ):
         super().__init__(
             data_dir=data_dir,
@@ -63,211 +38,280 @@ class NASBench201MetaDataset(Evaluator):
             seed=seed,
             split=split,
             metric_name=metric_name,
-            data_version=data_version
         )
 
-        self.feature_dim = 6
+        self.feature_dim = None
         self.data_dir = Path(data_dir)
         self.data_version = data_version
 
         self._initialize()
 
-    def set_state(self, dataset_name: str,
-                  split: str = "valid"):
+    def set_state(self, dataset_name: str):
         self.logger.debug(f"Setting dataset: {dataset_name}")
 
-        assert dataset_name in self.get_dataset_names(), f"Invalid dataset name: {dataset_name}"
+        assert (
+            dataset_name in self.get_dataset_names()
+        ), f"Invalid dataset name: {dataset_name}"
 
-        transform = _data_transforms_cifar10()
-        self.load_dataset(transform)
         self.load_data(dataset_name)
 
-        super().set_state(dataset_name,
-                            split=split)
+        super().set_state(dataset_name)
 
-    # TODO: we should save dataframes to disk and load them from there
-    def load_dataset(self, transform):
-        # TODO: ask Arber how he generated the data
-
-        nb201_seeds = [777, 888, 999]
-        torch.manual_seed(nb201_seeds[self.seed])
-        # Load the full training dataset (intended for train) but use for valid/test split
-        full_dataset = dset.CIFAR10(root=self.data_dir, train=True, download=True, transform=transform)
-
-        # Splitting the dataset
-        num_samples = len(full_dataset)
-        valid_size = int(0.5 * num_samples)
-        test_size = int(0.2 * num_samples)
-        _, valid_test_dataset = torch.utils.data.random_split(full_dataset, [num_samples - valid_size - test_size, valid_size + test_size])
-        valid_dataset, test_dataset = torch.utils.data.random_split(valid_test_dataset, [valid_size, test_size])
-
-        dataset = valid_dataset if self.split == "valid" else test_dataset
-        self._dataset = self.create_dataframe(dataset, self.split)
-
-    def create_dataframe(self, dataset, split):
-        data = []
-        for image, label in tqdm(dataset, desc=f"Loading {split} data"):
-            img_array = np.array(image.permute(1, 2, 0))  # Convert CxHxW to HxWxC
-            flat_img = img_array.flatten()
-            data.append({
-                'data': flat_img,
-                'label': label,
-                'split': split
-            })
-        return pd.DataFrame(data)
-
-    # TODO: we should save dataframes to disk and load them from there
     def load_data(self, dataset):
-        
         split = "val" if self.split == "valid" else self.split
+        base_path = self.data_dir / dataset / str(self.seed) / self.data_version
 
-        data_path = self.data_dir / "nb201_preds" / dataset / str(self.seed)
-        # Retrieve all model files
-        model_files = list(data_path.glob("*.pt"))
+        labels_path = base_path / f"labels_{split}.parquet"
+        features_path = base_path / f"features_{split}.parquet"
+        preds_path = base_path / f"preds_{split}.parquet"
 
-        # Randomize model files order
-        np.random.shuffle(model_files)
+        # if labels_path.exists() and features_path.exists() and preds_path.exists():
+        #     self._labels = dd.read_parquet(labels_path)
+        #     self._features = dd.read_parquet(features_path)
+        #     self._predictions = dd.read_parquet(preds_path)
+        #     self.feature_dim = len(self._features.columns)
+        #     return
 
-        # Use only up to the number of models specified in data_version_map
-        selected_model_files = model_files[:self.data_version_map[self.data_version]]
+        base_path.mkdir(parents=True, exist_ok=True)
 
-        all_data = []
+        data_path = self.data_dir / dataset / str(self.seed)
+        model_files = list(data_path.glob("*.pt"))[
+            : self.data_version_map[self.data_version]
+        ]
+
+        all_preds = []
+        all_labels = None
         all_configs = []
-        new_model_id = 1  # Start indexing from 1
 
-        for model_file in tqdm(selected_model_files, desc=f"Processing {dataset}-{self.seed}-{split}"):
+        model_id = 0
+        for model_file in tqdm(
+            model_files, desc=f"Processing {dataset}-{self.seed}-{split}"
+        ):
             data = torch.load(model_file)
-            # Use a new sequential model_id instead of file stem
-            preds = data['preds'][split].tensors[0].numpy()
 
-            # Create an index with new_model_id and an index range for each datapoint
-            index = pd.MultiIndex.from_product([[new_model_id], range(len(preds))], names=['model_id', 'datapoint_id'])
-            df = pd.DataFrame(preds, index=index, columns=[f'pred_class_{i}' for i in range(preds.shape[1])])
-            all_data.append(df)
+            preds = data["preds"][split].tensors[0].numpy()
+            df_preds = pd.DataFrame(
+                preds, columns=[f"pred_class_{i}" for i in range(preds.shape[1])]
+            )
+            df_preds["model_id"] = model_id
+            df_preds["datapoint_id"] = range(
+                len(preds)
+            )  # Consistent ordering of datapoints
+            all_preds.append(df_preds)
 
-            config = self.parse_config(data['config'])
-            index = pd.Index([new_model_id], name='model_id')
-            config_df = pd.DataFrame([config], index=index)
-            all_configs.append(config_df)
+            if all_labels is None:
+                labels = data["preds"][split].tensors[1].numpy()
+                all_labels = pd.DataFrame(labels, columns=["label"])
+                all_labels["datapoint_id"] = range(len(labels))
 
-            new_model_id += 1  # Increment model_id for the next model
+            config = self.parse_config(data["config"])
+            df_configs = pd.DataFrame([config])
+            df_configs["model_id"] = model_id
+            all_configs.append(df_configs)
 
-        # Concatenate all dataframes ensuring they all have the same structure
-        if all_data:
-            self._preds = pd.concat(all_data)
+            model_id += 1
 
-        if all_configs:
-            configs_df = pd.concat(all_configs)
-            self._configs = self.one_hot_encode_configs(configs_df)
+        df_preds_combined = pd.concat(all_preds)
+        df_configs_combined = pd.concat(all_configs)
+        df_configs_combined = self.one_hot_encode_operations(df_configs_combined)
+
+        self._predictions = dd.from_pandas(df_preds_combined, npartitions=10)
+        self._features = dd.from_pandas(df_configs_combined, npartitions=10)
+        self.feature_dim = len(self._features.columns)
+
+        self._labels = dd.from_pandas(all_labels, npartitions=1)
+
+        self._predictions.to_parquet(preds_path)
+        self._features.to_parquet(features_path)
+        self._labels.to_parquet(labels_path)
 
     def parse_config(self, config_str):
         # Assume the configuration is split into meaningful parts here
-        ops = [op for op in config_str.split('|') if op and op != '+']
-        return {f'op{i}': op for i, op in enumerate(ops) if op}
+        ops = [op for op in config_str.split("|") if op and op != "+"]
+        return {f"op{i}": op for i, op in enumerate(ops) if op}
 
     def get_dataset_names(self) -> list[str]:
-        return ["cifar10"]
+        return ["cifar10", "cifar100", "imagenet"]
 
-    def one_hot_encode_configs(self, configs_df):
-        # Assuming configuration keys are the column headers
-        all_ops = pd.get_dummies(configs_df, prefix='', prefix_sep='').groupby(level=0).max()
-        return all_ops
+    def one_hot_encode_operations(self, configs_df):
+        model_ids = configs_df["model_id"]
+        # Flatten the series to get a list of all unique operations across all columns
+        all_ops = pd.unique(configs_df.values.ravel())
+
+        # Create a DataFrame to hold the one-hot encoded vectors
+        encoded_df = pd.DataFrame(index=configs_df.index)
+
+        # Encode each operation column
+        for column in configs_df.columns:
+            if column == "model_id":
+                continue  # Skip model_id as it's not an operation
+            # Get one-hot encoding for the column
+            one_hot = pd.get_dummies(configs_df[column], dtype=int)  # Ensure dtype is int
+            # Add missing columns for operations that are not present in this column
+            missing_cols = set(all_ops) - set(one_hot.columns)
+            for col in missing_cols:
+                one_hot[col] = 0  # These are initialized as int implicitly
+            # Prefix the column names to ensure they are unique
+            one_hot = one_hot.rename(
+                columns={op: f"{column}_{op}" for op in one_hot.columns}
+            )
+            encoded_df = pd.concat([encoded_df, one_hot], axis=1)
+
+        encoded_df["model_id"] = model_ids
+        return encoded_df
 
     def _get_hp_candidates_and_indices(self) -> tuple[torch.Tensor, torch.Tensor]:
-        if self._configs.empty:
-            raise ValueError("Configuration data is empty. Ensure data is loaded correctly.")
+        if self._features is None or self._features.compute().empty:
+            raise ValueError(
+                "Configuration data is empty. Ensure data is loaded correctly."
+            )
+        # Convert the Dask DataFrame to a Dask Array
+        # Note: `lengths=True` will ensure that the array knows the length of each block
+        hp_candidates_da = self._features.to_dask_array(lengths=True)
 
-        # Convert numpy arrays to torch tensors
-        hp_candidates = self._configs.values
-        hp_candidates = torch.tensor(hp_candidates, dtype=torch.float32)
+        # Computing the values with Dask, and then convert to a Torch tensor
+        # Note: Ensure that the compute operation is feasible; it must not exceed your system's memory capacity
+        hp_candidates_np = (
+            hp_candidates_da.compute()
+        )  # This will pull the data into memory as a NumPy array
+        hp_candidates = torch.tensor(hp_candidates_np, dtype=torch.float32)
 
-        hp_candidates_ids = list(self._configs.index)
-        hp_candidates_ids = torch.tensor(hp_candidates_ids, dtype=torch.int32)
+        # Extracting model IDs and converting them similarly
+        hp_candidates_ids_np = self._features["model_id"].compute().values
+        hp_candidates_ids = torch.tensor(hp_candidates_ids_np, dtype=torch.int32)
 
         return hp_candidates, hp_candidates_ids
 
-    def _get_worst_and_best_performance(self) -> tuple[torch.Tensor, torch.Tensor]:
-        if self._preds.empty:
-            raise ValueError("Prediction data is empty. Ensure data is loaded and processed correctly.")
+    def _get_worst_and_best_performance(self):
+        split = "val" if self.split == "valid" else self.split
+        base_path = self.data_dir / self.dataset_name / str(self.seed) / self.data_version
+        metafeatures_path = base_path / f"metafeatures_{split}.csv"
 
-        # Dictionary to store accuracy of each model
-        accuracy_per_model = {}
+        # Check if metafeatures file exists
+        # if metafeatures_path.exists():
+        #     # Load previously computed performance metrics
+        #     metafeatures = pd.read_csv(metafeatures_path)
+        #     worst_performance = metafeatures['worst_performance'].item()
+        #     best_performance = metafeatures['best_performance'].item()
+        # else:
+        # Compute performance metrics
+        if self._predictions is None or self._predictions.compute().empty:
+            raise ValueError(
+                "Prediction data is empty. Ensure data is loaded and processed correctly."
+            )
 
-        for model_id, group in self._preds.groupby(level='model_id'):
-            # Determine predicted labels from predictions for each model
-            prediction_cols = [col for col in group.columns if col.startswith('pred_class_')]
-            predicted_labels = group[prediction_cols].idxmax(axis=1)
-            predicted_labels = predicted_labels.str.replace('pred_class_', '').astype(int)
+        num_classes = self.get_num_classes()
+        true_labels = self._labels["label"].compute().values.astype(int)
 
-            # Filtering the labels from _dataset based on the current split and datapoint_id
-            # relevant_dataset = self._dataset[(self._dataset['split'] == self.split) & (self._dataset.index.isin(group.index.get_level_values('datapoint_id')))]
-            relevant_dataset = self._dataset[(self._dataset.index.isin(group.index.get_level_values('datapoint_id')))]
-            true_labels = torch.tensor(relevant_dataset['label'].values)
+        def compute_accuracy(group):
+            predicted_probs = group.values.reshape(-1, num_classes)
+            predicted_labels = predicted_probs.argmax(axis=1)
+            correct_predictions = predicted_labels == true_labels
+            # Ensure that correct_predictions is an array and perform mean calculation
+            if isinstance(correct_predictions, np.ndarray):
+                accuracy = np.mean(correct_predictions.astype(float))
+            else:
+                accuracy = float(
+                    correct_predictions
+                )  # Handle the case where it's a single bool
+            return accuracy
 
-            # Compute correct predictions and calculate accuracy
-            correct_predictions = predicted_labels.values == true_labels.values
-            accuracy = correct_predictions.astype(float).mean()  # Convert Boolean array to float and calculate mean
+        accuracy_series = self._predictions.groupby("model_id").apply(
+            compute_accuracy, meta=("x", "f8")
+        )
+        accuracies = accuracy_series.compute().tolist()
 
-            accuracy_per_model[model_id] = accuracy
+        # Save performance metrics
+        accuracies_tensor = torch.tensor(accuracies)
+        worst_performance = accuracies_tensor.min().item()
+        best_performance = accuracies_tensor.max().item()
 
-        # Convert performance to a tensor for easier manipulation
-        performance_tensor = torch.tensor(list(accuracy_per_model.values()))
-
-        # Get worst and best performance
-        worst_performance = performance_tensor.min()
-        best_performance = performance_tensor.max()
+        # Save to CSV
+        pd.DataFrame(
+            {
+                "worst_performance": [worst_performance],
+                "best_performance": [best_performance],
+            }
+        ).to_csv(metafeatures_path, index=False)
 
         return worst_performance, best_performance
 
     def get_num_classes(self) -> int:
-        return 10
+        # This operation is lazy and only computes the unique values when necessary
+        unique_classes = self._labels["label"].drop_duplicates().compute()
+        return len(unique_classes)
 
     def get_num_samples(self) -> int:
-        return len(self._preds.index.get_level_values('datapoint_id').unique())
+        # Assuming 'datapoint_id' is a column and not an index level in Dask
+        unique_datapoints = self._labels["datapoint_id"].drop_duplicates().compute()
+        return len(unique_datapoints)
 
     def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:
-
         # Flatten the list of lists to get all model IDs in ensembles
         model_ids = [model_id for ensemble in ensembles for model_id in ensemble]
-        # Use `.loc` to select rows from _configs based on model_ids, ensuring all model_ids are present in _configs
-        features_df = self._configs.loc[model_ids]
-        # Convert the selected DataFrame to a torch Tensor
+        # Use Dask to efficiently select rows and delay computation
+        features_df = self._features[self._features["model_id"].isin(model_ids)].compute()
+        # Convert to a torch Tensor
         features_tensor = torch.tensor(features_df.values, dtype=torch.float32)
 
         return features_tensor
 
     def get_targets(self) -> torch.Tensor:
-        return torch.tensor(self._dataset['label'].values, dtype=torch.int32)
+        # Efficiently get labels and compute them to a tensor
+        labels_np = self._labels["label"].compute().values  # Compute only when needed
+        targets_tensor = torch.tensor(labels_np, dtype=torch.int32)
+
+        return targets_tensor
 
     def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
+        # Fetch probabilities using Dask
+        y_proba_da = self._get_probabilities(ensembles=ensembles)
+        # Convert the Dask array to a NumPy array and then to a Torch tensor
+        y_proba_np = y_proba_da.compute()  # This should have shape (B, M, N, C)
+        y_proba_tensor = torch.from_numpy(y_proba_np).float()  # Convert to float tensor
 
-        y_proba_np = self._get_probabilities(ensembles=ensembles)
-        # Convert the numpy array to torch tensor
-        y_proba = torch.tensor(y_proba_np, dtype=torch.float32)
-        # Assuming the current shape of y_proba is (B, M, N, C)
-        y_proba = y_proba.permute(0, 2, 1, 3)
+        # Ensure the tensor is in the correct shape, although it should already be correct
+        return y_proba_tensor
 
-        return y_proba
-
-    # TODO: efficiency!
-    def _get_probabilities(self, ensembles: list[list[int]]) -> np.ndarray:
-
+    def _get_probabilities(self, ensembles: list[list[int]]) -> da.Array:
         num_datapoints = self.get_num_samples()
         num_classes = self.get_num_classes()
 
-        # Adjust the shape to include ensemble size, even if each ensemble has 1 model at a time
-        y_proba = np.zeros((len(ensembles), num_datapoints, len(ensembles[0]), num_classes))
+        ensemble_arrays = []
+        for ensemble in ensembles:
+            model_predictions = []
+            for model_id in ensemble:
+                model_preds = self._predictions[
+                    self._predictions["model_id"] == model_id
+                ].compute()
+                model_preds = model_preds.sort_values("datapoint_id")
+                model_preds_array = model_preds.drop(
+                    columns=["model_id", "datapoint_id"], errors="ignore"
+                ).to_numpy()
+                model_predictions.append(model_preds_array)
 
-        for i, ensemble in enumerate(ensembles):
-            for j, model_id in enumerate(ensemble):
-                # Selecting predictions for a specific model across all its datapoints
-                model_preds = self._preds.loc[model_id]
-                # Ensure predictions are aligned correctly by datapoint_id
-                for index, (_, preds) in enumerate(model_preds.iterrows()):
-                    # Assuming index matches datapoint_id if they are 0 to num_datapoints-1 consecutively
-                    y_proba[i, index, j, :] = preds.values  # Note the addition of 'j' to index ensemble members
+            # Stack model predictions to ensure shape is (M, N, C)
+            model_predictions_stack = np.stack(model_predictions, axis=0)
 
+            # Check and reshape if necessary to ensure dimensions are (1, M, N, C)
+            if model_predictions_stack.ndim == 3:  # This happens when M is 1
+                model_predictions_stack = model_predictions_stack.reshape(
+                    (1,) + model_predictions_stack.shape
+                )
+
+            # Convert the numpy array directly to a Dask array with explicit chunking
+            ensemble_da = da.from_array(
+                model_predictions_stack,
+                chunks=(1, len(ensemble), num_datapoints, num_classes),
+            )
+            ensemble_arrays.append(ensemble_da)
+
+        # Concatenate all ensemble arrays along a new batch axis
+        y_proba = da.concatenate(ensemble_arrays, axis=0)
         return y_proba
 
     def get_time(self, ensembles: list[list[int]]) -> torch.Tensor:
         return torch.zeros(len(ensembles), len(ensembles[0]))
+
+    def get_num_pipelines(self) -> int:
+        return self.data_version_map[self.data_version]
