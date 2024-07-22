@@ -7,6 +7,10 @@ import torch
 
 from ..evaluator import Evaluator
 
+import sklearn 
+from sklearn.pipeline import Pipeline
+import joblib
+
 class ScikitLearnMetaDataset(Evaluator):
 
     metadataset_name = "scikit-learn"
@@ -150,6 +154,23 @@ class ScikitLearnMetaDataset(Evaluator):
     def get_time(self, ensembles: list[list[int]]) -> torch.Tensor:
         return torch.zeros(len(ensembles), 
                             len(ensembles[0]))
+
+    def get_pipelines(self, ensembles: list[list[int]]) -> list[list[Pipeline]]:
+        pipeline_ids = [pipeline_id for sublist in ensembles for pipeline_id in sublist]
+        pipeline_paths_df = self.benchmark._pipelines[self.benchmark._pipelines['pipeline_id'].isin(pipeline_ids)]
+        id_to_path = dict(zip(pipeline_paths_df['pipeline_id'], pipeline_paths_df['pipeline_path']))
+        
+        ens = []
+        for sublist in ensembles:
+            for pipeline_id in sublist:
+                try:
+                    p = joblib.load(id_to_path[pipeline_id])
+                except Exception as e:
+                    print(f"Error loading pipeline {pipeline_id}: {e}")
+                    p = Pipeline()
+                ens.append(p)
+
+        return ens
 
     def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:
         pipeline_hps = self.benchmark.get_pipeline_features(ensembles=ensembles)
