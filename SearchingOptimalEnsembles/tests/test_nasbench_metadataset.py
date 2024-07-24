@@ -9,7 +9,7 @@ from SearchingOptimalEnsembles.metadatasets.base_metadataset import META_SPLITS
 
 if __name__ == "__main__":
 
-    metadataset = nasbench.NASBench201MetaDataset(data_version="extended")
+    metadataset = nasbench.NASBench201MetaDataset(data_version="micro")
     for dataset_name in metadataset.dataset_names:
         metadataset.set_state(dataset_name)
         predictions = metadataset.get_predictions([[1,2]])

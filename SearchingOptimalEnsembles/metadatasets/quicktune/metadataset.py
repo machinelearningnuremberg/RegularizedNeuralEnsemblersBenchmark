@@ -217,10 +217,10 @@ class QuicktuneMetaDataset(Evaluator):
         return len(self.hp_candidates_ids)
 
     def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:
-        return self.hp_candidates[ensembles]
+        return self.hp_candidates[torch.LongTensor(ensembles)]
     
     def get_time(self, ensembles: list[list[int]]) -> torch.Tensor:
-        time_per_pipeline = self.time[ensembles]
+        time_per_pipeline = self.time[torch.LongTensor(ensembles)]
         return time_per_pipeline
     
     # def evaluate_ensembles(
