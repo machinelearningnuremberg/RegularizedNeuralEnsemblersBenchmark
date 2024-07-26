@@ -16,5 +16,3 @@ if __name__ == "__main__":
         metadataset.evaluate_ensembles([[1,2,3],
                                         [4,5,6]])
 
-        metadataset.score_ensemble([1,2])
-        metadataset._get_worst_and_best_performance()

@@ -139,7 +139,7 @@ class NeuralEnsembler(BaseEnsembler):
         self.mode = mode
 
     def batched_prediction(
-        self, X, base_functions
+        self, X
     ):
 
         _, num_samples, num_classes, num_pipelines = X.shape
@@ -157,8 +157,7 @@ class NeuralEnsembler(BaseEnsembler):
 
             with torch.no_grad():
                 output, w = self.net(
-                    x=X[:, range_idx],
-                    base_functions=base_functions[:, range_idx]
+                    x=X[:, range_idx]
                 )
             outputs.append(output.to(self.prediction_device))
 
@@ -178,7 +177,7 @@ class NeuralEnsembler(BaseEnsembler):
     def get_auto_weight_thd(self):
         return 1 / (self.metadataset.get_num_classes() * self.metadataset.get_num_pipelines())
 
-    def get_weights(self, X_obs, X_context=None, y_context=None):
+    def get_weights(self, X_obs):
         base_functions = (
             self.metadataset.get_predictions([X_obs])[0]
             .transpose(0, 1)
@@ -189,7 +188,6 @@ class NeuralEnsembler(BaseEnsembler):
 
         _, weights = self.batched_prediction(
             X=base_functions,
-            base_functions=base_functions
         )
         if weights is not None:
             weights = self.prune_weights(weights)
@@ -227,14 +225,14 @@ class NeuralEnsembler(BaseEnsembler):
         
         if self.auto_dropout:
             self.net = self.auto_dropout_and_fit(
-                X_train=base_functions, y_train=y, base_functions_train=base_functions
+                X_train=base_functions, y_train=y
             )           
         else:
             self.net = self.fit_net(
-                X_train=base_functions, y_train=y, base_functions_train=base_functions
+                X_train=base_functions, y_train=y
             )
         _, weights = self.batched_prediction(
-            X=base_functions, base_functions=base_functions
+            X=base_functions
         )
         best_ensemble = X_obs
         _, best_metric, _, _ = self.metadataset.evaluate_ensembles_with_weights(
@@ -252,12 +250,12 @@ class NeuralEnsembler(BaseEnsembler):
                 output.append(arg)
         return output
 
-    def get_batch(self, X_train, base_functions_train, y_train):
+    def get_batch(self, X_train, y_train):
         _, num_samples, num_classes, num_base_functions = X_train.shape
     
         idx = np.random.randint(0, min(self.ne_batch_size, num_samples), self.ne_batch_size)
        # return (X_train[:, idx], base_functions_train[:, idx], y_train[:, idx])
-        return (X_train, base_functions_train, y_train)
+        return (X_train, y_train)
 
     def count_parameters(self, model):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -288,14 +286,13 @@ class NeuralEnsembler(BaseEnsembler):
             .unsqueeze(0)
             .to(self.device)
         )
-        y_pred = self.net(base_functions, base_functions)[0][0]
+        y_pred = self.net(base_functions)[0][0]
         return y_pred
          
         
     def auto_dropout_and_fit(self,
                         X_train, 
                         y_train,
-                        base_functions_train,
                         num_folds=3,
                         dropout_rate_list = [0, 0.25, 0.5, 0.75]
                         ):
@@ -310,23 +307,20 @@ class NeuralEnsembler(BaseEnsembler):
             for train_idx, val_idx in kf.split(idx):
                 net = self.fit_net(X_train[:,train_idx], 
                                 y_train[:,train_idx], 
-                                base_functions_train[:,train_idx],
                                 dropout_rate
                                 )
                 temp_val_loss = self.validate(net, X_train[:,val_idx], 
-                                        y_train[:,val_idx],
-                                        base_functions_train[:,val_idx])
+                                        y_train[:,val_idx])
                 val_loss += temp_val_loss / len(dropout_rate_list)
             val_loss_list.append(val_loss)
         
         best_dropout_rate = dropout_rate_list[np.argmin(val_loss_list)]
-        return self.fit_net(X_train, y_train, base_functions_train, best_dropout_rate)
+        return self.fit_net(X_train, y_train, best_dropout_rate)
 
     def fit_net(
         self,
         X_train,
         y_train,
-        base_functions_train,
         dropout_rate: float | None = None
     ):
         
@@ -334,11 +328,11 @@ class NeuralEnsembler(BaseEnsembler):
         if self.net_type == "ffn":
             NetClass = EFFNet
             input_dim = X_train.shape[-1]
-            output_dim = base_functions_train.shape[-1]  # [NUMBER OF BASE FUNCTIONS]
+            output_dim = X_train.shape[-1]  # [NUMBER OF BASE FUNCTIONS]
         elif self.net_type == "simple":
             NetClass = ENetSimple
             input_dim = 1
-            output_dim = base_functions_train.shape[-1]*base_functions_train.shape[-2]
+            output_dim = X_train.shape[-1]*X_train.shape[-2]
         else:
             raise NotImplementedError()
         
@@ -359,9 +353,9 @@ class NeuralEnsembler(BaseEnsembler):
         )
 
         if self.task_type == "regression":
-            self.y_max = base_functions_train.max()
+            self.y_max = X_train.max()
             y_train /= self.y_max
-            base_functions_train /= self.y_max
+            #base_functions_train /= self.y_max
             X_train /= self.y_max
 
         elif self.task_type == "classification":
@@ -373,13 +367,13 @@ class NeuralEnsembler(BaseEnsembler):
         if self.resume_from_checkpoint:
             self.load_checkpoint(model)
 
-        X_train, y_train, base_functions_train, model = self.send_to_device(
-            X_train, y_train, base_functions_train, model
+        X_train, y_train, model = self.send_to_device(
+            X_train, y_train, model
         )
 
         model.train()
         for epoch in range(self.epochs):
-            batch_data = self.get_batch(X_train, base_functions_train, y_train)
+            batch_data = self.get_batch(X_train, y_train)
             loss, w = self.fit_one_epoch(model, optimizer, batch_data)
             print("Epoch", epoch, "Loss", loss.item())
 
@@ -387,10 +381,10 @@ class NeuralEnsembler(BaseEnsembler):
         self.training = False
         return model
 
-    def validate(self, model, X_val, y_val, base_functions_val):
+    def validate(self, model, X_val, y_val):
 
-        X_val, y_val, base_functions_val = self.send_to_device(X_val, y_val, base_functions_val)
-        output, w = model(X_val, base_functions_val)
+        X_val, y_val = self.send_to_device(X_val, y_val)
+        output, w = model(X_val)
         logits = self.metadataset.get_logits_from_probabilities(output)
         _, num_samples, num_classes, num_base_functions = X_val.shape
 
@@ -400,9 +394,9 @@ class NeuralEnsembler(BaseEnsembler):
 
     def fit_one_epoch(self, model, optimizer, batch_data):
         optimizer.zero_grad()
-        X_batch, base_functions_batch, y_batch = batch_data[:3]
+        X_batch, y_batch = batch_data[:2]
         _, num_samples, num_classes, num_base_functions = X_batch.shape
-        output, w = model(X_batch, base_functions_batch)
+        output, w = model(X_batch)
 
         if self.task_type == "classification":
             logits = self.metadataset.get_logits_from_probabilities(output)
@@ -489,10 +483,11 @@ class ENetSimple(nn.Module):
         self.weight = nn.Parameter(custom_weights_fc1)
 
     def forward(
-        self, x, base_functions
+        self, x
     ):
 
         batch_size, num_samples, num_classes, num_base_functions = x.shape
+        base_functions = x
         mask = None
         if self.dropout_rate > 0 and self.training:
             mask= (torch.rand(size=(num_base_functions,)) > self.dropout_rate).float().to(x.device)
@@ -570,7 +565,7 @@ class EFFNet(nn.Module):  # Sample as Sequence
         self.dropout_is_active = (dropout_rate > 0.) or (dropout_dist != None)
 
 
-    def get_batched_weights(self, x, base_functions):
+    def get_batched_weights(self, x):
 
         batch_size, num_samples, num_classes, num_base_functions = x.shape
         x = x.transpose(1, 2).reshape(-1, num_samples, num_base_functions)
@@ -618,11 +613,11 @@ class EFFNet(nn.Module):  # Sample as Sequence
         return mask, scaling_factor
 
     def forward(
-        self, x, base_functions
+        self, x
     ):
         # X = [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
         batch_size, num_samples, num_classes, num_base_functions = x.shape
-        #num_query_samples = x.shape[1]
+        base_functions = x
 
         if self.dropout_is_active and self.training:
             mask, scaling_factor = self.get_mask_and_scaling_factor(num_base_functions, x.device)
@@ -639,8 +634,7 @@ class EFFNet(nn.Module):  # Sample as Sequence
         idx = np.arange(num_classes)
         for i in range(0, num_classes, self.inner_batch_size):
             range_idx = idx[range(i, min(i + self.inner_batch_size, num_classes))]
-            temp_w = self.get_batched_weights(x = x[:,:,range_idx],
-                                              base_functions = base_functions[:,:,range_idx])
+            temp_w = self.get_batched_weights(x = x[:,:,range_idx])
             w.append(temp_w)
 
         w = torch.cat(w, axis=2)

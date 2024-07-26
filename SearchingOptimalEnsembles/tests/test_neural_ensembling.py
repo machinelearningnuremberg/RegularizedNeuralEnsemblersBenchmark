@@ -180,9 +180,8 @@ if __name__ == "__main__":
 
     ne.set_state(metadataset=metadataset_test)
 
-    X_context, y_context = ne.get_context(X_obs, metadataset=metadataset)
 
-    weights = ne.get_weights(X_obs, X_context=X_context, y_context=y_context)
+    weights = ne.get_weights(X_obs)
     (
         _,
         best_metric_test,

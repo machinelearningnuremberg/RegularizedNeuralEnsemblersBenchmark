@@ -26,8 +26,7 @@ class DESEnsembler(BaseEnsembler):
         super().__init__(metadataset=metadataset, device=device)
         
         assert hasattr(self.metadataset, "get_base_pipelines") \
-                and hasattr(self.metadataset, "get_X_and_y_val") \
-                and hasattr(self.metadataset, "get_X_and_y_test"),\
+                and hasattr(self.metadataset, "get_X_and_y"),\
                       "Metadataset does not have the required attributes."
         
         self.des_method_name = des_method_name
@@ -46,8 +45,10 @@ class DESEnsembler(BaseEnsembler):
 
         selected_pipelines = [base_pipelines[x] for x in X_obs]
         self.des_object = METHOD_TO_CLASS[self.des_method_name](selected_pipelines)
-        
-        X_dsel, y_dsel = self.metadataset.get_X_and_y_val()
+
+        self.metadataset.set_state(dataset_name=self.metadataset.dataset_name,
+                                   split="valid")       
+        X_dsel, y_dsel = self.metadataset.get_X_and_y()
         self.des_object.fit(X_dsel, y_dsel)
         y_pred = self.des_object.predict_proba(X_dsel)
         best_metric = self.metadataset.score(y_pred, y_dsel)

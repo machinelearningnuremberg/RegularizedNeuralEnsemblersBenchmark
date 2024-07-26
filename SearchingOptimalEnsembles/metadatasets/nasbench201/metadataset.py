@@ -121,9 +121,12 @@ class NASBench201MetaDataset(Evaluator):
 
         self._labels = dd.from_pandas(all_labels, npartitions=1)
 
-        self._predictions.to_parquet(preds_path)
-        self._features.to_parquet(features_path)
-        self._labels.to_parquet(labels_path)
+        try:
+            self._predictions.to_parquet(preds_path)
+            self._features.to_parquet(features_path)
+            self._labels.to_parquet(labels_path)
+        except:
+            pass
 
     def parse_config(self, config_str):
         # Assume the configuration is split into meaningful parts here
@@ -227,12 +230,15 @@ class NASBench201MetaDataset(Evaluator):
         best_performance = accuracies_tensor.max().item()
 
         # Save to CSV
-        pd.DataFrame(
-            {
-                "worst_performance": [worst_performance],
-                "best_performance": [best_performance],
-            }
-        ).to_csv(metafeatures_path, index=False)
+        try:
+            pd.DataFrame(
+                {
+                    "worst_performance": [worst_performance],
+                    "best_performance": [best_performance],
+                }
+            ).to_csv(metafeatures_path, index=False)
+        except:
+            pass
 
         return worst_performance, best_performance
 
