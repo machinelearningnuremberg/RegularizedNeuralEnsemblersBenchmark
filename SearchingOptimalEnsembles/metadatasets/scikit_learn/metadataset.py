@@ -1,18 +1,17 @@
 from __future__ import annotations
 
+import joblib
 import numpy as np
 import pandas as pd
 import pipeline_bench
+import sklearn
 import torch
+from sklearn.pipeline import Pipeline
 
 from ..evaluator import Evaluator
 
-import sklearn 
-from sklearn.pipeline import Pipeline
-import joblib
 
 class ScikitLearnMetaDataset(Evaluator):
-
     metadataset_name = "scikit-learn"
 
     def __init__(
@@ -31,7 +30,7 @@ class ScikitLearnMetaDataset(Evaluator):
             seed=seed,
             split=split,
             metric_name=metric_name,
-            data_version=data_version
+            data_version=data_version,
         )
 
         self.feature_dim = 196
@@ -60,8 +59,7 @@ class ScikitLearnMetaDataset(Evaluator):
             .tolist()
         )
 
-    def set_state(self, dataset_name: str,
-                  split: str = "valid"):
+    def set_state(self, dataset_name: str, split: str = "valid"):
         self.logger.debug(f"Setting dataset: {dataset_name}")
 
         # Scikit-learn specific attributes
@@ -73,10 +71,7 @@ class ScikitLearnMetaDataset(Evaluator):
             lazy=False,
             data_version=self.data_version,
         )
-        super().set_state(
-            dataset_name=dataset_name,
-            split = split
-        )
+        super().set_state(dataset_name=dataset_name, split=split)
 
     def _get_hp_candidates_and_indices(
         self, return_only_ids: bool = True
@@ -128,7 +123,6 @@ class ScikitLearnMetaDataset(Evaluator):
         return y_proba
 
     def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
-
         y_proba_np = self._get_probabilities(ensembles=ensembles)
         # Convert the numpy array to torch tensor
         y_proba = torch.tensor(y_proba_np, dtype=torch.float32)
@@ -139,27 +133,30 @@ class ScikitLearnMetaDataset(Evaluator):
 
     def get_num_samples(self) -> int:
         return self.benchmark.get_splits(return_array=False)[f"X_{self.split}"].shape[0]
-    
+
     def get_targets(self) -> torch.Tensor:
         splits = self.benchmark.get_splits(return_array=True)
         y_true = np.repeat(splits[f"y_{self.split}"].reshape(1, -1), 1, axis=0)
         return torch.tensor(y_true, dtype=torch.long).squeeze()
-    
+
     def get_num_classes(self) -> int:
         return len(np.unique(self.get_targets().numpy()))
-    
+
     def get_num_pipelines(self) -> int:
         return len(self.hp_candidates_ids)
-    
+
     def get_time(self, ensembles: list[list[int]]) -> torch.Tensor:
-        return torch.zeros(len(ensembles), 
-                            len(ensembles[0]))
+        return torch.zeros(len(ensembles), len(ensembles[0]))
 
     def get_pipelines(self, ensembles: list[list[int]]) -> list[list[Pipeline]]:
         pipeline_ids = [pipeline_id for sublist in ensembles for pipeline_id in sublist]
-        pipeline_paths_df = self.benchmark._pipelines[self.benchmark._pipelines['pipeline_id'].isin(pipeline_ids)]
-        id_to_path = dict(zip(pipeline_paths_df['pipeline_id'], pipeline_paths_df['pipeline_path']))
-        
+        pipeline_paths_df = self.benchmark._pipelines[
+            self.benchmark._pipelines["pipeline_id"].isin(pipeline_ids)
+        ]
+        id_to_path = dict(
+            zip(pipeline_paths_df["pipeline_id"], pipeline_paths_df["pipeline_path"])
+        )
+
         ens = []
         for sublist in ensembles:
             for pipeline_id in sublist:
@@ -176,3 +173,9 @@ class ScikitLearnMetaDataset(Evaluator):
         pipeline_hps = self.benchmark.get_pipeline_features(ensembles=ensembles)
         pipeline_hps = pipeline_hps.astype(np.float32)
         return torch.from_numpy(pipeline_hps)
+
+    def get_X_and_y(self) -> tuple[torch.Tensor, torch.Tensor]:
+        splits = self.benchmark.get_splits(return_array=True)
+        X = torch.tensor(splits[f"X_{self.split}"], dtype=torch.float32)
+        y = torch.tensor(splits[f"y_{self.split}"], dtype=torch.long)
+        return X, y
