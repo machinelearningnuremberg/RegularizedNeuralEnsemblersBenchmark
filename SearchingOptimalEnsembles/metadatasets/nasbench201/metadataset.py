@@ -7,6 +7,7 @@ import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 import torch
+from scipy.special import softmax
 from tqdm import tqdm
 
 from ..evaluator import Evaluator
@@ -89,7 +90,9 @@ class NASBench201MetaDataset(Evaluator):
         ):
             data = torch.load(model_file)
 
-            preds = data["preds"][split].tensors[0].numpy()
+            logits = data["preds"][split].tensors[0].numpy()
+            # Applying softmax to logits to obtain probabilities
+            preds = softmax(logits, axis=1)
             df_preds = pd.DataFrame(
                 preds, columns=[f"pred_class_{i}" for i in range(preds.shape[1])]
             )
