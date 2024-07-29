@@ -300,7 +300,6 @@ class BaseMetaDataset:
             normalized_value = performance
             
         return normalized_value
-    
 
     def get_logits_from_probabilities(self, probabilities: torch.Tensor) -> torch.Tensor:
         """
@@ -318,6 +317,5 @@ class BaseMetaDataset:
         logits = log_p + C.unsqueeze(-1)
         return logits
 
-    
     def recommend_pipelines(self, num_pipelines: int) -> list[int]:
         return np.random.randint(0, self.get_num_pipelines(), num_pipelines)

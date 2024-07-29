@@ -49,7 +49,7 @@ class NeuralEnsembler(BaseEnsembler):
 
     def __init__(
         self,
-        metadataset: BaseMetaDataset,
+        metadataset: BaseMetaDataset | None = None,
         device: torch.device = torch.device("cuda"),
         prediction_device: torch.device = torch.device("cpu"),
         epochs: int = 1000,
@@ -59,10 +59,10 @@ class NeuralEnsembler(BaseEnsembler):
         num_pipelines: int = 64,
         project_name: str = "Training_NE",
         ne_learning_rate: float =0.0001,
-        ne_hidden_dim: int = 512,
+        ne_hidden_dim: int = 32,
         ne_reg_term_div: float = 0.0,
         ne_add_y: bool = True,
-        ne_num_layers: int = 2,
+        ne_num_layers: int = 3,
         ne_reg_term_norm: float = 0.0,
         ne_net_type: str = "ffn",
         ne_num_heads: int = 4,
@@ -113,7 +113,14 @@ class NeuralEnsembler(BaseEnsembler):
         self.y_max = 1
         self.class_prob = torch.FloatTensor([1,1,1,1])
 
-        if self.metadataset.metric_name == "relative_absolute_error":
+        if self.metadataset is not None:
+            self.metric_name = metadataset.metric_name
+        else:
+            #dummy metadataset
+            self.metadataset = BaseMetaDataset("")
+            metric_name = "error"
+
+        if metric_name == "relative_absolute_error":
             self.criterion = nn.L1Loss()
             self.task_type = "regression"
         else:
@@ -288,8 +295,22 @@ class NeuralEnsembler(BaseEnsembler):
         )
         y_pred = self.net(base_functions)[0][0]
         return y_pred
-         
-        
+    
+    def from_list_to_tensor(self, X):
+        X_concat = []
+        for X_temp in X:
+            X_concat.append(torch.FloatTensor(X_temp).unsqueeze(-1))
+        return torch.cat(X_concat, axis=-1).to(self.device)
+    
+    def fit(self, X, y):
+        y = torch.tensor(y)
+        X = self.from_list_to_tensor(X)
+        self.net = self.fit_net(X.unsqueeze(0),y)
+
+    def predict(self, X):
+        X = self.from_list_to_tensor(X)
+        return self.net(X.unsqueeze(0))
+          
     def auto_dropout_and_fit(self,
                         X_train, 
                         y_train,
