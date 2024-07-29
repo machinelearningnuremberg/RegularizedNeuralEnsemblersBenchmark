@@ -309,7 +309,7 @@ class NeuralEnsembler(BaseEnsembler):
 
     def predict(self, X):
         X = self.from_list_to_tensor(X)
-        return self.net(X.unsqueeze(0))
+        return self.net(X.unsqueeze(0))[0][0]
           
     def auto_dropout_and_fit(self,
                         X_train, 
@@ -683,7 +683,7 @@ class EFFNet(nn.Module):  # Sample as Sequence
                 w_norm = torch.nn.functional.softmax(w, dim=-1)
                 x = torch.multiply(base_functions, w_norm).sum(axis=-1)
 
-            elif self.mode == "combined_uniform":
+            elif self.mode == "combined_conditional":
                 w_norm = torch.nn.functional.softmax(w, dim=-1)
                 x = torch.multiply(base_functions, w_norm).sum(axis=-1)
                 norm_factor = x.sum(-1, keepdim=True) + 1e-10
