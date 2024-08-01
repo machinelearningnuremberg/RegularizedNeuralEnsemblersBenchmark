@@ -20,9 +20,11 @@ class BaseEnsembler:
         self,
         metadataset: BaseMetaDataset,
         device: torch.device = torch.device("cpu"),
+        normalize_performance: bool = False,
     ) -> None:
         """Initializes the base ensembler class."""
         self.best_ensemble = []
+        self.normalize_performance = normalize_performance
         self.set_state(metadataset=metadataset,
                        device=device)
 
@@ -60,6 +62,8 @@ class BaseEnsembler:
             _, metric, metric_per_pipeline, _ = self.metadataset.evaluate_ensembles_with_weights(
                 [self.best_ensemble], weights
             )
-        metric = self.metadataset.normalize_performance(metric)
+
+        if self.normalize_performance:
+            metric = self.metadataset.normalize_performance(metric)
 
         return metric

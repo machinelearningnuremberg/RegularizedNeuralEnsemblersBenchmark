@@ -122,9 +122,7 @@ class QuicktuneMetaDataset(Evaluator):
     ):
         self.is_test_id = np.array(self.aggregated_info[dataset_name]["split_indicator"])
         # self.time_info = self.aggregated_info[dataset_name]["time_info"]
-        self.time = torch.FloatTensor(
-            self.aggregated_info[dataset_name]["time_info"]["train_time"]
-        )
+
         new_dataset_name = dataset_name.replace("_v1", "")
         self.hp_candidates = self.hps[
             self.hps[f"cat__dataset_mtlbm_{new_dataset_name}"] == 1
@@ -143,6 +141,13 @@ class QuicktuneMetaDataset(Evaluator):
             self.aggregated_info[dataset_name]["predictions"]
         )
 
+        try:
+            self.time = torch.FloatTensor(
+                self.aggregated_info[dataset_name]["time_info"]["train_time"]
+            )
+        except:
+            self.time = torch.zeros(len(self.hp_candidates))
+            
         if self.split == "valid":
             self.targets = self.targets[self.is_test_id == 0]
             self.predictions = self.predictions[:, self.is_test_id == 0, :]

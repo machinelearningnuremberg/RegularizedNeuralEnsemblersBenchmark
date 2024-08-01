@@ -15,9 +15,11 @@ DATA_VERSION_TO_CONTEXT = {"version0": "D244_F3_C1530_3",
                            "version6": "D244_F3_C1530"
                                  }
 
-DATA_VERSION_TO_TASK_TYPE = {"class" : "Supervised Classification",
-                             "reg" : "Supervised Regression"}
+DATA_VERSION_TO_TASK_TYPE = {"class" : "classification",
+                             "reg" : "regression"}
 
+TASK_TYPE_TO_METADATASET =  {"classification" : "Supervised Classification",
+                             "regression" : "Supervised Regression"}
 
 class TabRepoMetaDataset(Evaluator):
     metadataset_name = "tabrepo"
@@ -54,14 +56,15 @@ class TabRepoMetaDataset(Evaluator):
             metric_name=metric_name,
             data_version=data_version
         )
-        if self.task_type == "Supervised Regression":
-            self.metric_name  = "relative_absolute_error"
-            
+        if self.task_type == "regression":
+            self.metric_name  = "absolute_relative_error"
+        
+        self.metadataset_task_type = TASK_TYPE_TO_METADATASET[self.task_type]
         self._initialize()
 
     def _filter_datasets(self, dataset_names):
         dataset_names = [x for x in dataset_names 
-                              if self.repo.dataset_metadata(x)["task_type"]==self.task_type]
+                              if self.repo.dataset_metadata(x)["task_type"]==self.metadataset_task_type]
         return dataset_names
     
     def set_state(self, dataset_name: str, 
@@ -138,9 +141,9 @@ class TabRepoMetaDataset(Evaluator):
             targets = self.repo.labels_test(dataset=self.dataset_name, fold=self.fold)
         targets = torch.tensor(targets)
 
-        if self.task_type == "Supervised Classification":
+        if self.task_type == "classification":
             targets = targets.long()
-        elif self.task_type == "Supervised Regression":
+        elif self.task_type == "regression":
             targets = targets.float()
             
         return targets
@@ -181,9 +184,9 @@ class TabRepoMetaDataset(Evaluator):
                 temp_predictions = torch.FloatTensor(self.repo.predict_test_multi(dataset=self.dataset_name, 
                                                 fold=self.fold,
                                                 configs=configs))
-            if self.task_type == "Supervised Classification":
+            if self.task_type == "classification":
                 temp_predictions = self._posprocess_binary_predictions(temp_predictions)
-            elif self.task_type == "Supervised Regression":
+            elif self.task_type == "regression":
                 temp_predictions = temp_predictions.unsqueeze(-1)
             else:
                 raise ValueError("Not valid task type.")

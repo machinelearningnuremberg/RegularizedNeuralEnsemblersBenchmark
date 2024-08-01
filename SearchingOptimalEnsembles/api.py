@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import wandb
+import time
 from typing_extensions import Literal
 
 from .metadatasets import MetaDatasetMapping
@@ -12,7 +13,6 @@ from .metadatasets.base_metadataset import META_SPLITS
 from .posthoc import EnsemblerMapping
 from .searchers import SearcherMapping
 from .utils.common import instance_from_map
-from .utils.eval import evaluate
 from .utils.logger import get_logger
 
 def run(
@@ -46,6 +46,7 @@ def run(
     num_base_pipelines: int = 20,
     apply_posthoc_ensemble_each_iter: bool = False,
     apply_posthoc_ensemble_at_end: bool = True,
+    normalize_performance: bool = False,
     #############################################
     ne_learning_rate: float = 0.0001,
     ne_hidden_dim: int = 512,
@@ -64,6 +65,8 @@ def run(
     ne_dropout_dist: str | None = None,
     ne_omit_output_mask: bool = False,
     ne_net_mode: str = "combined",
+    ne_batch_size: int = 2048,
+    ne_epochs: int = 1000,
     #############################################
     des_method_name: str = "KNOP",
     sks_model_name: str = "random_forest",
@@ -131,6 +134,7 @@ def run(
     ensembler_args = {
         "metadataset": metadataset,
         "device": device,
+        "normalize_performance": normalize_performance,
         "ne_learning_rate": ne_learning_rate,
         "ne_hidden_dim": ne_hidden_dim,
         "ne_context_size": ne_context_size,
@@ -148,6 +152,8 @@ def run(
         "ne_dropout_dist": ne_dropout_dist,
         "ne_omit_output_mask": ne_omit_output_mask,
         "ne_net_mode": ne_net_mode, 
+        "ne_epochs": ne_epochs,
+        "ne_batch_size": ne_batch_size,
         "des_method_name": des_method_name,
         "max_num_pipelines": max_num_pipelines,
         "sks_model_name": sks_model_name
@@ -284,26 +290,38 @@ def run(
         incumbent_ensemble = X_obs.tolist()
 
     X_obs = X_obs.tolist()
+
+    start_time = time.time()
     incumbent_ensemble, incumbent = posthoc_ensembler.sample(
         X_obs, max_num_pipelines=max_num_pipelines
     )
+    posthoc_total_time = time.time() - start_time
+    val_dataset_size = metadataset.get_num_samples()
+
+    if normalize_performance:
+        incumbent = metadataset.normalize_performance(incumbent)
     
-    incumbent = metadataset.normalize_performance(incumbent)
     test_metric = posthoc_ensembler.evaluate_on_split(split="test")
+    test_dataset_size = metadataset.get_num_samples()
+    number_of_classes = metadataset.get_num_classes()
+    num_base_models = metadataset.get_num_pipelines()
+
+    results = {"posthoc_total_time": posthoc_total_time,
+                 "val_metric": incumbent.item(),
+                 "test_metric": test_metric.item(),
+                 "ensemble_size": len(X_obs),
+                 "number_of_classes": number_of_classes,
+                 "val_dataset_size": val_dataset_size,
+                 "test_dataset_size": test_dataset_size,
+                 "num_base_models": num_base_models}
 
     if wandb.run is not None:
         wandb.log(
-            {
-                "incumbent_ensemble": incumbent_ensemble,
-                "incumbent_ensemble_metric": incumbent,
-                "incumbent_ensemble_test_metric": test_metric,
-            }
+            results
         )
     else:
         print(
-            {
-                "incumbent_ensemble": incumbent_ensemble,
-                "incumbent_ensemble_metric": incumbent,
-                "incumbent_ensemble_test_metric": test_metric,
-            }
+           results
         )
+
+    return results

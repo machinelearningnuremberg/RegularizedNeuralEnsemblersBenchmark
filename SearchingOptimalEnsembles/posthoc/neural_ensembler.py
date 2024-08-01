@@ -8,8 +8,10 @@ import numpy as np
 import torch
 from torch import nn
 from torch.optim import Adam
+from torch.utils.data import Dataset, DataLoader
 from typing_extensions import Literal
 from sklearn.model_selection import KFold
+import copy
 
 from ..metadatasets.base_metadataset import BaseMetaDataset
 from ..samplers.random_sampler import RandomSampler
@@ -21,6 +23,21 @@ try:
 except: 
     WAND_AVAILABLE = False
 
+class Dataset:
+    def __init__(self, X, y=None, batch_size=2048):
+        self.X = X
+        self.y = y
+        self.batch_size = batch_size
+        self.num_samples = len(X)
+    
+    def __iter__(self):
+        for i in range(self.num_samples):
+            down = i*self.batch_size
+            up = min((i+1)*self.batch_size, self.num_samples)
+            if self.y is not None:
+                yield self.X[down:up], self.y[down:up]
+            else:
+                yield self.X[down:up]
 
 class FeedforwardNetwork(nn.Module):
     def __init__(self, input_dim, output_dim, num_hidden_layers, hidden_dim):
@@ -52,7 +69,7 @@ class NeuralEnsembler(BaseEnsembler):
         metadataset: BaseMetaDataset | None = None,
         device: torch.device = torch.device("cuda"),
         prediction_device: torch.device = torch.device("cpu"),
-        epochs: int = 1000,
+        normalize_performance: bool = False,
         use_wandb: bool = False,
         checkpoint_freq: int = 1000,
         run_name: str = None,
@@ -77,6 +94,7 @@ class NeuralEnsembler(BaseEnsembler):
         ne_dropout_dist: str | None = None,
         ne_omit_output_mask: bool = True,
         ne_net_mode: str = "combined",
+        ne_epochs: int = 1000,
         **kwargs
     ) -> None:
         super().__init__(metadataset=metadataset, device=device)
@@ -92,7 +110,6 @@ class NeuralEnsembler(BaseEnsembler):
         self.mode = ne_mode
         self.ne_batch_size = ne_batch_size
         self.learning_rate = ne_learning_rate
-        self.epochs = epochs
         self.use_wandb = use_wandb
         self.num_heads = ne_num_heads
         self.checkpoint_freq = checkpoint_freq
@@ -108,19 +125,22 @@ class NeuralEnsembler(BaseEnsembler):
         self.dropout_dist = ne_dropout_dist
         self.omit_output_mask = ne_omit_output_mask
         self.net_mode = ne_net_mode
+        self.normalize_performance = normalize_performance
+        self.epochs = ne_epochs
         self.training = True
         self.predefined_pipeline_ids = None
         self.y_max = 1
         self.class_prob = torch.FloatTensor([1,1,1,1])
+        self.best_ensemble = []
 
         if self.metadataset is not None:
             self.metric_name = metadataset.metric_name
         else:
             #dummy metadataset
             self.metadataset = BaseMetaDataset("")
-            metric_name = "error"
+            self.metric_name = "error"
 
-        if metric_name == "relative_absolute_error":
+        if self.metric_name == "absolute_relative_error":
             self.criterion = nn.L1Loss()
             self.task_type = "regression"
         else:
@@ -156,8 +176,7 @@ class NeuralEnsembler(BaseEnsembler):
         weights = []
 
         if self.task_type == "regression":
-            #base_functions is not necessary to transform because they permit to mantain the original scale
-            X /= self.y_max
+            X /= self.y_max.to(X.device)
 
         for i in range(0, num_samples, self.ne_batch_size):
             range_idx = idx[range(i, min(i + self.ne_batch_size, num_samples))]
@@ -179,6 +198,10 @@ class NeuralEnsembler(BaseEnsembler):
         weights = torch.cat(
             weights, axis=-2
         ).to(self.prediction_device) if len(weights)>0 else None
+
+        if self.task_type == "regression":
+            outputs *= self.y_max.to(outputs.device)
+
         return outputs, weights
 
     def get_auto_weight_thd(self):
@@ -261,8 +284,8 @@ class NeuralEnsembler(BaseEnsembler):
         _, num_samples, num_classes, num_base_functions = X_train.shape
     
         idx = np.random.randint(0, min(self.ne_batch_size, num_samples), self.ne_batch_size)
-       # return (X_train[:, idx], base_functions_train[:, idx], y_train[:, idx])
-        return (X_train, y_train)
+        return (X_train[:, idx], y_train[:, idx])
+        #return (X_train, y_train)
 
     def count_parameters(self, model):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -281,8 +304,11 @@ class NeuralEnsembler(BaseEnsembler):
         y = self.metadataset.get_targets().to(self.device)
         y_pred = self.get_y_pred()
         metric = self.metadataset.score_y_pred(y_pred, y)
-        normalized_metric = self.metadataset.normalize_performance(metric)
-        return normalized_metric
+        
+        if self.normalize_performance:
+            metric = self.metadataset.normalize_performance(metric)
+        
+        return metric
 
     def get_y_pred(self):
         
@@ -293,7 +319,11 @@ class NeuralEnsembler(BaseEnsembler):
             .unsqueeze(0)
             .to(self.device)
         )
-        y_pred = self.net(base_functions)[0][0]
+
+        y_pred = self.batched_prediction(
+            X=base_functions,
+        )[0][0]
+
         return y_pred
     
     def from_list_to_tensor(self, X):
@@ -305,11 +335,15 @@ class NeuralEnsembler(BaseEnsembler):
     def fit(self, X, y):
         y = torch.tensor(y)
         X = self.from_list_to_tensor(X)
-        self.net = self.fit_net(X.unsqueeze(0),y)
+        self.net = self.fit_net(X.unsqueeze(0),y.unsqueeze(0))
 
     def predict(self, X):
         X = self.from_list_to_tensor(X)
-        return self.net(X.unsqueeze(0))[0][0]
+        y_pred = self.batched_prediction(
+            X=X.unsqueeze(0),
+        )[0][0]
+
+        return y_pred
           
     def auto_dropout_and_fit(self,
                         X_train, 
@@ -370,7 +404,8 @@ class NeuralEnsembler(BaseEnsembler):
             dropout_rate=dropout_rate,
             dropout_dist=self.dropout_dist,
             omit_output_mask=self.omit_output_mask,
-            mode=self.net_mode
+            mode=self.net_mode,
+            task_type=self.task_type
         )
 
         if self.task_type == "regression":
@@ -485,7 +520,6 @@ class ENetSimple(nn.Module):
         dropout_rate=0.,
         num_heads=1,
         add_y=False,
-        mask_prob=0.5,
         **kwargs,
     ):
         super().__init__()
@@ -495,7 +529,6 @@ class ENetSimple(nn.Module):
         self.hidden_dim = hidden_dim
         self.num_heads = num_heads
         self.add_y = add_y
-        self.mask_prob = mask_prob
         self.dropout_rate = dropout_rate
 
         custom_weights_fc1 = torch.randn(
@@ -548,10 +581,10 @@ class EFFNet(nn.Module):  # Sample as Sequence
         dropout_rate=0,
         num_heads=1,
         add_y=False,
-        mask_prob=0.5,
-        inner_batch_size=50,
+        inner_batch_size=10,
         dropout_dist=None,
         omit_output_mask=False,
+        task_type="classification",
         mode="combined"
     ):
         super().__init__()
@@ -561,11 +594,11 @@ class EFFNet(nn.Module):  # Sample as Sequence
         self.hidden_dim = hidden_dim
         self.num_heads = num_heads
         self.add_y = add_y
-        self.mask_prob = mask_prob
         self.inner_batch_size = inner_batch_size
         self.dropout_dist = dropout_dist
         self.omit_output_mask = omit_output_mask
         self.mode = mode
+        self.task_type = task_type
 
         if self.mode == "model_averaging":
             num_layers=-1
@@ -638,7 +671,7 @@ class EFFNet(nn.Module):  # Sample as Sequence
     ):
         # X = [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
         batch_size, num_samples, num_classes, num_base_functions = x.shape
-        base_functions = x
+        base_functions = copy.deepcopy(x)
 
         if self.dropout_is_active and self.training:
             mask, scaling_factor = self.get_mask_and_scaling_factor(num_base_functions, x.device)
@@ -646,8 +679,6 @@ class EFFNet(nn.Module):  # Sample as Sequence
                 mask = torch.repeat_interleave(
                     mask.unsqueeze(i), dim, dim=i
                 )
-            x = (x*mask)*scaling_factor
-            base_functions = base_functions*mask
         else:
             mask = None
 
@@ -655,7 +686,14 @@ class EFFNet(nn.Module):  # Sample as Sequence
         idx = np.arange(num_classes)
         for i in range(0, num_classes, self.inner_batch_size):
             range_idx = idx[range(i, min(i + self.inner_batch_size, num_classes))]
-            temp_w = self.get_batched_weights(x = x[:,:,range_idx])
+
+            
+            if mask is not None:
+                temp_x = (x[:,:,range_idx]*mask[:,:,range_idx])*scaling_factor
+                base_functions[:,:,range_idx] = base_functions[:,:,range_idx]*mask[:,:,range_idx]
+            else:
+                temp_x = x[:,:,range_idx]
+            temp_w = self.get_batched_weights(x = temp_x)
             w.append(temp_w)
 
         w = torch.cat(w, axis=2)
@@ -671,7 +709,8 @@ class EFFNet(nn.Module):  # Sample as Sequence
 
         if self.mode == "stacking":
             x = w.sum(-1)
-            x = torch.nn.functional.softmax(x, dim=-1)
+            if self.task_type == "classification":
+                x = torch.nn.functional.softmax(x, dim=-1)
             return x, None
 
         else:
@@ -686,8 +725,10 @@ class EFFNet(nn.Module):  # Sample as Sequence
             elif self.mode == "combined_conditional":
                 w_norm = torch.nn.functional.softmax(w, dim=-1)
                 x = torch.multiply(base_functions, w_norm).sum(axis=-1)
-                norm_factor = x.sum(-1, keepdim=True) + 1e-10
-                x = torch.divide(x, norm_factor)               
+
+                if self.task_type == "classification":
+                    norm_factor = x.sum(-1, keepdim=True) + 1e-10
+                    x = torch.divide(x, norm_factor)               
 
             elif self.mode == "combined":
                 #to obtain the full probability in combined mode
@@ -700,8 +741,9 @@ class EFFNet(nn.Module):  # Sample as Sequence
                 )
                 x = torch.multiply(base_functions, w_norm).sum(axis=-1)
 
-                norm_factor = x.sum(-1, keepdim=True) + 1e-10
-                x = torch.divide(x, norm_factor)  
+                if self.task_type == "classification":
+                    norm_factor = x.sum(-1, keepdim=True) + 1e-10
+                    x = torch.divide(x, norm_factor)  
             else:
                 raise ValueError("Network mode is unknownod.")
 

@@ -47,19 +47,19 @@ class NASBench201MetaDataset(Evaluator):
 
         self._initialize()
 
-    def set_state(self, dataset_name: str):
+    def set_state(self, dataset_name: str, split: str ="valid"):
         self.logger.debug(f"Setting dataset: {dataset_name}")
 
         assert (
             dataset_name in self.get_dataset_names()
         ), f"Invalid dataset name: {dataset_name}"
 
-        self.load_data(dataset_name)
+        self.load_data(dataset_name, split)
 
-        super().set_state(dataset_name)
+        super().set_state(dataset_name, split)
 
-    def load_data(self, dataset):
-        split = "val" if self.split == "valid" else self.split
+    def load_data(self, dataset, split):
+        split = "val" if split == "valid" else split
         base_path = self.data_dir / dataset / str(self.seed) / self.data_version
 
         labels_path = base_path / f"labels_{split}.parquet"

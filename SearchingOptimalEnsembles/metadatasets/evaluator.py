@@ -117,7 +117,7 @@ class Evaluator(BaseMetaDataset):
             ).float()
             metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(axis=-1)
 
-        elif self.metric_name == "relative_absolute_error":
+        elif self.metric_name == "absolute_relative_error":
             metric_per_sample = self.absolute_relative_error(temp_targets,predictions.squeeze(-1))
             metric_per_pipeline = metric_per_sample.mean(-1)
             metric_ensemble_per_sample = self.absolute_relative_error(temp_targets, weighted_predictions.sum(axis=1, keepdim=True).squeeze(-1))
@@ -156,13 +156,13 @@ class Evaluator(BaseMetaDataset):
         return metric, metric_per_pipeline
     
     def score_y_pred(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
-        
+        y_true = y_true.to(y_pred.device)
         if self.metric_name == "nll":
             metric = torch.nn.CrossEntropyLoss()(y_pred, y_true)
         elif self.metric_name == "error":
             metric = (y_pred.argmax(-1) != y_true).float().mean()
         elif self.metric_name == "absolute_relative_error":
-            metric = torch.nn.L1Loss()(y_true, y_pred)
+            metric = self.absolute_relative_error(y_true, y_pred.reshape(-1)).mean()
         elif self.metric_name == "neg_roc_auc":
             metric = 1-roc_auc_score(y_true.detach().cpu().numpy(), y_pred.detach().cpu().numpy(), multi_class="ovo")
         else:

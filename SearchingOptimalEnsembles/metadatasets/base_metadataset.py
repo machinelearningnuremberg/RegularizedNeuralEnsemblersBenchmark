@@ -25,7 +25,8 @@ class BaseMetaDataset:
         seed: int = 42,
         split: str = "valid",
         metric_name: str = "nll",
-        data_version: str = None
+        data_version: str = None,
+        use_meta_splits: bool = False
     ):
         """Initialize the BaseMetaDataset.
 
@@ -60,7 +61,7 @@ class BaseMetaDataset:
         self.meta_splits: dict[str, list[str]] = {}
         self.logger = get_logger(name="SEO-METADATASET", logging_level="debug")
         self.data_version = data_version
-        
+        self.use_meta_splits = use_meta_splits
         self.feature_dim: int | None = None
 
         # To initialize call _initialize() in the child class
@@ -109,20 +110,7 @@ class BaseMetaDataset:
 
         raise NotImplementedError
 
-    @abstractmethod
-    def _get_worst_and_best_performance(self) -> tuple[torch.Tensor, torch.Tensor]:
-        """Fetch the worst and best performance for a given dataset.
 
-
-        Returns:
-            tuple[torch.Tensor, torch.Tensor]:
-            A tuple of tensors, namely:
-                - worst_performance
-                - best_performance
-
-        """
-
-        raise NotImplementedError
 
     @abstractmethod
     def evaluate_ensembles(
@@ -214,7 +202,21 @@ class BaseMetaDataset:
             time: torch tensor with the time per pipeline and ensemble: [B, N]    
         """
         raise NotImplementedError
-    
+
+    @abstractmethod
+    def _get_worst_and_best_performance(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """Fetch the worst and best performance for a given dataset.
+
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]:
+            A tuple of tensors, namely:
+                - worst_performance
+                - best_performance
+
+        """
+        raise NotImplementedError
+
     def _initialize(self):
         """Initialize the meta-dataset. This method should be called in the child class."""
         self.dataset_names = self.get_dataset_names()
@@ -243,16 +245,20 @@ class BaseMetaDataset:
             "meta-test": [],
         }
         num_splits = len(meta_train_splits) + len(meta_test_splits) + len(meta_val_splits)
-        for i, dataset in enumerate(dataset_names):
-            split_id = i % num_splits
-            if split_id in meta_train_splits:
-                meta_splits["meta-train"].append(dataset)
-            elif split_id in meta_test_splits:
-                meta_splits["meta-test"].append(dataset)
-            elif split_id in meta_val_splits:
-                meta_splits["meta-valid"].append(dataset)
-            else:
-                raise ValueError("Dataset not assigned to any split")
+        
+        if len(dataset_names)>num_splits and self.use_meta_splits:
+            for i, dataset in enumerate(dataset_names):
+                split_id = i % num_splits
+                if split_id in meta_train_splits:
+                    meta_splits["meta-train"].append(dataset)
+                elif split_id in meta_test_splits:
+                    meta_splits["meta-test"].append(dataset)
+                elif split_id in meta_val_splits:
+                    meta_splits["meta-valid"].append(dataset)
+                else:
+                    raise ValueError("Dataset not assigned to any split")
+        else:
+            meta_splits["meta-test"] = dataset_names
         return meta_splits
 
     def set_state(self, dataset_name: str,
@@ -274,8 +280,6 @@ class BaseMetaDataset:
             self.best_performance,
         ) = self._get_worst_and_best_performance()
 
-
-    
     def normalize_performance(self, performance: float,
                               best_reference_performance: float = None,
                               worst_reference_performance: float = None):
@@ -319,3 +323,16 @@ class BaseMetaDataset:
 
     def recommend_pipelines(self, num_pipelines: int) -> list[int]:
         return np.random.randint(0, self.get_num_pipelines(), num_pipelines)
+    
+    # def _get_worst_and_best_performance(self) -> tuple[torch.Tensor, torch.Tensor]:
+    #     """Fetch the worst and best performance for a given dataset.
+    #     The default method returns 1 and 0 respectively.
+    #     Returns:
+    #         tuple[torch.Tensor, torch.Tensor]:
+    #         A tuple of tensors, namely:
+    #             - worst_performance
+    #             - best_performance
+
+    #     """
+
+    #     return 1., 0.

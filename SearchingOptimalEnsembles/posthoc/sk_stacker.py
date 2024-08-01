@@ -12,14 +12,14 @@ from ..metadatasets.base_metadataset import BaseMetaDataset
 from .base_ensembler import BaseEnsembler
 
 MODELS = {
-    "Supervised Classification" :
+    "classification" :
     {
         "random_forest" : RandomForestClassifier,
         "gradient_boosting": GradientBoostingClassifier,
         "linear_model" : LogisticRegression,
         "svm": SVC
     },
-    "Supervised Regression": {
+    "regression": {
         "random_forest" : RandomForestRegressor,
         "gradient_boosting": GradientBoostingRegressor,
         "linear_model" : LinearRegression,
@@ -36,16 +36,18 @@ class ScikitLearnStacker(BaseEnsembler):
         sks_model_name: str = "random_forest",
         sks_model_args: dict | None = None,
         device: torch.device = torch.device("cpu"),
+        normalize_performance: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(metadataset=metadataset, device=device)
         self.model_name = sks_model_name
         self.model_args = sks_model_args
-        
+        self.normalize_performance = normalize_performance
+
         if hasattr(metadataset, "task_type"):
             self.task_type = metadataset.task_type
         else:
-            self.task_type = "Supervised Classification"
+            self.task_type = "classification"
 
         if sks_model_args is None:
             model_args = {}
@@ -65,11 +67,16 @@ class ScikitLearnStacker(BaseEnsembler):
         ).numpy()
         num_samples, num_classes, num_pipelines = base_functions.shape
         base_functions = base_functions.reshape(-1, num_classes * num_pipelines)
-        y = self.metadataset.get_targets().numpy()
-        self.model.fit(base_functions, y)
-        metric = self.get_metric(base_functions=base_functions,
-                                 y_true=y)
-        #fit model
+        y_true = self.metadataset.get_targets()
+        self.model.fit(base_functions, y_true)
+
+        if self.task_type == "classification":
+            y_pred = torch.FloatTensor(self.model.predict_proba(base_functions))
+        else:
+            y_pred = torch.FloatTensor(self.model.predict(base_functions))
+           
+        metric = self.metadataset.score_y_pred(y_pred, y_true)
+
         return self.best_ensemble, metric
 
     def get_metric(self, base_functions, y_true):
@@ -95,9 +102,16 @@ class ScikitLearnStacker(BaseEnsembler):
         ).numpy()
         num_samples, num_classes, num_pipelines = base_functions.shape
         base_functions = base_functions.reshape(-1, num_classes * num_pipelines)
-        y = self.metadataset.get_targets().numpy()
-        metric = self.get_metric(base_functions=base_functions,
-                                 y_true=y) 
-        metric = self.metadataset.normalize_performance(metric)
+        y_true = self.metadataset.get_targets() 
+
+        if self.task_type == "classification":
+            y_pred = torch.FloatTensor(self.model.predict_proba(base_functions))
+        else:
+            y_pred = torch.FloatTensor(self.model.predict(base_functions))
+           
+        metric = self.metadataset.score_y_pred(y_pred, y_true)
+
+        if self.normalize_performance:
+            metric = self.metadataset.normalize_performance(metric)
 
         return metric

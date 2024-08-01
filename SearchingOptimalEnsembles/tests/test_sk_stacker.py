@@ -4,11 +4,15 @@ import torch
 
 import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
 import SearchingOptimalEnsembles.posthoc.sk_stacker as sks
+import SearchingOptimalEnsembles.metadatasets.tabrepo.metadataset as tabrepod
 
 DATA_DIR = "/work/dlclarge2/janowski-quicktune/predictions/"
 
 if __name__ == "__main__":
     metadataset = qmd.QuicktuneMetaDataset(data_dir=DATA_DIR)
+
+    metadataset = tabrepod.TabRepoMetaDataset(#data_version="version3_class")
+                                              data_version="version3_reg")
     metadataset.set_state(dataset_name=metadataset.get_dataset_names()[0])
     X_obs = [1,2,3,4,5,6]
 

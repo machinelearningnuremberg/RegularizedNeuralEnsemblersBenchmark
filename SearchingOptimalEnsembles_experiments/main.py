@@ -3,6 +3,10 @@ from __future__ import annotations
 import argparse
 import logging
 import warnings
+import os
+import json
+
+os.environ["WANDB_DIR"] = "/work/dlclarge1/pineda-seo_data/logs"
 
 import SearchingOptimalEnsembles as SOE
 import wandb
@@ -28,7 +32,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--worker_dir",
         type=str,
-        default="/work/dlclarge2/janowski-quicktune/SearchingOptimalEnsembles/SearchingOptimalEnsembles_experiments/",
+        #default="/work/dlclarge2/janowski-quicktune/SearchingOptimalEnsembles/SearchingOptimalEnsembles_experiments/",
+        default="/work/dlclarge2/janowski-quicktune/results/"
     )
     ##############################################################################
     parser.add_argument("--metadataset_name", type=str, default="quicktune")
@@ -91,7 +96,9 @@ if __name__ == "__main__":
     parser.add_argument("--ne_weight_thd", type=float, default=0.)
     parser.add_argument("--ne_dropout_dist", type=str, default=None)
     parser.add_argument("--ne_omit_output_mask", action="store_true")
+    parser.add_argument("--ne_batch_size", type=int, default=2048)
     parser.add_argument("--ne_net_mode", type=str, default="combined")
+    parser.add_argument("--ne_epochs", type=int, default=1000)
     ##################### OTHERS #####################################################
     parser.add_argument("--des_method_name", type=str, default="KNOP")
     parser.add_argument("--sks_model_name", type=str, default="random_forest")
@@ -104,6 +111,7 @@ if __name__ == "__main__":
     parser.add_argument("--metric_name", type=str, default="nll")
     parser.add_argument("--data_version", type=str, default="micro")
     parser.add_argument("--no_wandb", action="store_true")
+    parser.add_argument("--normalize_performance", action="store_true")
     parser.add_argument("--apply_posthoc_ensemble_each_iter", action="store_true")
     parser.add_argument("--apply_posthoc_ensemble_at_end", action="store_true")
     parser.add_argument("--project_name", type=str, default="SearchingOptimalEnsembles")
@@ -124,7 +132,7 @@ if __name__ == "__main__":
         except wandb.errors.UsageError:
             print("Wandb is not available")
 
-    args.worker_dir = f"{args.worker_dir}/{args.experiment_group}"
+    args.worker_dir = f"{args.worker_dir}/{args.project_name}/{args.experiment_group}"
     args.add_y = not args.no_add_y
 
     config = get_config(args, function=SOE.run)
@@ -134,4 +142,12 @@ if __name__ == "__main__":
         wandb.config.update(config)
         wandb.config.update({"seed": args.seed})
 
-    SOE.run(**config)
+    results = SOE.run(**config)
+
+    with open(args.worker_dir + '/results.json', 'w') as f:
+        json.dump(results, f)
+    
+    with open(args.worker_dir + '/args.json', 'w') as f:
+        json.dump(args.__dict__, f)
+
+

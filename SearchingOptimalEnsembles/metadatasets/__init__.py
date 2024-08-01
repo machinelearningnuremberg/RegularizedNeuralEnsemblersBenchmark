@@ -9,6 +9,7 @@ except Exception as e:
     TabRepoMetaDataset = None
 
 from .quicktune.metadataset import QuicktuneMetaDataset
+from .ftc.metadataset import FTCMetaDataset
 
 try:
     from .scikit_learn.metadataset import ScikitLearnMetaDataset
@@ -28,5 +29,6 @@ MetaDatasetMapping: dict[str, Callable] = {
     "nasbench201": NASBench201MetaDataset,
     "quicktune": QuicktuneMetaDataset,
     "tabrepo": TabRepoMetaDataset,
+    "ftc": FTCMetaDataset,
     "openml": OpenMLMetaDataset
 }
