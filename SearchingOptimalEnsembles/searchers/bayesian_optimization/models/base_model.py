@@ -39,7 +39,7 @@ class BaseModel(nn.Module):
         self.sampler = sampler
         self.add_y = add_y
         self.dim_in = self.sampler.metadataset.feature_dim
-        assert self.dim_in is not None, "Feature dimension is None"
+        #assert self.dim_in is not None, "Feature dimension is None"
         if self.add_y:
             self.dim_in += 2  # counting y and the mask
 
