@@ -256,14 +256,25 @@ class NASBench201MetaDataset(Evaluator):
         return len(unique_datapoints)
 
     def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:
-        # Flatten the list of lists to get all model IDs in ensembles
-        model_ids = [model_id for ensemble in ensembles for model_id in ensemble]
-        # Use Dask to efficiently select rows and delay computation
-        features_df = self._features[self._features["model_id"].isin(model_ids)].compute()
-        # Convert to a torch Tensor
-        features_tensor = torch.tensor(features_df.values, dtype=torch.float32)
+        # Flatten the list of lists to get all model IDs
+        all_model_ids = set(id for sublist in ensembles for id in sublist)
+        
+        # Query all needed model_ids at once
+        all_needed_features = self._features[self._features['model_id'].isin(all_model_ids)].compute()
+    
+        features = []
+        for model_ids in ensembles:
+            ensemble_features = []
+            for model_id in model_ids:
+                matched_rows = all_needed_features[all_needed_features['model_id'] == model_id]
+                ensemble_features.append(matched_rows)
+            ensemble_features_df = pd.concat(ensemble_features, ignore_index=True)
+            temp_features_tensor = torch.tensor(ensemble_features_df.drop(columns='model_id').values, dtype=torch.float32)
+            features.append(temp_features_tensor.unsqueeze(0))
 
+        features_tensor = torch.cat(features, axis=0)
         return features_tensor
+
 
     def get_targets(self) -> torch.Tensor:
         # Efficiently get labels and compute them to a tensor
@@ -324,3 +335,5 @@ class NASBench201MetaDataset(Evaluator):
 
     def get_num_pipelines(self) -> int:
         return self.data_version_map[self.data_version]
+
+
