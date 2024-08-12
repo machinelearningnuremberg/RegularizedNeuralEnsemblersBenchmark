@@ -1,0 +1,32 @@
+report_id: report2
+report_structure:
+  SOE2_ftc_mini_error:
+    cmaes1_0: cmaes1_0
+    cmaes1_1: cmaes1_1
+    cmaes1_2: cmaes1_2
+    divbo1_0: divbo1_0
+    divbo1_1: divbo1_1
+    greedy1_0: greedy1_0
+    greedy1_1: greedy1_1
+    greedy1_2: greedy1_2
+    greedy1_3: greedy1_3
+    greedy1_4: greedy1_4
+    greedy1_5: greedy1_5
+    leo1_0: leo1_0
+    leo1_1: leo1_1
+    quick1_0: quick1_0
+    quick1_1: quick1_1
+    quick1_2: quick1_2
+    quick1_3: quick1_3
+    quick1_4: quick1_4
+    quick1_5: quick1_5
+    single1_0: single1_0
+    sks1_0: sks1_0
+    sks1_1: sks1_1
+    sks1_2: sks1_2
+    topm1_0: topm1_0
+    topm1_1: topm1_1
+    topm1_2: topm1_2
+    topm1_3: topm1_3
+    topm1_4: topm1_4
+    topm1_5: topm1_5

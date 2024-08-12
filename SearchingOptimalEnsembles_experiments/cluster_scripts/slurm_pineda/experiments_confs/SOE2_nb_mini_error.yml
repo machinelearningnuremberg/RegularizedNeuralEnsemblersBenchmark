@@ -1,0 +1,137 @@
+project_name: SOE2_nb_mini_error
+num_datasets: 3
+num_meta_splits: 1
+num_iterations: 100
+metric_name: error
+metadataset_name: nasbench201
+data_version: mini
+ne_epochs: 10000
+ne_batch_size: 256
+experiments:
+  neural1:
+    base_command: " --ensembler_name neural --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+        - random
+        - divbo
+
+      ne_hidden_dim:
+        - 32
+      ne_net_mode:
+        - stacking
+        - model_averaging
+        - combined
+        - combined_conditional
+
+  neural2:
+    base_command: " --ne_auto_dropout  --ensembler_name neural --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 32
+      ne_net_mode:
+        - stacking
+        - model_averaging
+        - combined
+        - combined_conditional
+
+  neural3:
+    base_command: " --ensembler_name neural --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 32
+      ne_dropout_rate:
+        - 0.25
+        - 0.5
+      ne_net_mode:
+        - stacking
+        - model_averaging
+        - combined
+        - combined_conditional
+
+  neural4:
+    base_command: " --ensembler_name neural --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+        - random
+        - divbo
+      ne_net_type:
+        - simple
+
+  single1:
+    base_command: " --ensembler_name single --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+
+  greedy1:
+    base_command: " --ensembler_name greedy --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+        - random
+        - divbo
+      max_num_pipelines:
+        - 5
+        - 50
+
+  quick1:
+    base_command: " --ensembler_name quick --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+        - random
+        - divbo
+      max_num_pipelines:
+        - 5
+        - 50
+
+  topm1:
+    base_command: " --ensembler_name topm --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+        - random
+        - divbo
+      max_num_pipelines:
+        - 5
+        - 50
+
+  cmaes1:
+    base_command: " --ensembler_name cmaes --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+        - random
+        - divbo
+      
+  sks1:
+    base_command: "--ensembler_name sks --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+        - random
+        - divbo
+
+  leo1:
+    base_command: "--ensembler_name single --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - leo
+      max_num_pipelines:
+        - 5
+        - 50
+
+  divbo1:
+    base_command: "--ensembler_name single --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - divbo
+      max_num_pipelines:
+        - 5
+        - 50

@@ -416,7 +416,7 @@ class NeuralEnsembler(BaseEnsembler):
 
         elif self.task_type == "classification":
             y_train = torch.tensor(y_train, dtype=torch.long)
-            model.set_target_distribution(y_train, self.device)
+            #model.set_target_distribution(y_train, self.device)
 
         optimizer = Adam(model.parameters(), lr=self.learning_rate)
 
@@ -558,7 +558,7 @@ class ENetSimple(nn.Module):
 
         w = w.reshape(batch_size, num_samples, -1)
         
-        if mask is not None:
+        if mask is not None and (not self.omit_output_mask):
             mask = mask.reshape(batch_size, num_samples, -1)
             w = w.masked_fill(mask == 0, -1e9)
             

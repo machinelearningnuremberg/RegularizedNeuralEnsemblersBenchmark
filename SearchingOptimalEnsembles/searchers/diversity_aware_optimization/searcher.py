@@ -213,5 +213,3 @@ class DivBO(BaseSearcher):
             suggested_ensemble = pool[:max_num_pipelines]
 
         return suggested_ensemble, suggested_pipeline
-
-        # select

@@ -115,6 +115,8 @@ if __name__ == "__main__":
     parser.add_argument("--apply_posthoc_ensemble_each_iter", action="store_true")
     parser.add_argument("--apply_posthoc_ensemble_at_end", action="store_true")
     parser.add_argument("--project_name", type=str, default="SearchingOptimalEnsembles")
+    parser.add_argument("--job_id", type=str, default="default")
+
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -132,7 +134,7 @@ if __name__ == "__main__":
         except wandb.errors.UsageError:
             print("Wandb is not available")
 
-    args.worker_dir = f"{args.worker_dir}/{args.project_name}/{args.experiment_group}"
+    args.worker_dir = f"{args.worker_dir}/{args.project_name}/{args.experiment_group}/{args.dataset_id}"
     args.add_y = not args.no_add_y
 
     config = get_config(args, function=SOE.run)
