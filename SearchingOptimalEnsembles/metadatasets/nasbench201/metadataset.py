@@ -6,6 +6,7 @@ import dask.array as da
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
+import random
 import torch
 from scipy.special import softmax
 from tqdm import tqdm
@@ -79,6 +80,7 @@ class NASBench201MetaDataset(Evaluator):
         model_files = list(data_path.glob("*.pt"))[
             : self.data_version_map[self.data_version]
         ]
+        random.shuffle(model_files)
 
         all_preds = []
         all_labels = None
