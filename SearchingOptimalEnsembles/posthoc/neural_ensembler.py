@@ -261,14 +261,9 @@ class NeuralEnsembler(BaseEnsembler):
             self.net = self.fit_net(
                 X_train=base_functions, y_train=y
             )
-        _, weights = self.batched_prediction(
-            X=base_functions
-        )
-        best_ensemble = X_obs
-        _, best_metric, _, _ = self.metadataset.evaluate_ensembles_with_weights(
-            [best_ensemble], weights
-        )
-        self.best_ensemble = best_ensemble
+        self.best_ensemble = X_obs
+
+        best_metric = self.evaluate_on_split(split="valid")
         return best_ensemble, best_metric
 
     def send_to_device(self, *args):
@@ -283,7 +278,7 @@ class NeuralEnsembler(BaseEnsembler):
     def get_batch(self, X_train, y_train):
         _, num_samples, num_classes, num_base_functions = X_train.shape
     
-        idx = np.random.randint(0, min(self.ne_batch_size, num_samples), self.ne_batch_size)
+        idx = np.random.randint(0, num_samples, self.ne_batch_size)
         return (X_train[:, idx], y_train[:, idx])
         #return (X_train, y_train)
 
@@ -614,6 +609,7 @@ class EFFNet(nn.Module):  # Sample as Sequence
         self.second_encoder = nn.Sequential(nn.Linear(hidden_dim, hidden_dim),nn.ReLU())
 
         self.relu = nn.ReLU()
+        
         self.out_layer = nn.Linear(hidden_dim, output_dim)
         self.dropout_rate = dropout_rate
         self.dropout_is_active = (dropout_rate > 0.) or (dropout_dist != None)

@@ -284,6 +284,6 @@ class Reporter:
 
 if __name__ == "__main__":
 
-    reporter_config_file = Path(__file__).parent.absolute() / "reporter_configs/report7.yml"
+    reporter_config_file = Path(__file__).parent.absolute() / "reporter_configs/report5.yml"
     reporter =  Reporter.load_reporter(reporter_config_file)
     reporter.report()

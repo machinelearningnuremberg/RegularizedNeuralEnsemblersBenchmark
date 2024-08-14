@@ -1,0 +1,42 @@
+report_id: report8
+split: test
+report_structure:
+  project_names: 
+    SOE3_ftc_mini_error: FTC
+  experiment_names:
+    # neural1_0: neural1_0
+    # neural1_1: neural1_1
+    # neural1_2: neural1_2
+    # neural1_3: neural1_3
+    # neural1_4: neural1_4
+    # neural1_5: neural1_5
+    # neural1_6: neural1_6
+    # neural1_7: neural1_7
+    # neural1_8: neural1_8
+    # neural1_9: neural1_9
+    # neural1_10: neural1_10
+    # neural1_11: neural1_11
+    # neural2_0: neural2_0
+    # neural2_1: neural2_1
+    # neural2_2: neural2_2
+    # neural2_3: neural2_3
+    # neural3_0: neural3_0
+    # neural3_1: neural3_1
+    # neural3_2: neural3_2
+    # neural3_3: neural3_3
+    # neural3_4: neural3_4
+    # neural3_5: neural3_5
+    # neural3_6: neural3_6
+    # neural3_7: neural3_7
+    neural5_0: neural5_0
+    neural5_1: neural5_1
+    neural5_2: neural5_2
+    neural5_3: neural5_3
+    neural5_4: neural5_4
+    neural5_5: neural5_5
+    neural5_6: neural5_6
+    neural5_7: neural5_7
+    sks1_0: sks1_0
+    sks1_1: sks1_1
+    sks1_2: sks1_2
+    single1_0: single1_0

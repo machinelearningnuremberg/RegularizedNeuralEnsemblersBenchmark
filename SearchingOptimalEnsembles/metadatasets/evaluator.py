@@ -156,16 +156,22 @@ class Evaluator(BaseMetaDataset):
         return metric, metric_per_pipeline
     
     def score_y_pred(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+        """
+        y_pred: predictions (outpur porbabilities for classification).
+        """
         y_true = y_true.to(y_pred.device)
-        if self.metric_name == "nll":
-            metric = torch.nn.CrossEntropyLoss()(y_pred, y_true)
-        elif self.metric_name == "error":
-            metric = (y_pred.argmax(-1) != y_true).float().mean()
-        elif self.metric_name == "absolute_relative_error":
+
+        if self.metric_name == "absolute_relative_error":
             metric = self.absolute_relative_error(y_true, y_pred.reshape(-1)).mean()
-        elif self.metric_name == "neg_roc_auc":
-            metric = 1-roc_auc_score(y_true.detach().cpu().numpy(), y_pred.detach().cpu().numpy(), multi_class="ovo")
         else:
-            raise ValueError("Metric name is not known.")
-        
+            y_pred = self.get_logits_from_probabilities(y_pred)
+            if self.metric_name == "nll":
+                metric = torch.nn.CrossEntropyLoss()(y_pred, y_true)
+            elif self.metric_name == "error":
+                metric = (y_pred.argmax(-1) != y_true).float().mean()
+            elif self.metric_name == "neg_roc_auc":
+                metric = 1-roc_auc_score(y_true.detach().cpu().numpy(), y_pred.detach().cpu().numpy(), multi_class="ovo")
+            else:
+                raise ValueError("Metric name is not known.")
+            
         return metric

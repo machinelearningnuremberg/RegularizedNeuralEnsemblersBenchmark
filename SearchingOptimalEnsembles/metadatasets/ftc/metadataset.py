@@ -20,10 +20,12 @@ class FTCMetaDataset(Evaluator):
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         data_version: str = "mini", 
         device: str = 'cpu',
+        load_all: bool = False,
         **kwargs
     ):
         self.seed = seed
         self.split = split
+        self.load_all = load_all
         self.metric_name = metric_name
         self.data_version = data_version
         self.models = MODELS
@@ -48,7 +50,10 @@ class FTCMetaDataset(Evaluator):
         self.files = ["times.csv",
                      "test_predictions.csv",
                      "val_predictions.csv"]
-        self._load_data()
+
+        if self.load_all:
+            self._load_data()
+        
         self._initialize()
 
     def get_dataset_names(self):
@@ -78,7 +83,7 @@ class FTCMetaDataset(Evaluator):
                 arg += f" --finetuning_config_file failed_finetuning_args"
                 file.write(arg + '\n')
 
-    def _load_data(self):
+    def _load_data(self, dataset_name=None):
         if self.data_version == "ftctest":
             args_dict, args_list = ftctest_args("ftctest")
         elif self.data_version == "mini":
@@ -100,6 +105,11 @@ class FTCMetaDataset(Evaluator):
         self.test_targets = {}
 
         for (config_id, config), bash_args in zip(args_dict.items(), args_list):
+            
+            if dataset_name is not None:
+                if dataset_name != config["dataset_name"]:
+                    continue
+
             data = self._load_predictions(config_id)
             dataset_name = config.pop("dataset_name")
 
@@ -140,6 +150,9 @@ class FTCMetaDataset(Evaluator):
 
         self.split = split
         self.dataset_name = dataset_name
+    
+        if not self.load_all:
+            self._load_data(dataset_name)
         super().set_state(dataset_name=dataset_name,
                           split=split)
 

@@ -1,7 +1,6 @@
 report_id: report5
 baseline: single1_0
-
-
+split: test
 report_structure:
   project_names:
     SOE2_qt_micro_error: QT-Micro
@@ -9,6 +8,7 @@ report_structure:
     SOE2_tr_version3class_error: TR-Class
     SOE2_tr_version3reg_error: TR-Reg
     SOE2_ftc_mini_error: FTC
+    SOE2_nb_micro_error: NB
   experiment_names:
     single1_0: Single-Best
     topm1_0: Top5
