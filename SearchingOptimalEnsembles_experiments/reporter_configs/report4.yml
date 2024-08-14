@@ -3,8 +3,7 @@ baseline: single1_0
 split: test
 report_structure:
   project_names:
-    SOE2_qt_mini_error: QT
-    SOE2_ftc_mini_error: FTC
+    SOE2_ftc_mini_nll: FTC
   experiment_names:
     neural1_0: neural1_0
     neural1_1: neural1_1
@@ -33,6 +32,10 @@ report_structure:
     neural4_0: neural4_0
     neural4_1: neural4_1
     neural4_2: neural4_2
+    neural5_0: neural5_0
+    neural5_1: neural5_1
+    neural5_2: neural5_2
+    neural5_3: neural5_3
     cmaes1_0: cmaes1_0
     cmaes1_1: cmaes1_1
     cmaes1_2: cmaes1_2

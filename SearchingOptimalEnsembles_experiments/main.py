@@ -38,7 +38,7 @@ if __name__ == "__main__":
     ##############################################################################
     parser.add_argument("--metadataset_name", type=str, default="quicktune")
     parser.add_argument("--searcher_name", type=str, default="bo")
-    parser.add_argument("--initial_design_size", type=int, default=5)
+    parser.add_argument("--initial_design_size", type=int, default=1)
     ##############################################################################
     parser.add_argument("--num_iterations", type=int, default=100)
     parser.add_argument("--max_num_pipelines", type=int, default=5)
@@ -134,7 +134,7 @@ if __name__ == "__main__":
         except wandb.errors.UsageError:
             print("Wandb is not available")
 
-    args.worker_dir = f"{args.worker_dir}/{args.project_name}/{args.experiment_group}/{args.dataset_id}"
+    args.worker_dir = f"{args.worker_dir}/{args.project_name}/{args.experiment_group}/{args.dataset_id}/{args.seed}"
     args.add_y = not args.no_add_y
 
     config = get_config(args, function=SOE.run)

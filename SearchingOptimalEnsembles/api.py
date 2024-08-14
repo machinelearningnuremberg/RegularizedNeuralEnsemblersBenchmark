@@ -20,7 +20,7 @@ def run(
     metadataset_name: Literal["scikit-learn", "nasbench201", "quicktune", "tabrepo"],
     #############################################
     searcher_name: Literal["random", "bo", "None"] = "bo",
-    initial_design_size: int = 5,
+    initial_design_size: int = 1,
     #############################################
     surrogate_name: Literal["dkl", "dre", "rf", "gp"] = "dkl",
     surrogate_args: dict | None = None,
@@ -281,15 +281,20 @@ def run(
             if X_pending.size == 0:
                 break
 
+        if max_num_pipelines > 1:
+            X_obs = incumbent_ensemble
+        else:
+            #used when max_num_piplines=1, asusming simple BO
+            X_obs = X_obs.tolist()
+
     else:
         dataset_name = metadataset.meta_splits["meta-test"][dataset_id]
         metadataset.set_state(dataset_name=dataset_name)
         num_existing_pipelines = metadataset.get_num_pipelines()
         X_obs = np.arange(num_existing_pipelines)
         np.random.shuffle(X_obs)
-        incumbent_ensemble = X_obs.tolist()
-
-    X_obs = X_obs.tolist()
+        X_obs = X_obs.tolist()
+        #incumbent_ensemble = X_obs.tolist()
 
     start_time = time.time()
     incumbent_ensemble, incumbent = posthoc_ensembler.sample(

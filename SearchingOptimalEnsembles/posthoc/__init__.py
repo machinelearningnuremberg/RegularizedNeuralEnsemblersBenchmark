@@ -6,6 +6,7 @@ from .quick_greedy_ensembler import QuickGreedyEnsembler
 from .random_ensembler import RandomEnsembler
 from .sk_stacker import ScikitLearnStacker
 from .top_m_ensembler import TopMEnsembler
+from .identity import IdentityEnsembler
 
 try:
     from .cmaes_ensembler import CMAESEnsembler
@@ -29,4 +30,5 @@ EnsemblerMapping: dict[str, Callable] = {
     "single": SingleBest,
     "des": DESEnsembler,
     "sks": ScikitLearnStacker,
+    "identity": IdentityEnsembler
 }

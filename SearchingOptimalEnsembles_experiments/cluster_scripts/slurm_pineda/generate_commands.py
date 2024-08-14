@@ -30,6 +30,7 @@ num_datasets = experiments_conf.pop("num_datasets")
 num_meta_splits = experiments_conf.pop("num_meta_splits")
 experiments = experiments_conf.pop("experiments")
 project_name = experiments_conf["project_name"]
+num_seeds = experiments_conf.pop("num_seeds", 1)
 counter = 0
 
 for experiment_group, experiment in experiments.items():
@@ -51,8 +52,10 @@ for experiment_group, experiment in experiments.items():
             for k, combination in enumerate(catersian_product):
                 temp_args = zip(hyper_grid.keys(), combination)
                 temp_command2 = extend_command(temp_command, temp_args)
-                temp_command2 += " --experiment_group " + experiment_group + "_" + str(k)
-                conf_list.append(temp_command2)
+
+                for l in range(num_seeds):
+                    temp_command3 = temp_command2 + " --experiment_group " + experiment_group + "_" + str(k) + f" --seed {l}"
+                    conf_list.append(temp_command3)
 
     # write conf list to file
     os.makedirs(f"bash_args/{project_name}", exist_ok=True)
