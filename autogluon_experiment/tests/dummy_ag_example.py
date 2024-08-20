@@ -3,8 +3,10 @@ from __future__ import annotations
 from autogluon.tabular import TabularPredictor
 from autogluon.tabular.configs.hyperparameter_configs import get_hyperparameter_config
 from autogluon_experiment.ag_neural_ensembler import AutoGluonNeuralEnsembler
-from sklearn.datasets import load_breast_cancer, load_diabetes, load_iris
+from sklearn.datasets import load_breast_cancer, load_iris
 from sklearn.model_selection import train_test_split
+
+# from sklearn.datasets import load_diabetes
 
 TEST_RUN = True
 
@@ -12,7 +14,7 @@ for load_func, task_type, eval_metric in [
     (load_iris, "multiclass", "roc_auc_ovo_macro"),
     (load_breast_cancer, "binary", "roc_auc"),
     # will crash for now due to default inference not supporting regression
-    (load_diabetes, "regression", "rmse"),
+    # (load_diabetes, "regression", "rmse"),
 ]:
     data, y = load_func(as_frame=True, return_X_y=True)
     data["target"] = y
@@ -71,6 +73,25 @@ for load_func, task_type, eval_metric in [
         time_limit=None,
         base_model_names=predictor.model_names(level=1, can_infer=True),
         **predictor_kwargs,
+    )
+
+    # -- Run Final Weighted Ensemble Combinations
+    l1_bms = predictor.model_names(level=1, can_infer=True)
+    l2_bms = predictor.model_names(level=2, can_infer=True)
+    predictor.fit_weighted_ensemble(
+        base_models=l1_bms + l2_bms,
+        name_suffix="_AllModels",
+    )
+    for bm in l2_bms:
+        predictor.fit_weighted_ensemble(
+            base_models=[*l1_bms, bm],
+            name_suffix=f"_Only{bm}",
+        )
+
+    l2_bms.remove("AutoGluonNeuralEnsembler_BAG_L2")
+    predictor.fit_weighted_ensemble(
+        base_models=l1_bms + l2_bms,
+        name_suffix="_AllModelsWithOutNeuralEnsembler",
     )
 
     results = predictor.leaderboard(test_data, display=True)
