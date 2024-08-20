@@ -23,5 +23,4 @@ if __name__ == "__main__":
     ne = NeuralEnsembler(mode=mode, device=torch.device("cpu"))
     ne.fit(X, y)
     ne.predict(X)
-    ne.predict_proba(X) # TODO: Needed!
     print("Done")
