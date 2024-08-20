@@ -5,7 +5,6 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import wandb
 from typing_extensions import Literal
 
 from ...metadatasets.base_metadataset import BaseMetaDataset
@@ -132,6 +131,7 @@ class BayesianOptimization(BaseSearcher):
         Returns:
             None: Updates the model's state in-place and saves the best state to a checkpoint file.
         """
+        import wandb
 
         # Initialize the surrogate model
         self.surrogate.checkpointer.load_checkpoint(checkpoint_name=self.checkpoint_name)

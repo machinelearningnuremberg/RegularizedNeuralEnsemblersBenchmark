@@ -6,7 +6,11 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import wandb
+
+try:
+    import wandb
+except ImportError:
+    wandb = None
 
 
 def calc_mean_and_sem(group_df, y_axis):

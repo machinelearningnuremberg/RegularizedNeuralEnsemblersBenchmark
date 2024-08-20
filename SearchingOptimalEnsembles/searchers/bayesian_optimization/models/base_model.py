@@ -6,7 +6,6 @@ from typing import Any
 
 import torch
 import torch.nn as nn
-import wandb
 
 from ....samplers.base_sampler import BaseSampler
 from ....utils.logger import get_logger
@@ -76,6 +75,7 @@ class BaseModel(nn.Module):
         Raises:
             Exception: Catches any exception that occurs during batch training and logs it.
         """
+        import wandb
 
         self.observed_pipeline_ids = observed_pipeline_ids
 

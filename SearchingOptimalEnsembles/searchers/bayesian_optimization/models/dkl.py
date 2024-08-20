@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import gpytorch
+try:
+    import gpytorch
+except ImportError:
+    gpytorch = None
 import torch
 
 from ....samplers.base_sampler import BaseSampler

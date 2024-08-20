@@ -4,7 +4,6 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import wandb
 import time
 from typing_extensions import Literal
 
@@ -87,6 +86,7 @@ def run(
         sampler_name
         acquisition_name
     """
+    import wandb
 
     logger = get_logger(name="SEO-MAIN", logging_level="debug")
 

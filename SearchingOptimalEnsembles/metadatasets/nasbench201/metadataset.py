@@ -2,8 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import dask.array as da
-import dask.dataframe as dd
+try:
+    import dask.array as da
+    import dask.dataframe as dd
+except ImportError:
+    da = None
+    dd = None
+
 import numpy as np
 import pandas as pd
 import random

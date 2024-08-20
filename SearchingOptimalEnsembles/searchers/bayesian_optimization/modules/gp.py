@@ -1,22 +1,29 @@
 from typing import Callable
 
-import gpytorch
+try:
+    import gpytorch
+
+    abc_class = gpytorch.models.ExactGP
+    type_likelihood = gpytorch.likelihoods.Likelihood
+    KernelMapping: dict[str,Callable]={"rbf":gpytorch.kernels.RBFKernel,"matern":gpytorch.kernels.MaternKernel,}
+except ImportError:
+    gpytorch = None
+    KernelMapping = None
+    abc_class = object
+    type_likelihood = None
+
+
 import torch
 
 from ....utils.common import instance_from_map
 
-KernelMapping: dict[str, Callable] = {
-    "rbf": gpytorch.kernels.RBFKernel,
-    "matern": gpytorch.kernels.MaternKernel,
-}
 
-
-class ExactGPLayer(gpytorch.models.ExactGP):
+class ExactGPLayer(abc_class):
     def __init__(
         self,
         train_x: torch.Tensor,
         train_y: torch.Tensor,
-        likelihood: gpytorch.likelihoods.Likelihood,
+        likelihood: type_likelihood,
         dims: int,
         kernel_name: str = "matern",
         ard: bool = False,
