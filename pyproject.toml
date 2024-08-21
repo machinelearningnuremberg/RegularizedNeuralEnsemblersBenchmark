@@ -27,7 +27,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.9"
+python = ">=3.10,<3.11"
 numpy = "1.23.2"
 configspace = "0.6.1"
 regex = "^2023.8.8"
@@ -36,11 +36,12 @@ torch = { version = ">=2.0.0", extras = ["cu121"] }
 torchvision = { version = ">=0.15.0", extras = ["cu121"] }
 gpytorch = "1.6.0"
 wandb = ">=0.15.12"
-scikit-learn = "1.4.0"
+scikit-learn = ">=1.4.1"
 lightgbm = { version = "^4.1.0", extras = ["scikit-learn"] }
 matplotlib = ">=3.9.0"
 pandas = ">=2.0"
-pipeline-bench = {path = "SearchingOptimalEnsembles/metadatasets/scikit_learn/pipeline_bench", extras = ["without_data_creation"]}
+dask = "^2024.8.1"
+pipeline-bench = {path = "SearchingOptimalEnsembles/metadatasets/scikit_learn/pipeline_bench", extras = ["soe_compatibility"]}
 
 [tool.poetry.scripts]
 install-tabrepo = "SearchingOptimalEnsembles.metadatasets.tabrepo.install_tabrepo:main"
