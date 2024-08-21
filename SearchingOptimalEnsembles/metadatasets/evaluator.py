@@ -33,7 +33,8 @@ class Evaluator(BaseMetaDataset):
 
         #following: https://lightning.ai/docs/torchmetrics/stable/regression/mean_absolute_percentage_error.html
         self.absolute_relative_error = lambda y_true,y_pred: torch.abs(y_true-y_pred)/torch.max(torch.ones(1),torch.abs(y_true))
-    
+        self.mse = torch.nn.MSELoss(reduction="none")
+
         #return torch.zeros(len(ensembles), 
         #                    len(ensembles[0]))
     
@@ -123,6 +124,12 @@ class Evaluator(BaseMetaDataset):
             metric_ensemble_per_sample = self.absolute_relative_error(temp_targets, weighted_predictions.sum(axis=1, keepdim=True).squeeze(-1))
             metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(-1)
 
+        elif self.metric_name == "mse":
+            metric_per_sample = self.mse(temp_targets,predictions.squeeze(-1))
+            metric_per_pipeline = metric_per_sample.mean(-1)
+            metric_ensemble_per_sample = self.mse(temp_targets, weighted_predictions.sum(axis=1, keepdim=True).squeeze(-1))
+            metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(-1)
+        
         elif self.metric_name == "neg_roc_auc":
             y_pred = predictions.mean(1)
             metric = []
@@ -163,8 +170,11 @@ class Evaluator(BaseMetaDataset):
 
         if self.metric_name == "absolute_relative_error":
             metric = self.absolute_relative_error(y_true, y_pred.reshape(-1)).mean()
+        elif self.metric_name == "mse":
+            metric = self.mse(y_true, y_pred.reshape(-1)).mean()
         else:
             y_pred = self.get_logits_from_probabilities(y_pred)
+            y_true = y_true.long()
             if self.metric_name == "nll":
                 metric = torch.nn.CrossEntropyLoss()(y_pred, y_true)
             elif self.metric_name == "error":

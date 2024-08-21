@@ -1,12 +1,12 @@
-project_name: RQ1_ftc_mini_nll
-num_datasets: 6
+project_name: RQ1_tr_version3reg_mse
+num_datasets: 17
 num_meta_splits: 1
 num_iterations: 100
-metric_name: nll
-metadataset_name: ftc
-data_version: mini
+metric_name: mse
+metadataset_name: tabrepo
+data_version: version3_reg
+ne_batch_size: 2048
 ne_epochs: 10000
-ne_batch_size: 256
 num_seeds: 3
 experiments:
   neural1:
@@ -64,7 +64,6 @@ experiments:
       ne_net_mode:
         - stacking
         - model_averaging
-
 
   single1:
     base_command: " --ensembler_name single --no_wandb"

@@ -2,7 +2,7 @@
 #install phem if you want to use this: pip install git+https://github.com/LennartPurucker/phem
 from __future__ import annotations
 
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, log_loss, mean_squared_error
 import torch
 
 from phem.methods.ensemble_weighting import CMAES
@@ -52,6 +52,20 @@ class CMAESEnsembler(BaseEnsembler):
                         classification=True,
                         always_transform_conf_to_pred=True,
                         optimum_value=1)
+        elif metric_name == "nll":
+            self.metric = make_metric(metric_func=log_loss,
+                        metric_name="log_loss",
+                        maximize=False,
+                        classification=True,
+                        always_transform_conf_to_pred=True,
+                        optimum_value=1)
+        elif metric_name == "mse":
+            self.metric = make_metric(metric_func=mean_squared_error,
+                        metric_name="mean_squared_error",
+                        maximize=False,
+                        classification=False,
+                        always_transform_conf_to_pred=True,
+                        optimum_value=1)              
         else:
             raise NotImplementedError
         self.cmaes = None

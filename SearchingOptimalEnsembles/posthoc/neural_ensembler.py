@@ -129,7 +129,7 @@ class NeuralEnsembler(BaseEnsembler):
         self.epochs = ne_epochs
         self.training = True
         self.predefined_pipeline_ids = None
-        self.y_max = 1
+        self.y_scale = 1
         self.class_prob = torch.FloatTensor([1,1,1,1])
         self.best_ensemble = []
 
@@ -142,6 +142,9 @@ class NeuralEnsembler(BaseEnsembler):
 
         if self.metric_name == "absolute_relative_error":
             self.criterion = nn.L1Loss()
+            self.task_type = "regression"
+        elif self.metric_name == "mse":
+            self.criterion = nn.MSELoss()
             self.task_type = "regression"
         else:
             self.criterion = nn.CrossEntropyLoss()
@@ -176,7 +179,7 @@ class NeuralEnsembler(BaseEnsembler):
         weights = []
 
         if self.task_type == "regression":
-            X /= self.y_max.to(X.device)
+            X /= self.y_scale.to(X.device)
 
         for i in range(0, num_samples, self.ne_batch_size):
             range_idx = idx[range(i, min(i + self.ne_batch_size, num_samples))]
@@ -200,7 +203,7 @@ class NeuralEnsembler(BaseEnsembler):
         ).to(self.prediction_device) if len(weights)>0 else None
 
         if self.task_type == "regression":
-            outputs *= self.y_max.to(outputs.device)
+            outputs *= self.y_scale.to(outputs.device)
 
         return outputs, weights
 
@@ -389,6 +392,8 @@ class NeuralEnsembler(BaseEnsembler):
         if dropout_rate is None:
             dropout_rate = self.dropout_rate
 
+        num_classes = X_train.shape[-2]
+
         model = NetClass(
             input_dim=input_dim,
             hidden_dim=self.hidden_dim,
@@ -400,14 +405,15 @@ class NeuralEnsembler(BaseEnsembler):
             dropout_dist=self.dropout_dist,
             omit_output_mask=self.omit_output_mask,
             mode=self.net_mode,
-            task_type=self.task_type
+            task_type=self.task_type,
+            num_classes=num_classes
         )
 
         if self.task_type == "regression":
-            self.y_max = X_train.max()
-            y_train /= self.y_max
+            self.y_scale = X_train.mean()
+            y_train /= self.y_scale
             #base_functions_train /= self.y_max
-            X_train /= self.y_max
+            X_train /= self.y_scale
 
         elif self.task_type == "classification":
             y_train = torch.tensor(y_train, dtype=torch.long)
@@ -580,7 +586,9 @@ class EFFNet(nn.Module):  # Sample as Sequence
         dropout_dist=None,
         omit_output_mask=False,
         task_type="classification",
-        mode="combined"
+        mode="combined",
+        num_classes=None,
+        **kwargs
     ):
         super().__init__()
 
@@ -594,22 +602,27 @@ class EFFNet(nn.Module):  # Sample as Sequence
         self.omit_output_mask = omit_output_mask
         self.mode = mode
         self.task_type = task_type
+        self.num_classes = num_classes
 
         if self.mode == "model_averaging":
             num_layers=-1
         
-        self.embedding = nn.Linear(input_dim, hidden_dim)
-        first_encoder_modules = [
-            nn.Sequential( nn.ReLU(), nn.Linear(hidden_dim, hidden_dim))
-            for _ in range(num_layers)
-        ]
-        first_encoder_modules.append(nn.ReLU())
+        if self.mode == "stacking":
+            output_dim = 1
 
-        self.first_encoder = nn.ModuleList(first_encoder_modules)
-        self.second_encoder = nn.Sequential(nn.Linear(hidden_dim, hidden_dim),nn.ReLU())
-
-        self.relu = nn.ReLU()
+        if self.add_y:
+            input_dim += ( hidden_dim // 4 )
         
+        self.class_embedding = nn.Embedding(num_classes, hidden_dim // 4)
+        
+        first_module = [nn.Linear(input_dim, hidden_dim)]
+        for _ in range(num_layers):
+            first_module.append(nn.ReLU())
+            first_module.append(nn.Linear(hidden_dim, hidden_dim))
+        first_module.append(nn.ReLU())
+        self.first_module = nn.Sequential(*first_module)
+        self.second_module = nn.Sequential(nn.Linear(hidden_dim, hidden_dim),nn.ReLU())
+
         self.out_layer = nn.Linear(hidden_dim, output_dim)
         self.dropout_rate = dropout_rate
         self.dropout_is_active = (dropout_rate > 0.) or (dropout_dist != None)
@@ -621,10 +634,9 @@ class EFFNet(nn.Module):  # Sample as Sequence
         x = x.transpose(1, 2).reshape(-1, num_samples, num_base_functions)
 
         # [(BATCH SIZE X NUMBER OF CLASSES) X NUMBER OF SAMPLES X NUMBER OF BASE FUNCTIONS]
-        x = self.embedding(x)
-        for encoder in self.first_encoder:
-            x = encoder(x)
-
+        #for layer in self.first_module:
+        #    x = layer(x)
+        x = self.first_module(x)
         x = x.transpose(0, 1).unsqueeze(0)  # use batch size here
 
         return x
@@ -682,13 +694,25 @@ class EFFNet(nn.Module):  # Sample as Sequence
         idx = np.arange(num_classes)
         for i in range(0, num_classes, self.inner_batch_size):
             range_idx = idx[range(i, min(i + self.inner_batch_size, num_classes))]
-
-            
             if mask is not None:
                 temp_x = (x[:,:,range_idx]*mask[:,:,range_idx])*scaling_factor
                 base_functions[:,:,range_idx] = base_functions[:,:,range_idx]*mask[:,:,range_idx]
             else:
                 temp_x = x[:,:,range_idx]
+            
+            if self.add_y:
+                #class_indicator = torch.FloatTensor(range_idx).reshape(1,1,-1,1)*torch.ones(batch_size, num_samples, 1, 1)
+                z = self.class_embedding(
+                    torch.LongTensor(range_idx).to(temp_x.device)
+                )
+                z = torch.repeat_interleave(
+                    z.unsqueeze(0), temp_x.shape[0], dim=0
+                )
+                z = torch.repeat_interleave(
+                    z.unsqueeze(1),  temp_x.shape[1], dim=1
+                )
+                #class_indicator = class_indicator.to(temp_x.device)
+                temp_x = torch.cat([temp_x, z], axis=-1)
             temp_w = self.get_batched_weights(x = temp_x)
             w.append(temp_w)
 
@@ -696,7 +720,7 @@ class EFFNet(nn.Module):  # Sample as Sequence
 
         if self.mode == "model_averaging":
             w = w.mean(axis=2)
-            w = self.second_encoder(w)
+            w = self.second_module(w)
             w = torch.repeat_interleave(
                 w.unsqueeze(2), num_classes, dim=2
             )
@@ -704,7 +728,7 @@ class EFFNet(nn.Module):  # Sample as Sequence
         w = self.out_layer(w)
 
         if self.mode == "stacking":
-            x = w.sum(-1)
+            x = w.squeeze(-1)
             if self.task_type == "classification":
                 x = torch.nn.functional.softmax(x, dim=-1)
             return x, None

@@ -95,40 +95,43 @@ class Reporter:
             project_config = self.load_project_config(project_name)
             projects_configs.append(project_config)
             num_datasets = project_config["num_datasets"]
+            num_seeds = project_config["num_seeds"]
 
             for experiment_name in self.experiment_names:
                 for dataset_id in range(num_datasets):
                     
                     if dataset_id in self.dataset_filter: continue
 
-                    temp_path = self.experiments_results_path / project_name / experiment_name / str(dataset_id)
+                    for seed in range(num_seeds):
+                        temp_path = self.experiments_results_path / project_name / experiment_name / str(dataset_id) / str(seed)
 
-                    #read experiment config
-                    try:
-                        with open(temp_path / "args.json") as json_file:
-                            experiment_config = json.load(json_file)
-                        passed = self.check_config(experiment_config)
-                    except:
-                        missing_experiments_list[project_name][experiment_name].append(dataset_id)
-                        passed = False
-                        print("Args file not found for "+str(temp_path))
-
-                    if passed: 
+                        #read experiment config
                         try:
-                            with open(temp_path / "results.json") as json_file:
-                                experiment_results = json.load(json_file)
-                            experiment_results["dataset_id"] = dataset_id
-                            experiment_results["experiment_name"] = experiment_name
-                            experiment_results["project_name"] = project_name
-                            experiments_configs.append(experiment_config)
-                            experiments_results.append(experiment_results)
+                            with open(temp_path / "args.json") as json_file:
+                                experiment_config = json.load(json_file)
+                            passed = self.check_config(experiment_config)
                         except:
-                            print("Results file not found for "+ str(temp_path))
                             missing_experiments_list[project_name][experiment_name].append(dataset_id)
+                            passed = False
+                            print("Args file not found for "+str(temp_path))
+
+                        if passed: 
+                            try:
+                                with open(temp_path / "results.json") as json_file:
+                                    experiment_results = json.load(json_file)
+                                experiment_results["dataset_id"] = dataset_id
+                                experiment_results["experiment_name"] = experiment_name
+                                experiment_results["project_name"] = project_name
+                                experiment_results["seed"] = seed
+                                experiments_configs.append(experiment_config)
+                                experiments_results.append(experiment_results)
+                            except:
+                                print("Results file not found for "+ str(temp_path))
+                                missing_experiments_list[project_name][experiment_name].append(dataset_id)
 
         return projects_configs, experiments_configs, experiments_results, missing_experiments_list
     
-    def report_missing_experiments(self, missing_experiments_list):
+    def write_missing_experiments(self, missing_experiments_list):
         missing_experiments_list = default_to_regular(missing_experiments_list)
         missing_experiments_counts  = defaultdict(lambda: defaultdict(int))
 
@@ -147,7 +150,16 @@ class Reporter:
  
 
     def process_table(self, table):
-        table = pd.pivot_table(table, values=["val_metric", "test_metric"], index="experiment_name", columns=["project_name", "dataset_id"])
+        table = pd.pivot_table(table, values=["val_metric", "test_metric"], index="experiment_name", columns=["project_name", "dataset_id", "seed"])
+        
+        if self.split == "test": 
+            table = table["test_metric"]
+        else:
+            table = table["val_metric"]
+
+        #average across runs
+        table = table.groupby(["dataset_id","project_name"],axis=1).mean()
+
         if self.baseline is not None:
             for column in table.columns:
                 table[column][np.isnan(table[column])] = table[column][self.baseline] 
@@ -156,27 +168,14 @@ class Reporter:
         return table
     
     def report_ranked_metric(self, table):
-
-        if self.split == "test":
-            table = table[["test_metric"]].rank().groupby("project_name", axis=1).mean()
-            table.columns = pd.MultiIndex.from_product([["Test"], table.columns])
-        else:
-            table = table["val_metric"].rank().groupby("project_name", axis=1).mean()
-            table.columns = pd.MultiIndex.from_product([["Validation"], table.columns])    
-        
-        #return pd.concat([test_table, val_table], axis=1)
-        return table
+        mean = table.rank().groupby("project_name", axis=1).mean()
+        std = table.rank().groupby("project_name", axis=1).std()
+        return mean, std
     
     def report_aggregated_metric(self, table):
-        if self.split == "test":
-            table = table[["test_metric"]].groupby("project_name", axis=1).mean()
-            table.columns = pd.MultiIndex.from_product([["Test"], table.columns])
-        else:
-            table = table["val_metric"].groupby("project_name", axis=1).mean()
-            table.columns = pd.MultiIndex.from_product([["Validation"], table.columns])    
-        
-        #return pd.concat([test_table, val_table], axis=1)
-        return table
+        mean = table.groupby("project_name", axis=1).mean()
+        std = table.groupby("project_name", axis=1).std()
+        return mean, std
     
     def report_time(self, table):
         return table
@@ -184,11 +183,11 @@ class Reporter:
     def report_dataset_size(self, table):
         return table
 
-    def rename_projects(self, table):
+    def rename_projects(self, table, suffix=""):
         new_columns=[]
-        for i, column in enumerate(table.columns.levels[1]):
-            new_columns.append(self.report_structure["project_names"][column])
-        table.columns = table.columns.set_levels(new_columns, level=1)
+        for i, column in enumerate(table.columns):
+            new_columns.append(self.report_structure["project_names"][column]+suffix)
+        table.columns = new_columns
         return table
 
     def rename_experiments(self, table):
@@ -201,53 +200,48 @@ class Reporter:
     def write_tables(self, tables):
 
     
-        def highlight_smallest(s, smallest, second_smallest):
-            # Find the smallest and second smallest values
-            #smallest = s.min()
-            #second_smallest = s.nsmallest(2).iloc[-1]
-
-            # Apply formatting
-            #return ['\\textbf{' + str(v) + '}' if v == smallest else ('\\textit{' + str(v) + '}' if v == second_smallest else str(v)) for v in s]
-            return '\\textbf{' + str(s) + '}' if s == smallest else ('\\underline{\\textit{' + str(s) + '}}' if s == second_smallest else str(s))
+        def highlight_smallest(m, s, smallest, second_smallest):
+            return '\\textbf{' + str(m) + '}$_{\pm'+ str(s)+'}$' if m == smallest \
+                        else ('\\underline{\\textit{' + str(m) + '}}$_{\pm'+ str(s)+'}$' if m == second_smallest else str(m)+'$_{\pm'+ str(s)+'}$')
                                                                      
-        for table_name, table in tables.items():
-            table = table.loc[self.experiment_names]
-            table = self.rename_projects(table)
-            table = self.rename_experiments(table)
-            table.columns.names=["",""]
-            smallest_ones = table.apply(lambda x: x.min()).apply(lambda x: '{:,.4f}'.format(x))
-            second_smallest_ones = table.apply(lambda x: x.nsmallest(2).iloc[-1]).apply(lambda x: '{:,.4f}'.format(x))
+        for table_name, table_group in tables.items():
+            table_mean = table_group["mean"]
+            table_std = table_group["std"]
 
-            for column in table.columns:
+            table_mean = self.rename_projects(table_mean)
+            table_std = self.rename_projects(table_std, suffix="_std")
+
+            table_mean = self.rename_experiments(table_mean)
+            table_std = self.rename_experiments(table_std)
+
+            #table.columns.names=["",""]
+            smallest_ones = table_mean.apply(lambda x: x.min()).apply(lambda x: '{:,.4f}'.format(x))
+            second_smallest_ones = table_mean.apply(lambda x: x.nsmallest(2).iloc[-1]).apply(lambda x: '{:,.4f}'.format(x))
+
+            table = pd.concat([table_mean, table_std], axis=1)
+
+            for column in table_mean.columns:
                 table[column] = table[column].apply(lambda x: '{:,.4f}'.format(x))
+                table[column+"_std"] = table[column+"_std"].apply(lambda x: '{:,.4f}'.format(x))
+
                 smallest = smallest_ones[column]
                 second_smallest = second_smallest_ones[column]
-                table[column] = table[column].apply(lambda x: highlight_smallest(x, smallest, second_smallest))
-
+                #table[column] = table[column].apply(lambda x: highlight_smallest(x, smallest, second_smallest))
+                #table[column+"_std"] = table[column+"_std"].apply(lambda x: highlight_smallest(x, smallest, second_smallest))
+                #table[column] = table[[column, column+"_std"]].apply(lambda x: x[column]+" $\pm$ "+x[column+"_std"], axis=1)
+                table[column] = table[[column, column+"_std"]].apply(lambda x: highlight_smallest(x[column],x[column+"_std"], smallest, second_smallest), axis=1)
+            table = table[table_mean.columns]
             table.to_csv(self.report_output_path / (table_name+".csv"))
-            #styled_df = table.apply(highlight_smallest, axis=0)
-            #s = styled_df.style.highlight_max(
-            #   # props='cellcolor:[HTML]{FFFF00}; color:{red}; itshape:; bfseries:;'
-            #)
-            #styled_df = styled_df.style.format("{:.2f}".format)
-            table = table.apply(lambda x: x.replace("{r}{Test}", "{c}{\textbf{Test}}"))
-            table = table.apply(lambda x: x.replace("{r}{Test}", "{c}{\textbf{Test}}"))
 
-            # styler = table.style.set_table_styles([
-            #     {'selector': 'toprule', 'props': ':hline;'},
-            #     {'selector': 'midrule', 'props': ':hline;'},
-            #     {'selector': 'bottomrule', 'props': ':hline;'},
-            #     ], overwrite=False)
+            #table = table.apply(lambda x: x.replace("{r}{Test}", "{c}{\textbf{Test}}"))
+            #table = table.apply(lambda x: x.replace("{r}{Test}", "{c}{\textbf{Test}}"))
+
 
             styler = table.style
             styler.applymap_index(lambda v: "font-weight: bold;", axis="index")
             styler.applymap_index(lambda v: "font-weight: bold;", axis="columns")
             latex_table =styler.to_latex(convert_css=True, hrules=True)
-            #styled_df = styled_df.style.format(precision=2, subset=[1])
-            #latex_table = table.to_latex(
-            #                                 column_format="ccccc",
-            #                                # hrules=True
-            #                                 )
+
             with open(self.report_output_path / (table_name+".tex"), 'w') as f:
                 f.write(latex_table)
 
@@ -263,12 +257,22 @@ class Reporter:
 
         experiment_configs_table = pd.DataFrame(experiments_configs)
 
-        self.report_missing_experiments(missing_experiments_list)
         processed_table = self.process_table(table)
-        aggregated_table = self.report_aggregated_metric(processed_table)
-        ranked_table = self.report_ranked_metric(processed_table)
-        self.write_tables({"aggregated": aggregated_table, 
-                            "ranked": ranked_table})
+        aggregated_mean, aggregated_std = self.report_aggregated_metric(processed_table)
+        ranked_mean, ranked_std = self.report_ranked_metric(processed_table)
+        
+        self.write_missing_experiments(missing_experiments_list)
+        self.write_tables({"aggregated":
+                                { "mean": aggregated_mean,
+                                "std": aggregated_std 
+                                },
+                           "ranked":
+                            {
+                                "mean": ranked_mean,
+                                "std": ranked_std,
+                                }
+                            }                   
+                        )
 
         self.report_time(table)
         self.report_dataset_size(table)
@@ -284,6 +288,6 @@ class Reporter:
 
 if __name__ == "__main__":
 
-    reporter_config_file = Path(__file__).parent.absolute() / "reporter_configs/report4.yml"
+    reporter_config_file = Path(__file__).parent.absolute() / "reporter_configs/report12.yml"
     reporter =  Reporter.load_reporter(reporter_config_file)
     reporter.report()

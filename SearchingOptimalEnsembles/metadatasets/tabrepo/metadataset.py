@@ -57,7 +57,8 @@ class TabRepoMetaDataset(Evaluator):
             data_version=data_version
         )
         if self.task_type == "regression":
-            self.metric_name  = "absolute_relative_error"
+            #self.metric_name  = "absolute_relative_error"
+            self.metric_name = "mse"
         
         self.metadataset_task_type = TASK_TYPE_TO_METADATASET[self.task_type]
         self._initialize()

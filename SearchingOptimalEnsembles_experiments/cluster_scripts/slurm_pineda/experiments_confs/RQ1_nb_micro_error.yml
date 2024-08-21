@@ -1,12 +1,12 @@
-project_name: RQ1_ftc_mini_nll
-num_datasets: 6
+project_name: RQ1_nb_micro_error
+num_datasets: 3
 num_meta_splits: 1
 num_iterations: 100
-metric_name: nll
-metadataset_name: ftc
-data_version: mini
-ne_epochs: 10000
+metric_name: error
+metadataset_name: nasbench201
+data_version: micro
 ne_batch_size: 256
+ne_epochs: 10000
 num_seeds: 3
 experiments:
   neural1:
@@ -64,7 +64,6 @@ experiments:
       ne_net_mode:
         - stacking
         - model_averaging
-
 
   single1:
     base_command: " --ensembler_name single --no_wandb"
