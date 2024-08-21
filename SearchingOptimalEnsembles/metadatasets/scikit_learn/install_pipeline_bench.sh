@@ -13,8 +13,8 @@ fi
 
 # Check if the tabrepo directory already exists
 if [ ! -d "$PIPELINE_BENCH_DIR" ]; then
-    # Clone the repository if it does not exist
-    git clone --recurse-submodules https://github.com/releaunifreiburg/Pipeline-Bench.git $PIPELINE_BENCH_DIR
+    # Clone the repository from the tpot_bench branch and include submodules
+    git clone --branch tpot_bench --recurse-submodules https://github.com/releaunifreiburg/Pipeline-Bench.git $PIPELINE_BENCH_DIR
 else
     # If the directory exists, navigate to it and update submodules
     cd $PIPELINE_BENCH_DIR
