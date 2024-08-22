@@ -5,14 +5,17 @@ set -euo pipefail
 
 # Function to display usage information
 usage() {
-    echo "Usage: $0"
+    echo "Usage: $0 [install-pipeline_bench]"
     exit 1
 }
 
-# Check for the correct number of arguments
-if [ "$#" -ne 0 ]; then
+# Check for the correct number of arguments (allow 0 or 1 arguments)
+if [ "$#" -gt 1 ]; then
     usage
 fi
+
+# Get the argument that was passed to this script, default to an empty string if none
+arg=${1-""}
 
 # Function to check Conda commands
 check_conda() {
@@ -29,17 +32,15 @@ check_conda() {
 # Function to manage Conda environments and determine python version
 manage_conda_env() {
 
+
     # Check Python version
     python_version=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
     echo "Detected Python version: $python_version"
 
-    # Modify pyproject.toml based on Python version
-    if [[ "$python_version" == "3.9" ]]; then
-        sed -i 's/configspace = "0.6.1"/configspace = "0.4.21"/' pyproject.toml
-        sed -i 's/scikit-learn = "1.4.0"/scikit-learn = "1.0.2"/' pyproject.toml
-    elif [[ "$python_version" == "3.10" ]]; then
-        sed -i 's/configspace = "0.4.21"/configspace = "0.6.1"/' pyproject.toml
-        sed -i 's/scikit-learn = "1.0.2"/scikit-learn = "1.4.0"/' pyproject.toml
+    # Assert it's 3.10
+    if [[ "$python_version" != "3.10" ]]; then
+        echo "Unsupported Python version. Please use Python 3.10."
+        exit 1
     fi
 
     # Initialize and update git submodules
@@ -58,25 +59,18 @@ manage_conda_env() {
     poetry lock
     poetry install
 
-    if [[ "$python_version" == "3.10" ]]; then
-        echo "Python 3.10 detected, setting up accordingly."
-        # Install tabrepo and phem submodules
+    # Check if the argument is "install-pipeline_bench"
+    if [ "$arg" == "install-pipeline_bench" ]; then
+        echo "Installation to run experiments with Pipeline-Bench with TPOT search space..."
+        # Install pipeline_bench submodule
         echo "Installing pipeline_bench..."
-        poetry run install-pipeline_bench --without_data_creation || { echo 'Failed to install pipeline_bench submodule'; exit 1; }
-        echo "Warning - Pipeline-Bench data creation is not compatible with Python 3.10."
+        poetry run install-pipeline_bench || { echo 'Failed to install pipeline_bench submodule'; exit 1; }
+    else
+        echo "Default installation..."
         echo "Installing tabrepo..."
         poetry run install-tabrepo || { echo 'Failed to install tabrepo submodule'; exit 1; }
         echo "Installing phem..."
         poetry run install-phem || { echo 'Failed to install phem submodule'; exit 1; }
-    elif [[ "$python_version" == "3.9" ]]; then
-        echo "Python 3.9 detected, setting up accordingly."
-        # Install pipeline_bench submodule
-        echo "Installing pipeline_bench..."
-        poetry run install-pipeline_bench || { echo 'Failed to install pipeline_bench submodule'; exit 1; }
-        echo "Warning - phem submodule is not compatible with Python 3.9."
-    else
-        echo "Unsupported Python version. Please use Python 3.9 or 3.10."
-        exit 1
     fi
 
     poetry install
