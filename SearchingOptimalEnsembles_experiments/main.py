@@ -96,7 +96,7 @@ if __name__ == "__main__":
     parser.add_argument("--ne_dropout_dist", type=str, default=None)
     parser.add_argument("--ne_omit_output_mask", action="store_true")
     parser.add_argument("--ne_batch_size", type=int, default=2048)
-    parser.add_argument("--ne_net_mode", type=str, default="combined")
+    parser.add_argument("--ne_net_mode", type=str, default="model_averaging")
     parser.add_argument("--ne_epochs", type=int, default=1000)
     ##################### OTHERS #####################################################
     parser.add_argument("--des_method_name", type=str, default="KNOP")

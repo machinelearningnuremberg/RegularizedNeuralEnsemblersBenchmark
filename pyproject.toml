@@ -40,7 +40,6 @@ scikit-learn = "1.4.0"
 lightgbm = { version = "^4.1.0", extras = ["scikit-learn"] }
 matplotlib = ">=3.9.0"
 pandas = ">=2.0"
-pipeline-bench = {path = "SearchingOptimalEnsembles/metadatasets/scikit_learn/pipeline_bench", extras = ["without_data_creation"]}
 
 [tool.poetry.scripts]
 install-tabrepo = "SearchingOptimalEnsembles.metadatasets.tabrepo.install_tabrepo:main"
