@@ -90,7 +90,7 @@ class AutoGluonNeuralEnsembler(AbstractModel):
         y_pred = self.model.predict(X).cpu().detach().numpy()  # does not have a concept of predict proba
 
         if self.problem_type in [REGRESSION]:
-            return y_pred
+            return y_pred.flatten()
 
         return self._convert_proba_to_unified_form(y_pred)
 

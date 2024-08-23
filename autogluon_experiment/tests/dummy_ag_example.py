@@ -33,7 +33,7 @@ for load_func, task_type, eval_metric in [
 
     # -- Run Base Models
     if TEST_RUN:
-        hyperparameters = {  # FIXME: remove after testing
+        hyperparameters = {
             "KNN": [
                 {"weights": "uniform", "ag_args": {"name_suffix": "Unif"}},
                 {"weights": "distance", "ag_args": {"name_suffix": "Dist"}},
@@ -69,9 +69,15 @@ for load_func, task_type, eval_metric in [
         "ag_args_ensemble": {"refit_folds": True},  # refit as no validation data is used for early stopping
     }
     hyperparameters_stacking[AutoGluonNeuralEnsembler] = [
-        {"ne_net_mode": "model_averaging", **default_arguments},  # only default config
-        {"ne_net_mode": "stacking", **default_arguments},  # stacking config
+        {
+            "ne_net_mode": "model_averaging",
+            "ag_args": {"name_suffix": "ModelAveraging"},
+            **default_arguments,
+        },
+        {"ne_net_mode": "stacking", "ag_args": {"name_suffix": "Stacking"}, **default_arguments},
     ]
+    expected_name_ma = "AutoGluonNeuralEnsemblerModelAveraging_BAG_L2"
+    expected_name_st = "AutoGluonNeuralEnsemblerStacking_BAG_L2"
 
     predictor = predictor.fit_extra(
         hyperparameters=hyperparameters_stacking,
@@ -83,6 +89,8 @@ for load_func, task_type, eval_metric in [
     # -- Run Final Weighted Ensemble Combinations
     l1_bms = predictor.model_names(level=1, can_infer=True)
     l2_bms = predictor.model_names(level=2, can_infer=True)
+    assert expected_name_st in l2_bms, "Stacking NE model not found in level 2 models!"
+    assert expected_name_ma in l2_bms, "Model Averaging NE model not found in level 2 models!"
     predictor.fit_weighted_ensemble(
         base_models=l1_bms + l2_bms,
         name_suffix="_AllModels",
@@ -93,10 +101,11 @@ for load_func, task_type, eval_metric in [
             name_suffix=f"_Only{bm}",
         )
 
-    l2_bms.remove("AutoGluonNeuralEnsembler_BAG_L2")
+    l2_bms.remove(expected_name_ma)
+    l2_bms.remove(expected_name_st)
     predictor.fit_weighted_ensemble(
         base_models=l1_bms + l2_bms,
-        name_suffix="_AllModelsWithOutNeuralEnsembler",
+        name_suffix="_AllModelsWithOutNeuralEnsemblers",
     )
 
     results = predictor.leaderboard(test_data, display=True)
