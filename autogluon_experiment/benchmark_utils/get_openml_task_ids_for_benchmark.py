@@ -8,10 +8,10 @@ import pandas as pd
 benchmark_suite_clf = openml.study.get_suite(271)
 benchmark_suite_reg = openml.study.get_suite(269)
 
-task_ids = list(benchmark_suite_clf.tasks)
-task_ids += list(benchmark_suite_reg.tasks)
+task_ids_clf = list(benchmark_suite_clf.tasks)
+task_ids_reg = list(benchmark_suite_reg.tasks)
 
-print(f"AutoML Benchmark Task ID: {len(task_ids)} tasks")
+print(f"AutoML Benchmark: {len(task_ids_clf)} CLF | {len(task_ids_reg)} REG tasks")
 
 
 # TabRepo Datasets (https://github.com/autogluon/tabrepo/blob/main/tabrepo/contexts/context_2023_08_21.py#L9)
@@ -267,9 +267,100 @@ datasets = [
 dataset_metadata = pd.read_csv(Path(__file__).parent / "task_metadata_289.csv", index_col=False)
 tid_name_map = dataset_metadata[["name", "tid"]].set_index("tid").to_dict()["name"]
 
-task_ids = [task_id for task_id in task_ids if tid_name_map[task_id] in datasets]
-print(f"After TabRepo Filter: {len(task_ids)} tasks")
-print(task_ids)
+task_ids_clf = [task_id for task_id in task_ids_clf if tid_name_map[task_id] in datasets]
+task_ids_reg = [task_id for task_id in task_ids_reg if tid_name_map[task_id] in datasets]
+print(f"After TabRepo Filtering: {len(task_ids_clf)} CLF | {len(task_ids_reg)} REG tasks")
+print("Regression Tasks:", task_ids_reg)
+print("Classification Tasks:", task_ids_clf)
+task_ids = task_ids_clf + task_ids_reg
+print("All:", task_ids)
+
+# Test Output Correct
+expected_output_reg = [
+    167210,
+    233211,
+    233212,
+    233215,
+    317614,
+    359930,
+    359931,
+    359932,
+    359933,
+    359934,
+    359935,
+    359936,
+    359937,
+    359938,
+    359939,
+    359940,
+    359941,
+    359942,
+    359944,
+    359945,
+    359946,
+    359948,
+    359949,
+    359950,
+    359951,
+    359952,
+    360945,
+]
+expected_output_clf = [
+    146818,
+    146820,
+    168350,
+    168757,
+    168784,
+    168868,
+    168909,
+    168910,
+    168911,
+    189922,
+    190137,
+    190146,
+    190392,
+    190410,
+    190411,
+    190412,
+    211979,
+    211986,
+    359953,
+    359954,
+    359955,
+    359956,
+    359957,
+    359958,
+    359959,
+    359960,
+    359961,
+    359962,
+    359963,
+    359964,
+    359966,
+    359967,
+    359968,
+    359969,
+    359970,
+    359971,
+    359972,
+    359974,
+    359975,
+    359977,
+    359979,
+    359980,
+    359981,
+    359982,
+    359983,
+    359985,
+    359986,
+    359987,
+    359990,
+    359991,
+    359992,
+    359993,
+]
+assert task_ids_clf == expected_output_clf
+assert task_ids_reg == expected_output_reg
 
 expected_results = [
     146818,
