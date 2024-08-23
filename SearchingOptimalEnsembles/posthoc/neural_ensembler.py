@@ -96,6 +96,7 @@ class NeuralEnsembler(BaseEnsembler):
         ne_omit_output_mask: bool = True,
         ne_net_mode: str = "model_averaging",
         ne_epochs: int = 1000,
+        verbose: bool = True,
         **kwargs
     ) -> None:
         super().__init__(metadataset=metadataset, device=device)
@@ -133,6 +134,7 @@ class NeuralEnsembler(BaseEnsembler):
         self.y_scale = 1
         self.class_prob = torch.FloatTensor([1,1,1,1])
         self.best_ensemble = []
+        self.verbose = verbose
 
         if self.metadataset is not None:
             self.metric_name = metadataset.metric_name
@@ -420,7 +422,7 @@ class NeuralEnsembler(BaseEnsembler):
             X_train /= self.y_scale
 
         elif self.task_type == "classification":
-            y_train = torch.tensor(y_train, dtype=torch.long)
+            y_train = y_train.clone().detach().long()
             #model.set_target_distribution(y_train, self.device)
 
         optimizer = Adam(model.parameters(), lr=self.learning_rate)
@@ -436,7 +438,8 @@ class NeuralEnsembler(BaseEnsembler):
         for epoch in range(self.epochs):
             batch_data = self.get_batch(X_train, y_train)
             loss, w = self.fit_one_epoch(model, optimizer, batch_data)
-            print("Epoch", epoch, "Loss", loss.item())
+            if self.verbose and (epoch % (int(self.epochs * 0.1)) == 0):
+                print("Epoch", epoch, "Loss", loss.item())
 
         model.eval()
         self.training = False

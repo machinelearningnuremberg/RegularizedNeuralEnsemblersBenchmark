@@ -3,18 +3,15 @@ from __future__ import annotations
 from autogluon.tabular import TabularPredictor
 from autogluon.tabular.configs.hyperparameter_configs import get_hyperparameter_config
 from autogluon_experiment.ag_neural_ensembler import AutoGluonNeuralEnsembler
-from sklearn.datasets import load_breast_cancer, load_iris
+from sklearn.datasets import load_breast_cancer, load_diabetes, load_iris
 from sklearn.model_selection import train_test_split
-
-# from sklearn.datasets import load_diabetes
 
 TEST_RUN = True
 
 for load_func, task_type, eval_metric in [
     (load_iris, "multiclass", "roc_auc_ovo_macro"),
     (load_breast_cancer, "binary", "roc_auc"),
-    # will crash for now due to default inference not supporting regression
-    # (load_diabetes, "regression", "rmse"),
+    (load_diabetes, "regression", "rmse"),
 ]:
     data, y = load_func(as_frame=True, return_X_y=True)
     data["target"] = y
@@ -66,7 +63,15 @@ for load_func, task_type, eval_metric in [
         hyperparameters_stacking = get_hyperparameter_config("default")
         del hyperparameters_stacking["KNN"]  # not usable for stacking
 
-    hyperparameters_stacking[AutoGluonNeuralEnsembler] = [{}]  # only default config
+    default_arguments = {
+        "ne_epochs": 10000,
+        "ne_dropout_rate": 0.75,
+        "ag_args_ensemble": {"refit_folds": True},  # refit as no validation data is used for early stopping
+    }
+    hyperparameters_stacking[AutoGluonNeuralEnsembler] = [
+        {"ne_net_mode": "model_averaging", **default_arguments},  # only default config
+        {"ne_net_mode": "stacking", **default_arguments},  # stacking config
+    ]
 
     predictor = predictor.fit_extra(
         hyperparameters=hyperparameters_stacking,

@@ -78,6 +78,9 @@ class AutoGluonNeuralEnsembler(AbstractModel):
         random.seed(random_seed)
         np.random.seed(random_seed)
 
+        if self.problem_type == REGRESSION:
+            params["metric_name"] = "mse"
+
         # Fit Model
         self.model = NeuralEnsembler(device=device, prediction_device=device, **params)
         self.model.fit(X, y.values)
@@ -92,7 +95,7 @@ class AutoGluonNeuralEnsembler(AbstractModel):
         return self._convert_proba_to_unified_form(y_pred)
 
     def _set_default_params(self):
-        default_params = {"random_state": 0, "ne_net_mode": "combined"}
+        default_params = {"random_state": 0}
         for param, val in default_params.items():
             self._set_default_param_value(param, val)
 
@@ -103,3 +106,6 @@ class AutoGluonNeuralEnsembler(AbstractModel):
         )
         default_auxiliary_params.update(extra_auxiliary_params)
         return default_auxiliary_params
+
+    def _more_tags(self) -> dict:
+        return {"can_refit_full": True}
