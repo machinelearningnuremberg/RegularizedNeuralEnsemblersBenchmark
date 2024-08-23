@@ -26,6 +26,9 @@ MODELS = {
         "svm": SVR      
     }
 }
+DEFAULT_MODEL_ARGS = {
+    "svm": {"probability":True}
+}
 
 class ScikitLearnStacker(BaseEnsembler):
     """ScikitLearn Stacker"""
@@ -44,15 +47,16 @@ class ScikitLearnStacker(BaseEnsembler):
         self.model_args = sks_model_args
         self.normalize_performance = normalize_performance
 
+        if self.model_args is None:
+            self.model_args = DEFAULT_MODEL_ARGS.get(self.model_name, {})
+
         if hasattr(metadataset, "task_type"):
             self.task_type = metadataset.task_type
         else:
             self.task_type = "classification"
 
-        if sks_model_args is None:
-            model_args = {}
 
-        self.model = MODELS[self.task_type][self.model_name](*model_args)
+        self.model = MODELS[self.task_type][self.model_name](**self.model_args)
         self.absolute_relative_error = lambda y_true,y_pred: torch.abs(y_true-y_pred)/torch.max(torch.ones(1),torch.abs(y_true))
         self.cross_entropy = torch.nn.CrossEntropyLoss()
 

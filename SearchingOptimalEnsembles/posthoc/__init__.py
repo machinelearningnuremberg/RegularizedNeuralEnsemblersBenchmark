@@ -7,6 +7,7 @@ from .random_ensembler import RandomEnsembler
 from .sk_stacker import ScikitLearnStacker
 from .top_m_ensembler import TopMEnsembler
 from .identity import IdentityEnsembler
+from .temp_neural_ensembler import NeuralEnsembler as TestNeuralEnsembler
 
 try:
     from .cmaes_ensembler import CMAESEnsembler
@@ -30,5 +31,6 @@ EnsemblerMapping: dict[str, Callable] = {
     "single": SingleBest,
     "des": DESEnsembler,
     "sks": ScikitLearnStacker,
-    "identity": IdentityEnsembler
+    "identity": IdentityEnsembler,
+    "test_neural": TestNeuralEnsembler
 }

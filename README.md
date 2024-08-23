@@ -50,8 +50,7 @@ Consider appending `export PATH="$HOME/.local/bin:$PATH"` into `~/.zshrc` / `~/.
 bash setup.sh
 ```
 
-This will determine the python version based on which the dependencies are installed.
-Currently Pipeline-Bench with model retraining is only available for Python 3.9 because of the 'auto-sklearn' dependency.
+This will install all dependencies into the poetry environment. Due to the scikit-learn mismatch, the default installation support tabrepo and phem libraries; for running experiments with Pipeline-Bench metadataset using TPOT search space, install the dependencies with `bash setup.sh install-pipeline_bench`.
 
 To install a new dependency use `poetry add dependency` and commit the updated `pyproject.toml` to git.
 

@@ -4,7 +4,6 @@ import joblib
 import numpy as np
 import pandas as pd
 import pipeline_bench
-import sklearn
 import torch
 from sklearn.pipeline import Pipeline
 
@@ -22,7 +21,7 @@ class ScikitLearnMetaDataset(Evaluator):
         split: str = "valid",
         metric_name: str = "nll",
         data_version: str = "mini",
-        **kwargs,
+        **kwargs,  # pylint: disable=unused-argument
     ):
         super().__init__(
             data_dir=data_dir,
@@ -97,10 +96,30 @@ class ScikitLearnMetaDataset(Evaluator):
         )  # TODO: eleminate indices (future work), edit: depned only on ids
 
     def _get_worst_and_best_performance(self) -> tuple[torch.Tensor, torch.Tensor]:
-        return self.benchmark.get_worst_and_best_performance(
-            split=self.split,
-            metric_name=self.metric_name,
-        )
+        try:
+            return self.benchmark.get_worst_and_best_performance(
+                split=self.split,
+                metric_name=self.metric_name,
+            )
+        except KeyError:
+            # calculate the worst and best performance
+            ensembles = [[hp_id.item()] for hp_id in self.hp_candidates_ids]
+            metric_per_pipeline = self.benchmark(
+                ensembles=ensembles,
+                datapoints=self.benchmark.get_splits(return_array=False)[
+                    f"X_{self.split}"
+                ],
+                get_probabilities=False,
+                aggregate=True,
+            )
+            labels = self.benchmark.get_splits(return_array=True)[f"y_{self.split}"]
+            labels = np.repeat(labels.reshape(1, -1), len(ensembles), axis=0)
+            labels = torch.tensor(labels, dtype=torch.long)
+            # compute accruacy for each pipeline
+            return (
+                torch.tensor(metric_per_pipeline.min(), dtype=torch.float32),
+                torch.tensor(metric_per_pipeline.max(), dtype=torch.float32),
+            )
 
     def _get_probabilities(self, ensembles: list[list[int]]) -> np.ndarray:
         splits_ids = self.benchmark.get_splits(return_array=False)
@@ -164,7 +183,8 @@ class ScikitLearnMetaDataset(Evaluator):
                     p = joblib.load(id_to_path[pipeline_id])
                 except Exception as e:
                     print(f"Error loading pipeline {pipeline_id}: {e}")
-                    p = Pipeline()
+                    # p = Pipeline()
+                    raise e
                 ens.append(p)
 
         return ens

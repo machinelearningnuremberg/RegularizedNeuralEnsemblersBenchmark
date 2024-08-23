@@ -1,8 +1,8 @@
-project_name: RQ1_ftc_mini_nll
+project_name: RQ1_ftc_mini_error
 num_datasets: 6
 num_meta_splits: 1
 num_iterations: 100
-metric_name: nll
+metric_name: error
 metadataset_name: ftc
 data_version: mini
 ne_epochs: 10000

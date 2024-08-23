@@ -94,7 +94,7 @@ class NeuralEnsembler(BaseEnsembler):
         ne_weight_thd: float = 0.,
         ne_dropout_dist: str | None = None,
         ne_omit_output_mask: bool = True,
-        ne_net_mode: str = "model_averaging",
+        ne_net_mode: str = "combined",
         ne_epochs: int = 1000,
         **kwargs
     ) -> None:

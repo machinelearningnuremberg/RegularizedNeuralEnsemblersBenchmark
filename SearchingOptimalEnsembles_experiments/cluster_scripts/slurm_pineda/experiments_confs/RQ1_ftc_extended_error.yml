@@ -1,10 +1,10 @@
-project_name: RQ1_ftc_mini_nll
+project_name: RQ1_ftc_extended_error
 num_datasets: 6
 num_meta_splits: 1
 num_iterations: 100
-metric_name: nll
+metric_name: error
 metadataset_name: ftc
-data_version: mini
+data_version: extended
 ne_epochs: 10000
 ne_batch_size: 256
 num_seeds: 3
