@@ -416,7 +416,7 @@ class NeuralEnsembler(BaseEnsembler):
         )
 
         if self.task_type == "regression":
-            self.y_scale = X_train.mean()
+            self.y_scale = X_train.mean().to(self.device)
             y_train /= self.y_scale
             #base_functions_train /= self.y_max
             X_train /= self.y_scale
