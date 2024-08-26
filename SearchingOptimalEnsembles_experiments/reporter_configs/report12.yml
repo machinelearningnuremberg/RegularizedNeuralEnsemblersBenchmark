@@ -13,21 +13,21 @@ report_structure:
     # neural3_1: neural31
     # neural3_2: neural32
     # neural3_3: neural33
-    neural3_4: neural34
-    neural3_5: neural35
-    neural4_0: neural40
-    neural5_0: neural50
-    neural5_1: neural51
-    cmaes1_0: cmaes10
-    divbo1_0: divbo10
-    divbo1_1: divbo10
-    greedy1_0: greedy10
-    greedy1_1: greedy11
-    leo1_0: leo10
-    leo1_1: leo11
-    quick1_0: quick10
-    quick1_1: quick11
-    single1_0: single10
+    # neural3_4: neural34
+    # neural3_5: neural35
+    # neural4_0: neural40
+    # neural5_0: neural50
+    # neural5_1: neural51
+    # cmaes1_0: cmaes10
+    # divbo1_0: divbo10
+    # divbo1_1: divbo10
+    # greedy1_0: greedy10
+    # greedy1_1: greedy11
+    # leo1_0: leo10
+    # leo1_1: leo11
+    # quick1_0: quick10
+    # quick1_1: quick11
+    # single1_0: single10
     sks1_0: sks10
     sks1_1: sks11
     sks1_2: sks12

@@ -28,7 +28,7 @@ class CMAESEnsembler(BaseEnsembler):
 
     def __init__(
         self,
-        metadataset: BaseMetaDataset,
+        metadataset: BaseMetaDataset | None = None,
         metric_name: str = "error",
         n_iterations: int = 50,
         normalize_weights: str = "softmax",
@@ -45,27 +45,34 @@ class CMAESEnsembler(BaseEnsembler):
         self.random_state = random_state
         self.fitted_models = [None]
 
-        if metric_name == "accuracy" or metric_name == "error":
+        if self.metadataset is not None:
+            self.metric_name = metadataset.metric_name
+        else:
+            #dummy metadataset
+            self.metadataset = BaseMetaDataset("")
+            self.metric_name = metric_name
+
+        if self.metric_name == "accuracy" or self.metric_name == "error":
             self.metric = make_metric(metric_func=accuracy_score,
                         metric_name="accuracy",
                         maximize=True,
                         classification=True,
                         always_transform_conf_to_pred=True,
                         optimum_value=1)
-        elif metric_name == "nll":
+        elif self.metric_name == "nll":
             self.metric = make_metric(metric_func=log_loss,
                         metric_name="log_loss",
                         maximize=False,
                         classification=True,
                         always_transform_conf_to_pred=True,
-                        optimum_value=1)
-        elif metric_name == "mse":
+                        optimum_value=0)
+        elif self.metric_name == "mse":
             self.metric = make_metric(metric_func=mean_squared_error,
                         metric_name="mean_squared_error",
                         maximize=False,
                         classification=False,
                         always_transform_conf_to_pred=True,
-                        optimum_value=1)              
+                        optimum_value=0)              
         else:
             raise NotImplementedError
         self.cmaes = None

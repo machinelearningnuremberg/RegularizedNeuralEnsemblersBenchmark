@@ -34,9 +34,10 @@ class GreedyEnsembler(BaseEnsembler):
         max_num_pipelines = kwargs.get("max_num_pipelines", 5)
         ensemble: list[int] = []
         best_metric = torch.inf
-
+        
         # TODO: Fix the type of X_obs
         X_obs = np.array(X_obs).reshape(-1, 1).tolist()
+        best_ensemble = None
 
         for i in range(max_num_pipelines):
             print(f"GreedyEnsembler: {i}")
@@ -54,12 +55,16 @@ class GreedyEnsembler(BaseEnsembler):
                 _,
             ) = self.metadataset.evaluate_ensembles(ensembles=temp_ensembles)
 
-            best_id = metric.argmin()
-            best_metric = metric.min()
-            ensemble.append(X_obs[best_id][0])
+            temp_best_id = metric.argmin()
+            temp_best_metric = metric.min()
+            ensemble.append(X_obs[temp_best_id][0])
 
             if self.no_resample:
-                X_obs.pop(best_id)
+                X_obs.pop(temp_best_id)
 
-        self.best_ensemble = ensemble
+            if temp_best_metric < best_metric:
+                best_metric = temp_best_metric
+                best_ensemble = ensemble.copy()
+
+        self.best_ensemble = best_ensemble
         return ensemble, best_metric

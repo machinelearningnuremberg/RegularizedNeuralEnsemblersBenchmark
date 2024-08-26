@@ -67,6 +67,7 @@ def run(
     ne_net_mode: str = "model_averaging",
     ne_batch_size: int = 2048,
     ne_epochs: int = 1000,
+    ne_patience: int = -1,
     #############################################
     des_method_name: str = "KNOP",
     sks_model_name: str = "random_forest",
@@ -154,6 +155,7 @@ def run(
         "ne_net_mode": ne_net_mode, 
         "ne_epochs": ne_epochs,
         "ne_batch_size": ne_batch_size,
+        "ne_patience": ne_patience,
         "des_method_name": des_method_name,
         "max_num_pipelines": max_num_pipelines,
         "sks_model_name": sks_model_name

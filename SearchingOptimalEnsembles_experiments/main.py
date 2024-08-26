@@ -98,6 +98,7 @@ if __name__ == "__main__":
     parser.add_argument("--ne_batch_size", type=int, default=2048)
     parser.add_argument("--ne_net_mode", type=str, default="model_averaging")
     parser.add_argument("--ne_epochs", type=int, default=1000)
+    parser.add_argument("--ne_patience", type=int, default=-1)
     ##################### OTHERS #####################################################
     parser.add_argument("--des_method_name", type=str, default="KNOP")
     parser.add_argument("--sks_model_name", type=str, default="random_forest")
