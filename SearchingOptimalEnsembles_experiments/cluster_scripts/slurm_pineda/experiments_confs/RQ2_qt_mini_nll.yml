@@ -1,8 +1,8 @@
-project_name: RQ2_qt_micro_nll
-metadataset_name: quicktune
-data_version: micro
-num_datasets: 30
+project_name: RQ2_qt_mini_nll
 metric_name: nll
+metadataset_name: quicktune
+data_version: mini
+num_datasets: 30
 num_meta_splits: 1
 num_iterations: 100
 ne_batch_size: 2048

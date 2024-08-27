@@ -135,8 +135,13 @@ class Evaluator(BaseMetaDataset):
             metric = []
             metric_per_pipeline = torch.zeros(predictions.shape[:2])
             for i in range(y_pred.shape[0]):
+                if y_pred[i].shape[1] == 2:
+                    y_pred_ = y_pred[i][:,1]
+                else:
+                    y_pred_ = y_pred[i]
+
                 metric.append(
-                    1-roc_auc_score(targets[i].numpy(), y_pred[i].numpy(), multi_class="ovo")
+                    1-roc_auc_score(targets[i].numpy(), y_pred_.numpy(), multi_class="ovo")
                 )
             metric = torch.FloatTensor(metric).to(predictions.device)
 

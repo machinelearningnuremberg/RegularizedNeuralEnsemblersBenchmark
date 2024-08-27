@@ -43,6 +43,7 @@ def run(
     num_inner_epochs: int = 1,
     batch_size: int = 16,
     max_num_pipelines: int = 1,
+    max_num_pipelines_for_searcher: int = 10,
     num_base_pipelines: int = 20,
     apply_posthoc_ensemble_each_iter: bool = False,
     apply_posthoc_ensemble_at_end: bool = True,
@@ -182,7 +183,7 @@ def run(
                 num_inner_epochs=meta_num_inner_epochs,
                 loss_tol=loss_tolerance,
                 valid_frequency=meta_valid_frequency,
-                max_num_pipelines=max_num_pipelines,
+                max_num_pipelines=max_num_pipelines_for_searcher,
                 batch_size=batch_size,
             )
 
@@ -199,7 +200,7 @@ def run(
 
         # Sample initial design
         _, metric, _, _, ensembles = searcher.initial_design_sampler.sample(
-            fixed_num_pipelines=max_num_pipelines,
+            fixed_num_pipelines=max_num_pipelines_for_searcher,
             batch_size=initial_design_size,
             observed_pipeline_ids=None,
         )
@@ -235,7 +236,7 @@ def run(
 
             # Evaluate candidates
             suggested_ensemble, suggested_pipeline = searcher.suggest(
-                max_num_pipelines=max_num_pipelines,
+                max_num_pipelines=max_num_pipelines_for_searcher,
                 batch_size=batch_size,
                 num_suggestion_batches=num_suggestion_batches,
                 num_suggestions_per_batch=num_suggestions_per_batch,
@@ -246,10 +247,10 @@ def run(
                 [suggested_ensemble]
             )
 
-            if max_num_pipelines > 1 and apply_posthoc_ensemble_each_iter:
+            if max_num_pipelines_for_searcher > 1 and apply_posthoc_ensemble_each_iter:
                 post_hoc_ensemble, post_hoc_ensemble_metric = posthoc_ensembler.sample(
                     X_obs=X_obs,
-                    max_num_pipelines=max_num_pipelines,
+                    max_num_pipelines_for_searcher=max_num_pipelines_for_searcher,
                     num_suggestion_batches=num_suggestion_batches,
                     num_suggestions_per_batch=num_suggestions_per_batch,
                 )
@@ -283,7 +284,7 @@ def run(
             if X_pending.size == 0:
                 break
 
-        if max_num_pipelines > 1:
+        if max_num_pipelines_for_searcher > 1:
             X_obs = incumbent_ensemble
         else:
             #used when max_num_piplines=1, asusming simple BO

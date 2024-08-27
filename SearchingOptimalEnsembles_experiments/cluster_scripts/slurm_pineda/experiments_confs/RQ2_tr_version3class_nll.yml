@@ -1,7 +1,7 @@
-project_name: RQ2_qt_micro_nll
-metadataset_name: quicktune
-data_version: micro
-num_datasets: 30
+project_name: RQ2_tr_version3class_nll
+metadataset_name: tabrepo
+data_version: version3_class
+num_datasets: 83
 metric_name: nll
 num_meta_splits: 1
 num_iterations: 100
