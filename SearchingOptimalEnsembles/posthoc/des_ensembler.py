@@ -62,6 +62,11 @@ class DESEnsembler(BaseEnsembler):
                                    split=split)
         X_dsel, y_dsel = self.metadataset.get_X_and_y()
         y_pred = self.des_object.predict_proba(X_dsel)
+        if self.metadataset.task_type == "regression":
+            y_dsel = torch.FloatTensor(y_dsel)
+        else:
+            y_dsel = torch.LongTensor(y_dsel)
+        y_pred = torch.FloatTensor(y_pred)
         best_metric = self.metadataset.score_y_pred(y_pred, y_dsel)
         
         return best_metric

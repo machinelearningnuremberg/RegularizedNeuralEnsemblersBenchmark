@@ -15,7 +15,7 @@ class ScikitLearnMetaDataset(Evaluator):
 
     def __init__(
         self,
-        data_dir: str = "/work/dlclarge2/janowski-quicktune/pipeline_bench",
+        data_dir: str = "/work/dlclarge1/janowski-pipebench/",
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         seed: int = 42,
         split: str = "valid",
