@@ -180,7 +180,8 @@ class ScikitLearnMetaDataset(Evaluator):
         for sublist in ensembles:
             for pipeline_id in sublist:
                 try:
-                    p = joblib.load(id_to_path[pipeline_id])
+                    with open(id_to_path[pipeline_id], 'rb') as f:
+                        p = load(f)
                 except Exception as e:
                     print(f"Error loading pipeline {pipeline_id}: {e}")
                     # p = Pipeline()
