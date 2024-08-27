@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import joblib
+from joblib import load  
 import numpy as np
 import pandas as pd
 import pipeline_bench
