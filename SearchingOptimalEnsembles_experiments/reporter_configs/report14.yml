@@ -10,7 +10,7 @@ report_structure:
     RQ1_nb_mini_error: NB-Mini
     RQ1_nb_micro_error: NB-Micro
     RQ1_tr_version3class_error: TR-Class
-    #RQ1_tr_version3class_roc: TR-Class (AUC)
+    RQ1_tr_version3class_roc: TR-Class (AUC)
     #RQ1_tr_version3reg_mse: TR-Reg
     #RQ1_qt_micro_nll : QT-Micro
   experiment_names:

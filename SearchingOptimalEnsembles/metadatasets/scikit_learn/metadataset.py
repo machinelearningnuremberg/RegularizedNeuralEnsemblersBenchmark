@@ -21,6 +21,7 @@ class ScikitLearnMetaDataset(Evaluator):
         split: str = "valid",
         metric_name: str = "nll",
         data_version: str = "mini",
+        task_type: str = "classification",
         **kwargs,  # pylint: disable=unused-argument
     ):
         super().__init__(
@@ -33,6 +34,7 @@ class ScikitLearnMetaDataset(Evaluator):
         )
 
         self.feature_dim = 196
+        self.task_type = "classification"
 
         # Scikit-learn specific attributes
         self.data_version = data_version
@@ -61,19 +63,21 @@ class ScikitLearnMetaDataset(Evaluator):
     def set_state(self, dataset_name: str, split: str = "valid"):
         self.logger.debug(f"Setting dataset: {dataset_name}")
 
-        # Scikit-learn specific attributes
-        task_id = self.task_ids[self.dataset_names.index(dataset_name)]
-        self.benchmark = pipeline_bench.Benchmark(
-            task_id=task_id,
-            worker_dir=self.data_dir,
-            mode="table",
-            lazy=False,
-            data_version=self.data_version,
-        )
+        if dataset_name != self.dataset_name:
+            # Scikit-learn specific attributes
+            task_id = self.task_ids[self.dataset_names.index(dataset_name)]
+            self.benchmark = pipeline_bench.Benchmark(
+                task_id=task_id,
+                worker_dir=self.data_dir,
+                mode="table",
+                lazy=False,
+                data_version=self.data_version,
+            )
+        
         super().set_state(dataset_name=dataset_name, split=split)
 
     def _get_hp_candidates_and_indices(
-        self, return_only_ids: bool = True
+        self, return_only_ids: bool = False
     ) -> tuple[torch.Tensor | None, torch.Tensor]:
         hp_candidates_ids = torch.tensor(
             self.benchmark.get_hp_candidates_ids(), dtype=torch.int32
@@ -81,7 +85,7 @@ class ScikitLearnMetaDataset(Evaluator):
 
         if not return_only_ids:
             # pylint: disable=protected-access
-            _hp_candidates = self.benchmark._configs.compute()
+            _hp_candidates = self.benchmark._configs #.compute()
             # Convert DataFrame to a numpy array and handle NaN values.
             hp_candidates = _hp_candidates.values.astype(np.float32)
             hp_candidates[np.isnan(hp_candidates)] = 0
@@ -135,10 +139,9 @@ class ScikitLearnMetaDataset(Evaluator):
         # Pipeline that have NaN values in their predictions will be assigned a uniform probability
         # (treating them as if they are random guesses)
         nan_mask = np.isnan(y_proba)
-        config_with_nans = nan_mask.any(axis=(1, 2, 3))
-        uniform_probability = 1.0 / self.get_num_classes()
-        y_proba[config_with_nans, :, :, :] = uniform_probability
-
+        y_proba[nan_mask] = 1e-4
+        y_proba= y_proba / y_proba.sum(-1, keepdims=True)
+        
         return y_proba
 
     def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
@@ -166,6 +169,9 @@ class ScikitLearnMetaDataset(Evaluator):
 
     def get_time(self, ensembles: list[list[int]]) -> torch.Tensor:
         return torch.zeros(len(ensembles), len(ensembles[0]))
+
+    def get_base_pipelines(self):
+        return self.get_pipelines([self.hp_candidates_ids.numpy().tolist()])
 
     def get_pipelines(self, ensembles: list[list[int]]) -> list[list[Pipeline]]:
         pipeline_ids = [pipeline_id for sublist in ensembles for pipeline_id in sublist]
@@ -199,4 +205,5 @@ class ScikitLearnMetaDataset(Evaluator):
         splits = self.benchmark.get_splits(return_array=True)
         X = torch.tensor(splits[f"X_{self.split}"], dtype=torch.float32)
         y = torch.tensor(splits[f"y_{self.split}"], dtype=torch.long)
+        X[torch.isnan(X)] = 0
         return X, y

@@ -71,15 +71,7 @@ experiments:
       ne_net_type:
         - simple
 
-  single1:
-    base_command: " --ensembler_name single --no_wandb"
-    hyper_grid:
-      num_iterations:
-        - 100
-      max_num_pipelines_for_searcher:
-        - 50
-      searcher_name:
-        - divbo
+
 
   single1:
     base_command: " --ensembler_name single --no_wandb"
@@ -90,6 +82,16 @@ experiments:
         - 1
       searcher_name:
         - random
+
+  single2:
+    base_command: " --ensembler_name single --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 50
+      searcher_name:
+        - divbo
 
   greedy1:
     base_command: " --ensembler_name greedy --no_wandb"
