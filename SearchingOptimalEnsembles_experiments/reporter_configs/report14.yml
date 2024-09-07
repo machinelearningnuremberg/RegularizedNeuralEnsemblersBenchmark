@@ -1,16 +1,17 @@
-report_id: report11
+report_id: report14
 baseline: single1_0
 split: test
 report_structure:
   project_names:
-    #RQ1_ftc_mini_nll : FTC
-    RQ1_ftc_extended_nll : FTC
-    RQ1_qt_mini_nll : QT-Mini
-    RQ1_qt_micro_nll: QT-Micro
-    RQ1_nb_mini_nll: NB-Mini
-    RQ1_nb_micro_nll: NB-Micro
-    RQ1_tr_version3class_nll: TR-Class
-    RQ1_tr_version3reg_mse: TR-Reg
+    #RQ1_ftc_mini_error : FTC
+    RQ1_ftc_extended_error : FTC
+    RQ1_qt_mini_error : QT-Mini
+    RQ1_qt_micro_error: QT-Micro
+    RQ1_nb_mini_error: NB-Mini
+    RQ1_nb_micro_error: NB-Micro
+    RQ1_tr_version3class_error: TR-Class
+    RQ1_tr_version3class_roc: TR-Class (AUC)
+    #RQ1_tr_version3reg_mse: TR-Reg
     #RQ1_qt_micro_nll : QT-Micro
   experiment_names:
     # neural1_0: neural1_0

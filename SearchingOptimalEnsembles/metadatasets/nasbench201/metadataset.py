@@ -286,7 +286,7 @@ class NASBench201MetaDataset(Evaluator):
     def get_targets(self) -> torch.Tensor:
         # Efficiently get labels and compute them to a tensor
         labels_np = self._labels["label"].compute().values  # Compute only when needed
-        targets_tensor = torch.tensor(labels_np, dtype=torch.int32)
+        targets_tensor = torch.tensor(labels_np).long()
 
         return targets_tensor
 

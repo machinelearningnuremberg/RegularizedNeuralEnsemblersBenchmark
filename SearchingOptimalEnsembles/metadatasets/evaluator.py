@@ -135,8 +135,13 @@ class Evaluator(BaseMetaDataset):
             metric = []
             metric_per_pipeline = torch.zeros(predictions.shape[:2])
             for i in range(y_pred.shape[0]):
+                if y_pred[i].shape[1] == 2:
+                    y_pred_ = y_pred[i][:,1]
+                else:
+                    y_pred_ = y_pred[i]
+
                 metric.append(
-                    1-roc_auc_score(targets[i].numpy(), y_pred[i].numpy(), multi_class="ovo")
+                    1-roc_auc_score(targets[i].numpy(), y_pred_.numpy(), multi_class="ovo")
                 )
             metric = torch.FloatTensor(metric).to(predictions.device)
 
@@ -173,13 +178,15 @@ class Evaluator(BaseMetaDataset):
         elif self.metric_name == "mse":
             metric = self.mse(y_true, y_pred.reshape(-1)).mean()
         else:
-            y_pred = self.get_logits_from_probabilities(y_pred)
             y_true = y_true.long()
             if self.metric_name == "nll":
+                y_pred = self.get_logits_from_probabilities(y_pred)
                 metric = torch.nn.CrossEntropyLoss()(y_pred, y_true)
             elif self.metric_name == "error":
                 metric = (y_pred.argmax(-1) != y_true).float().mean()
             elif self.metric_name == "neg_roc_auc":
+                if y_pred.shape[1] == 2:
+                    y_pred = y_pred[:,1]
                 metric = 1-roc_auc_score(y_true.detach().cpu().numpy(), y_pred.detach().cpu().numpy(), multi_class="ovo")
             else:
                 raise ValueError("Metric name is not known.")

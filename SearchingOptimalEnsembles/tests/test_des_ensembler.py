@@ -13,7 +13,7 @@ if __name__ == "__main__":
     metadataset = OpenMLMetaDataset(seed=43)
     metadataset.set_state(dataset_name="31_0")
     ensembler = DESEnsembler(metadataset)
-    X_obs = np.arange(metadataset.default_num_base_pipelines).tolist()
+    X_obs = np.arange(metadataset.get_num_pipelines()).tolist()
     ensembler.sample(X_obs)
     score = ensembler.evaluate_on_split()
     print(score)

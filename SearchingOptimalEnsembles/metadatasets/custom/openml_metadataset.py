@@ -1,12 +1,16 @@
 import openml
 import pandas as pd
+import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
 from .custom_metadataset import CustomMetaDataset
 
 OPENML_TASKS = [11, 15, 18, 22, 23, 29, 31, 37]
-
+OPENML_TASK_TYPE_MAP = {
+    "Supervised Classification": "classification",
+    "Supervised Regression": "regression"
+}
 class OpenMLMetaDataset(CustomMetaDataset):
 
     metadataset_name = "openml"
@@ -19,7 +23,7 @@ class OpenMLMetaDataset(CustomMetaDataset):
         metric_name: str = "error",
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         data_version: str = None, #DatasetName
-        task_type: str = "Supervised Classification",
+        task_type: str = "classification",
         num_base_pipelines: int = 20,
         **kwargs
     ):
@@ -61,23 +65,27 @@ class OpenMLMetaDataset(CustomMetaDataset):
 
     def set_state(self, dataset_name: str,
                   split = "valid",
-                  base_pipelines: list = None):
-        X_train, X_val, X_test, y_train, y_val, y_test = self.get_data(dataset_name)
-        self.dataset_name = dataset_name
+                  base_pipelines: list = None,
+                  hp_candidates: np.array = None):
         self.split = split
-        super().set_state(
-            X_val=X_val,
-            y_val=y_val,
-            X_test=X_test,
-            y_test=y_test,
-            X_train=X_train,
-            y_train=y_train,
-            base_pipelines=base_pipelines
-        )
+        
+        if dataset_name != self.dataset_name:
+            X_train, X_val, X_test, y_train, y_val, y_test = self.get_data(dataset_name)
+            self.dataset_name = dataset_name
+            super().set_state(
+                X_val=X_val,
+                y_val=y_val,
+                X_test=X_test,
+                y_test=y_test,
+                X_train=X_train,
+                y_train=y_train,
+                base_pipelines=base_pipelines,
+                hp_candidates=hp_candidates
+            )
 
     def load_splits(self, task_id, fold=0):
         task = openml.tasks.get_task(task_id=task_id)
-        assert task.task_type == self.task_type
+        assert OPENML_TASK_TYPE_MAP[task.task_type] == self.task_type
         train_indices, test_indices = task.get_train_test_split_indices(
             repeat=0,
             fold=fold,

@@ -225,22 +225,9 @@ class NeuralEnsembler(BaseEnsembler):
         _, weights = self.batched_prediction(
             X=base_functions,
         )
-        if weights is not None:
-            weights = self.prune_weights(weights)
+
         return weights
 
-    def prune_weights(self, weights):
-
-        if self.weight_thd == -1 :
-            weight_thd = self.get_auto_weight_thd()
-        else:
-            weight_thd = self.weight_thd
-        
-        weight_pruner = nn.Threshold(weight_thd, 0.)
-        weights = weight_pruner(weights)
-        weights_sum = weights.sum(-3, keepdim=True).sum(-1, keepdim=True)
-        weights /= weights_sum
-        return weights
 
     def sample(self, X_obs, **kwargs) -> tuple[list, float]:
         """Fit neural ensembler, output ensemble WITH weights"""
@@ -583,9 +570,9 @@ class EFFNet(nn.Module):  # Sample as Sequence
     def __init__(
         self,
         input_dim=1,
-        hidden_dim=128,
+        hidden_dim=32,
         output_dim=1,
-        num_layers=2,
+        num_layers=3,
         dropout_rate=0,
         num_heads=1,
         add_y=False,
@@ -593,7 +580,7 @@ class EFFNet(nn.Module):  # Sample as Sequence
         dropout_dist=None,
         omit_output_mask=False,
         task_type="classification",
-        mode="combined",
+        mode="model_averaging",
         num_classes=None,
         **kwargs
     ):
