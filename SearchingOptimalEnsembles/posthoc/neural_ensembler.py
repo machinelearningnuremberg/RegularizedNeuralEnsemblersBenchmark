@@ -12,6 +12,7 @@ from torch.utils.data import Dataset, DataLoader
 from typing_extensions import Literal
 from sklearn.model_selection import KFold
 import copy
+import time
 
 from ..metadatasets.base_metadataset import BaseMetaDataset
 from ..samplers.random_sampler import RandomSampler
@@ -96,6 +97,7 @@ class NeuralEnsembler(BaseEnsembler):
         ne_omit_output_mask: bool = True,
         ne_net_mode: str = "model_averaging",
         ne_epochs: int = 1000,
+        time_limit: int | None = None,
         verbose: bool = True,
         **kwargs
     ) -> None:
@@ -160,6 +162,10 @@ class NeuralEnsembler(BaseEnsembler):
                 settings=wandb.Settings(start_method="fork"),
 
             )
+
+        self.time_limit = time_limit
+        if self.time_limit is not None:
+            self._st_time = time.time()
 
     def set_state(
         self,
@@ -427,6 +433,11 @@ class NeuralEnsembler(BaseEnsembler):
             loss, w = self.fit_one_epoch(model, optimizer, batch_data)
             if self.verbose and (epoch % (int(self.epochs * 0.1)) == 0):
                 print("Epoch", epoch, "Loss", loss.item())
+
+            if self.time_limit is not None:
+                if (time.time() - self._st_time) > self.time_limit:
+                    print("Time limit reached.")
+                    break
 
         model.eval()
         self.training = False
