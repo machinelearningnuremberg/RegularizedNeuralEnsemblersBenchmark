@@ -1,0 +1,239 @@
+project_name: RQ2_qt_mini_nll
+metric_name: nll
+metadataset_name: quicktune
+data_version: mini
+num_datasets: 30
+num_meta_splits: 1
+num_iterations: 100
+ne_batch_size: 2048
+ne_epochs: 10000
+num_seeds: 3
+experiments:
+  neural1:
+    base_command: " --ensembler_name neural --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 50
+      searcher_name:
+        - divbo
+      ne_hidden_dim:
+        - 32
+      ne_dropout_rate:
+        - 0.
+        - 0.5
+        - 0.75
+      ne_net_mode:
+        - stacking
+        - model_averaging
+
+  neural2:
+    base_command: " --ensembler_name neural --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 1
+      searcher_name:
+        - random
+      ne_hidden_dim:
+        - 32
+      ne_dropout_rate:
+        - 0.
+        - 0.5
+        - 0.75
+      ne_net_mode:
+        - stacking
+        - model_averaging
+
+  neural3:
+    base_command: " --ensembler_name neural --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 50
+      searcher_name:
+        - divbo
+      ne_net_type:
+        - simple
+
+  neural4:
+    base_command: " --ensembler_name neural --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 1
+      searcher_name:
+        - random
+      ne_net_type:
+        - simple
+
+  single1:
+    base_command: " --ensembler_name single --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 50
+      searcher_name:
+        - divbo
+
+  single1:
+    base_command: " --ensembler_name single --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 1
+      searcher_name:
+        - random
+
+  greedy1:
+    base_command: " --ensembler_name greedy --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 50
+      searcher_name:
+        - divbo
+      max_num_pipelines:
+        - 25
+
+  greedy2:
+    base_command: " --ensembler_name greedy --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 1
+      searcher_name:
+        - random
+      max_num_pipelines:
+        - 25
+
+  quick1:
+    base_command: " --ensembler_name quick --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 50
+      searcher_name:
+        - divbo
+      max_num_pipelines:
+        - 25
+  
+  quick2:
+    base_command: " --ensembler_name quick --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 1
+      searcher_name:
+        - random
+      max_num_pipelines:
+        - 25
+
+  topm1:
+    base_command: " --ensembler_name topm --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 50
+      searcher_name:
+        - divbo
+      max_num_pipelines:
+        - 25
+
+  topm2:
+    base_command: " --ensembler_name topm --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 1
+      searcher_name:
+        - random
+      max_num_pipelines:
+        - 25
+
+  random1:
+    base_command: " --ensembler_name random --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 50
+      searcher_name:
+        - divbo
+      max_num_pipelines:
+        - 25
+
+  random2:
+    base_command: " --ensembler_name random --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 1
+      searcher_name:
+        - random
+      max_num_pipelines:
+        - 25
+
+  cmaes1:
+    base_command: " --ensembler_name cmaes --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 50
+      searcher_name:
+        - divbo
+      
+  cmaes2:
+    base_command: " --ensembler_name cmaes --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 1
+      searcher_name:
+        - random
+      
+  sks1:
+    base_command: "--ensembler_name sks --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 50
+      searcher_name:
+        - divbo
+      sks_model_name:
+        - random_forest
+        - gradient_boosting
+        - linear_model
+        - svm
+
+  sks2:
+    base_command: "--ensembler_name sks --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 1
+      searcher_name:
+        - random
+      sks_model_name:
+        - random_forest
+        - gradient_boosting
+        - linear_model
+        - svm
+

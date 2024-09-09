@@ -212,11 +212,17 @@ class TabRepoMetaDataset(Evaluator):
 
     def _get_worst_and_best_performance(self) -> tuple[torch.Tensor, torch.Tensor]:
         #TODO: search the actual worst and best values
-        unique_pipelines = self.hp_candidates_ids.unsqueeze(0).T.tolist()
-        _, metrics, _, _ = self.evaluate_ensembles(unique_pipelines)
+        
+        if self.metric_name == "neg_roc_auc":
+            #to speed up initializatio
+            self.worst_performance = 1
+            self.best_performance = 0
+        else:
+            unique_pipelines = self.hp_candidates_ids.unsqueeze(0).T.tolist()
+            _, metrics, _, _ = self.evaluate_ensembles(unique_pipelines)
 
-        self.worst_performance = metrics.max().item()
-        self.best_performance = metrics.min().item()
+            self.worst_performance = metrics.max().item()
+            self.best_performance = metrics.min().item()
         return self.worst_performance, self.best_performance
     
     def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:

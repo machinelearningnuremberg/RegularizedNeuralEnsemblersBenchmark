@@ -68,7 +68,7 @@ class BaseMetaDataset:
         self.dataset_names: list[str] = []
 
         # To initialize call set_dataset(dataset_name) in the child class
-        self.dataset_name: str
+        self.dataset_name: str =  None
         self.hp_candidates: torch.Tensor
         self.hp_candidates_ids: torch.Tensor
         self.best_performance: torch.Tensor | None = None

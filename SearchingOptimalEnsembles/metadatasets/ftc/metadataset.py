@@ -98,6 +98,7 @@ class FTCMetaDataset(Evaluator):
         self.times = defaultdict(list)
         self.curves = defaultdict(list)
         self.all_hp_candidates = defaultdict(list)
+        self.row_hp_candidates = defaultdict(list)
         self.all_hp_candidates_ids = defaultdict(list)
         self.failed_hps = defaultdict(list)
         self.failed_configs = []
@@ -124,7 +125,7 @@ class FTCMetaDataset(Evaluator):
                     self.times[dataset_name].append(times.T.unsqueeze(0))
                     self.val_predictions[dataset_name].append(val_predictions.unsqueeze(0))
                     self.test_predictions[dataset_name].append(test_predictions.unsqueeze(0))
-                    self.all_hp_candidates[dataset_name].append(config)
+                    self.row_hp_candidates[dataset_name].append(config)
             else:
                 self.failed_hps[dataset_name].append(config)
                 self.failed_configs.append(bash_args)
@@ -137,8 +138,8 @@ class FTCMetaDataset(Evaluator):
             self.times[dataset_name] = torch.cat(self.times[dataset_name])
 
             self.failed_hps[dataset_name] = pd.DataFrame(self.failed_hps[dataset_name])
-            self.all_hp_candidates[dataset_name] = self._preprocess_hps(self.all_hp_candidates[dataset_name])
-            self.all_hp_candidates_ids[dataset_name] =  torch.arange(len(self.all_hp_candidates[dataset_name]))
+            self.all_hp_candidates[dataset_name] = self._preprocess_hps(self.row_hp_candidates[dataset_name])
+            self.all_hp_candidates_ids[dataset_name] =  torch.arange(len(self.row_hp_candidates[dataset_name]))
     
     def get_features(self, ensembles):
         hp_candidates, hp_candidates_ids = self._get_hp_candidates_and_indices()

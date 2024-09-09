@@ -24,6 +24,8 @@ class Reporter:
                     config_filter: dict | None = None,
                     dataset_filter: list | None = None,
                     baseline: str | None = None,
+                    per_dataset: bool = False,
+                    plot_by_groups: bool = False,
                     split: str = "test"
             ):
         """
@@ -50,8 +52,10 @@ class Reporter:
         self.config_filter = config_filter
         self.baseline = baseline
         self.split = split
+        self.per_dataset = per_dataset
         self.dataset_filter = [] if dataset_filter is None else dataset_filter
-
+        self.plot_by_groups = plot_by_groups
+        
         current_path = Path(__file__).parent.absolute()
 
         if experiments_results_path is None:
@@ -68,8 +72,16 @@ class Reporter:
         self.report_output_path = Path(report_output_path) / report_id
 
         self.report_output_path.mkdir(parents=True, exist_ok=True)
-        self.experiment_names = self.report_structure["experiment_names"].keys()
         self.project_names = self.report_structure["project_names"].keys()
+
+        if self.plot_by_groups:
+            self.experiment_names = []
+            self.groups = []
+            for group in self.report_structure["experiment_groups"].keys():
+                self.experiment_names.extend(list(self.report_structure["experiment_groups"][group].keys()))
+                self.groups.extend([group]*len(self.report_structure["experiment_groups"][group].keys()))
+        else:
+            self.experiment_names = self.report_structure["experiment_names"].keys()
 
     def load_project_config(self, project_name):
         
@@ -163,18 +175,34 @@ class Reporter:
         if self.baseline is not None:
             for column in table.columns:
                 table[column][np.isnan(table[column])] = table[column][self.baseline] 
-                if table[column][self.baseline] != 0:
-                    table[column] /= max(table[column][self.baseline], 1e-8)
+                #if (table[column][self.baseline] != 0) and (not self.per_dataset):
+                if not self.per_dataset:
+                    table[column] /= max(table[column][self.baseline], 1e-5)
+                    table[column][table[column]>10] = 10 #imputing the very large errors
+        table = table.loc[self.experiment_names]
+         
         return table
     
     def report_ranked_metric(self, table):
-        mean = table.rank().groupby("project_name", axis=1).mean()
-        std = table.rank().groupby("project_name", axis=1).std()
+        if self.per_dataset:
+            mean = table.rank().groupby(["project_name", "dataset_id"], axis=1).mean()
+            std = table.rank().groupby(["project_name", "dataset_id"], axis=1).std()       
+            #mean.columns = mean.columns.droplevel("project_name")
+            #std.columns = std.columns.droplevel("project_name")
+        else:
+            mean = table.rank().groupby(["project_name"], axis=1).mean()
+            std = table.rank().groupby(["project_name"], axis=1).std()
         return mean, std
     
     def report_aggregated_metric(self, table):
-        mean = table.groupby("project_name", axis=1).mean()
-        std = table.groupby("project_name", axis=1).std()
+        if self.per_dataset:
+            mean = table.groupby(["project_name", "dataset_id"], axis=1).mean()
+            std = table.groupby(["project_name", "dataset_id"], axis=1).std()
+            #mean.columns = mean.columns.droplevel("project_name")
+            #std.columns = std.columns.droplevel("project_name")
+        else:
+            mean = table.groupby("project_name", axis=1).mean()
+            std = table.groupby("project_name", axis=1).std()            
         return mean, std
     
     def report_time(self, table):
@@ -208,9 +236,18 @@ class Reporter:
             table_mean = table_group["mean"]
             table_std = table_group["std"]
 
-            table_mean = self.rename_projects(table_mean)
-            table_std = self.rename_projects(table_std, suffix="_std")
-
+            if not self.per_dataset:
+                table_mean = self.rename_projects(table_mean)
+                table_std = self.rename_projects(table_std, suffix="_std")
+            else:
+                new_column_names = [str(y)+"-"+x for (x,y) in table_mean.columns]
+                table_mean.columns.droplevel(0)
+                table_mean.columns.droplevel(0)
+                table_mean.columns = new_column_names
+                table_std.columns =  new_column_names
+                table_mean = table_mean[np.sort(new_column_names).tolist()]
+                table_std = table_std[np.sort(new_column_names).tolist()]
+                table_std.columns = [str(x)+"_std" for x in table_std.columns]
             table_mean = self.rename_experiments(table_mean)
             table_std = self.rename_experiments(table_std)
 
@@ -229,7 +266,9 @@ class Reporter:
                 #table[column] = table[column].apply(lambda x: highlight_smallest(x, smallest, second_smallest))
                 #table[column+"_std"] = table[column+"_std"].apply(lambda x: highlight_smallest(x, smallest, second_smallest))
                 #table[column] = table[[column, column+"_std"]].apply(lambda x: x[column]+" $\pm$ "+x[column+"_std"], axis=1)
-                table[column] = table[[column, column+"_std"]].apply(lambda x: highlight_smallest(x[column],x[column+"_std"], smallest, second_smallest), axis=1)
+                if not self.per_dataset:
+                    table[column] = table[[column, column+"_std"]].apply(lambda x: highlight_smallest(x[column],x[column+"_std"], smallest, second_smallest), axis=1)
+            
             table = table[table_mean.columns]
             table.to_csv(self.report_output_path / (table_name+".csv"))
 
@@ -288,6 +327,7 @@ class Reporter:
 
 if __name__ == "__main__":
 
-    reporter_config_file = Path(__file__).parent.absolute() / "reporter_configs/report12.yml"
+    report_id = "report15"
+    reporter_config_file = Path(__file__).parent.absolute() / "reporter_configs" / (report_id+".yml")
     reporter =  Reporter.load_reporter(reporter_config_file)
     reporter.report()

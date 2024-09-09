@@ -27,10 +27,10 @@ class SingleBest(BaseEnsembler):
         self.X_obs = X_obs
         ensembles = [[x] for x in X_obs]
         _, metric, _, _ = self.metadataset.evaluate_ensembles(ensembles)
-
-        best_score = torch.min(metric)
-        best_ones = ensembles[torch.where(metric)==best_score]
-        best_ensemble = [np.random.choice(best_ones)]
+        metric = metric.numpy()
+        best_score = np.min(metric)
+        best_ones = np.array(ensembles)[np.where(metric==best_score)]
+        best_ensemble = [np.random.choice(best_ones.flatten())]
 
         self.best_ensemble = best_ensemble
         return best_ensemble, best_score

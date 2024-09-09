@@ -22,7 +22,7 @@ class CustomMetaDataset(Evaluator):
         metric_name: str = "error",
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         data_version: str = None, #DatasetName
-        task_type: str = "Supervised Classification",
+        task_type: str = "classification",
         device: str = 'cpu',
         num_base_pipelines: int = 20,
         **kwargs
@@ -36,8 +36,9 @@ class CustomMetaDataset(Evaluator):
         self.num_base_pipelines = num_base_pipelines
         self.base_pipelines = None
         self.device = device
+        self.dataset_name = None
 
-        if self.task_type == "Supervised Regression":
+        if self.task_type == "regression":
             self.metric_name  = "relative_absolute_error"
           
         super().__init__(
@@ -88,7 +89,9 @@ class CustomMetaDataset(Evaluator):
 
         else:
             self.base_pipelines = base_pipelines
-            self.hp_candidates = hp_candidates
+            
+            if hp_candidates is not None:
+                self.hp_candidates = hp_candidates
 
         if X_train is not None and y_train is not None:
             self.fit_base_pipelines()
@@ -100,7 +103,7 @@ class CustomMetaDataset(Evaluator):
         self.hp_candidates = torch.FloatTensor(self.hp_candidates)
         self.dataset_names = []
 
-        if self.task_type == "Supervised Classification":
+        if self.task_type == "classification":
             self.targets = torch.LongTensor(self.y_val)
         else:
             self.targets = torch.FloatTensor(self.y_val)
@@ -119,13 +122,13 @@ class CustomMetaDataset(Evaluator):
         predictions = []
         for pipeline in self.base_pipelines:
 
-            if self.task_type == "Supervised Classification":
+            if self.task_type == "classification":
                 predictions.append(
                     torch.FloatTensor(
                         pipeline.predict_proba(self.X_val)
                     ).unsqueeze(0)
                 )
-            elif self.task_type == "Supervised Regression":
+            elif self.task_type == "regression":
                  predictions.append(
                     torch.FloatTensor(
                         pipeline.predict(self.X_val)
@@ -136,7 +139,7 @@ class CustomMetaDataset(Evaluator):
             
         self.predictions = torch.cat(predictions)
 
-        if self.task_type == "Supervised Classification":
+        if self.task_type == "classification":
             self.predictions = torch.nan_to_num(self.predictions, nan=1./self.num_classes,
                                         posinf=1.,
                                         neginf=0.)

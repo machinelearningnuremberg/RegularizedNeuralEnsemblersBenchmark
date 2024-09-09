@@ -12,6 +12,7 @@ from torch.utils.data import Dataset, DataLoader
 from typing_extensions import Literal
 from sklearn.model_selection import KFold
 import copy
+import time
 
 from ..metadatasets.base_metadataset import BaseMetaDataset
 from ..samplers.random_sampler import RandomSampler
@@ -96,6 +97,7 @@ class NeuralEnsembler(BaseEnsembler):
         ne_omit_output_mask: bool = True,
         ne_net_mode: str = "model_averaging",
         ne_epochs: int = 1000,
+        time_limit: int | None = None,
         verbose: bool = True,
         **kwargs
     ) -> None:
@@ -161,6 +163,10 @@ class NeuralEnsembler(BaseEnsembler):
 
             )
 
+        self.time_limit = time_limit
+        if self.time_limit is not None:
+            self._st_time = time.time()
+
     def set_state(
         self,
         metadataset: BaseMetaDataset,
@@ -225,22 +231,9 @@ class NeuralEnsembler(BaseEnsembler):
         _, weights = self.batched_prediction(
             X=base_functions,
         )
-        if weights is not None:
-            weights = self.prune_weights(weights)
+
         return weights
 
-    def prune_weights(self, weights):
-
-        if self.weight_thd == -1 :
-            weight_thd = self.get_auto_weight_thd()
-        else:
-            weight_thd = self.weight_thd
-        
-        weight_pruner = nn.Threshold(weight_thd, 0.)
-        weights = weight_pruner(weights)
-        weights_sum = weights.sum(-3, keepdim=True).sum(-1, keepdim=True)
-        weights /= weights_sum
-        return weights
 
     def sample(self, X_obs, **kwargs) -> tuple[list, float]:
         """Fit neural ensembler, output ensemble WITH weights"""
@@ -416,10 +409,10 @@ class NeuralEnsembler(BaseEnsembler):
         )
 
         if self.task_type == "regression":
-            self.y_scale = X_train.mean().to(self.device)
-            y_train /= self.y_scale
+            self.y_scale = X_train.mean()
+            y_train /= self.y_scale.to(y_train.device)
             #base_functions_train /= self.y_max
-            X_train /= self.y_scale
+            X_train /= self.y_scale.to(X_train.device)
 
         elif self.task_type == "classification":
             y_train = y_train.clone().detach().long()
@@ -440,6 +433,11 @@ class NeuralEnsembler(BaseEnsembler):
             loss, w = self.fit_one_epoch(model, optimizer, batch_data)
             if self.verbose and (epoch % (int(self.epochs * 0.1)) == 0):
                 print("Epoch", epoch, "Loss", loss.item())
+
+            if self.time_limit is not None:
+                if (time.time() - self._st_time) > self.time_limit:
+                    print("Time limit reached.")
+                    break
 
         model.eval()
         self.training = False
@@ -583,9 +581,9 @@ class EFFNet(nn.Module):  # Sample as Sequence
     def __init__(
         self,
         input_dim=1,
-        hidden_dim=128,
+        hidden_dim=32,
         output_dim=1,
-        num_layers=2,
+        num_layers=3,
         dropout_rate=0,
         num_heads=1,
         add_y=False,
@@ -593,7 +591,7 @@ class EFFNet(nn.Module):  # Sample as Sequence
         dropout_dist=None,
         omit_output_mask=False,
         task_type="classification",
-        mode="combined",
+        mode="model_averaging",
         num_classes=None,
         **kwargs
     ):
