@@ -1,0 +1,26 @@
+report_id: report23
+baseline: single0_0
+split: test
+report_structure:
+  project_names:
+    #RQ1_ftc_mini_error : FTC
+    RQ2_ftc_extended_nll : FTC
+    RQ2_qt_mini_nll : QT-Mini
+    RQ2_qt_micro_nll: QT-Micro
+    RQ2_nb_mini_nll: NB-Mini
+    RQ2_nb_micro_nll: NB-Micro
+    RQ2_tr_version3class_nll: TR-Class
+    RQ2_tr_version3reg_mse: TR-Reg
+    #RQ1_tr_version3reg_mse: TR-Reg
+    #RQ1_qt_micro_nll : QT-Micro
+  experiment_names:
+    single0_0: Single
+    single1_0: Single + Random
+    topm2_0: Top25 + Random
+    quick2_0: Quick + Random
+    greedy2_0: Greedy + Random
+    neural4_0: MA + Random
+    neural2_4: NE(S) + Random
+    neural2_5: NE(MA) + Random
+
+

@@ -6,6 +6,12 @@ import pandas as pd
 from pathlib import Path
 from collections import defaultdict
 
+from matplotlib import rc
+
+rc('text', usetex=True)
+rc('font', family='serif')
+rc('axes', axisbelow=True)
+
 pd.options.display.float_format = '{:,.2f}'.format
 
 def default_to_regular(d):
@@ -26,6 +32,9 @@ class Reporter:
                     baseline: str | None = None,
                     per_dataset: bool = False,
                     plot_by_groups: bool = False,
+                    plot_as_curves: bool = False,
+                    include_legend: bool = True,
+                    title: str = "",
                     split: str = "test"
             ):
         """
@@ -55,7 +64,10 @@ class Reporter:
         self.per_dataset = per_dataset
         self.dataset_filter = [] if dataset_filter is None else dataset_filter
         self.plot_by_groups = plot_by_groups
-        
+        self.plot_as_curves = plot_as_curves
+        self.title = title
+        self.include_legend = include_legend
+
         current_path = Path(__file__).parent.absolute()
 
         if experiments_results_path is None:
@@ -76,10 +88,13 @@ class Reporter:
 
         if self.plot_by_groups:
             self.experiment_names = []
+            self.experiment_table_names = []
             self.groups = []
             for group in self.report_structure["experiment_groups"].keys():
                 self.experiment_names.extend(list(self.report_structure["experiment_groups"][group].keys()))
+                self.experiment_table_names.extend(list(self.report_structure["experiment_groups"][group].values()))
                 self.groups.extend([group]*len(self.report_structure["experiment_groups"][group].keys()))
+            self.translator_to_table_names = dict(zip(self.experiment_names, self.experiment_table_names))
         else:
             self.experiment_names = self.report_structure["experiment_names"].keys()
 
@@ -177,7 +192,9 @@ class Reporter:
                 table[column][np.isnan(table[column])] = table[column][self.baseline] 
                 #if (table[column][self.baseline] != 0) and (not self.per_dataset):
                 if not self.per_dataset:
-                    table[column] /= max(table[column][self.baseline], 1e-5)
+                    table[column][table[column]==0] = 1e-08
+                    table[column] /= table[column][self.baseline]
+                    #table[column] = max(table[column], 1e-05)/ max(table[column][self.baseline], 1e-5)
                     table[column][table[column]>10] = 10 #imputing the very large errors
         table = table.loc[self.experiment_names]
          
@@ -226,8 +243,6 @@ class Reporter:
         return table
 
     def write_tables(self, tables):
-
-    
         def highlight_smallest(m, s, smallest, second_smallest):
             return '\\textbf{' + str(m) + '}$_{\pm'+ str(s)+'}$' if m == smallest \
                         else ('\\underline{\\textit{' + str(m) + '}}$_{\pm'+ str(s)+'}$' if m == second_smallest else str(m)+'$_{\pm'+ str(s)+'}$')
@@ -275,7 +290,6 @@ class Reporter:
             #table = table.apply(lambda x: x.replace("{r}{Test}", "{c}{\textbf{Test}}"))
             #table = table.apply(lambda x: x.replace("{r}{Test}", "{c}{\textbf{Test}}"))
 
-
             styler = table.style
             styler.applymap_index(lambda v: "font-weight: bold;", axis="index")
             styler.applymap_index(lambda v: "font-weight: bold;", axis="columns")
@@ -284,13 +298,89 @@ class Reporter:
             with open(self.report_output_path / (table_name+".tex"), 'w') as f:
                 f.write(latex_table)
 
-    def report(self):
+    def make_plot_by_groups(self, df, fontsize=30):
+        for project in self.report_structure["project_names"]:
 
+            # Use a colormap (e.g., viridis) to generate unique colors for each method class
+            cmap = plt.get_cmap('viridis')
+            groups = np.unique(self.groups)
+            colors = cmap(np.linspace(0, 1, len(groups)))
+
+            # Create a color map dictionary
+            color_map = {group: color for group, color in zip(groups, colors)}
+
+            # Assign colors to the DataFrame based on the method class
+            df['color'] = df['group'].map(color_map)
+            df = df.iloc[df[project].argsort()]
+            df["name"] = [self.translator_to_table_names[x] for x in df.index]
+            # Plot the bar chart
+            plt.figure(figsize=(10, 10))
+            bars = plt.bar(df["name"], df[project], color=df['color'], width=0.9, zorder=1)
+
+
+            for bar in bars:
+                yval = bar.get_height()  # Get the height of each bar (i.e., metric value)
+                plt.text(bar.get_x() + bar.get_width() / 2, yval, round(yval, 3),
+                          ha='center', va='bottom', fontsize=fontsize*0.5)
+
+            # Add labels and title
+            plt.xlabel('Method', fontsize=fontsize*1.5)
+            plt.ylabel('Normalized NLL', fontsize=fontsize*1.5)
+            # plt.title('Metric by Method with Different Colors for Method Classes')
+
+            # # Rotate x-axis labels for better readability
+            plt.xticks(rotation=45, ha='right', fontsize=fontsize)
+            plt.yticks(fontsize=fontsize)  # Adjust font size of y-ticks
+            # # Show the plot
+            
+            plt.grid(True, which='both', axis='y', linestyle='--', linewidth=0.7, zorder=0)  # Grid behind bars with zorder=0
+            
+            legend_handles = [plt.Rectangle((0, 0), 1, 1, color=color_map[group]) for group in groups]
+            
+            plt.legend(legend_handles, groups, title="Method Type", fontsize=fontsize, title_fontsize=fontsize)
+
+            plt.tight_layout()
+            # plt.show()
+            plt.savefig(self.report_output_path / (f"{project}_plot.png"))
+            plt.savefig(self.report_output_path / (f"{project}_plot.pdf"))
+
+    def make_plot_as_curves(self, table, fontsize=30, linewidth=5):
+        
+        plt.figure(figsize=(10, 10))
+        plt.grid(True, which='both', axis='y', linestyle='--', linewidth=0.7, zorder=-1)  # Grid behind bars with zorder=0
+        plt.grid(True, which='both', axis='x', linestyle='--', linewidth=0.7, zorder=-1)  # Grid behind bars with zorder=0
+
+        for project_name in table.columns:
+            plt.plot(table[project_name], label=project_name, linewidth=linewidth)
+
+        plt.axhline(y=1., color='black', linestyle='--', linewidth=linewidth*0.5)  
+        plt.xlabel('DropOut Rate', fontsize=fontsize*1.5)
+        plt.ylabel('Normalized NLL', fontsize=fontsize*1.5)
+        # plt.title('Metric by Method with Different Colors for Method Classes')
+
+        # # Rotate x-axis labels for better readability
+        plt.xticks(fontsize=fontsize)
+        plt.yticks(fontsize=fontsize)  # Adjust font size of y-ticks
+        #
+        plt.title(self.title, fontsize=fontsize*1.5)
+        
+        if self.include_legend:
+            #plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+
+            plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=3, fontsize=fontsize, columnspacing=1)
+        #plt.legend(fontsize=fontsize)
+        plt.tight_layout()
+        
+        table.to_csv(self.report_output_path / (f"curves_table.csv"))
+        plt.savefig(self.report_output_path / (f"curves_plot.png"))
+        plt.savefig(self.report_output_path / (f"curves_plot.pdf"))
+
+
+    def report(self):
         projects_configs,\
             experiments_configs,\
             experiments_results,\
             missing_experiments_list =  self.gather_results()
-
         table = pd.DataFrame(experiments_results)
         table.to_csv(self.report_output_path / "complete_results.csv")
 
@@ -299,22 +389,64 @@ class Reporter:
         processed_table = self.process_table(table)
         aggregated_mean, aggregated_std = self.report_aggregated_metric(processed_table)
         ranked_mean, ranked_std = self.report_ranked_metric(processed_table)
-        
         self.write_missing_experiments(missing_experiments_list)
-        self.write_tables({"aggregated":
-                                { "mean": aggregated_mean,
-                                "std": aggregated_std 
-                                },
-                           "ranked":
-                            {
-                                "mean": ranked_mean,
-                                "std": ranked_std,
-                                }
-                            }                   
-                        )
+ 
+        if self.plot_by_groups:
+            aggregated_mean["group"] = self.groups
+            self.make_plot_by_groups(aggregated_mean)
 
-        self.report_time(table)
-        self.report_dataset_size(table)
+        else:
+            self.write_tables({"aggregated":
+                                    { "mean": aggregated_mean,
+                                    "std": aggregated_std 
+                                    },
+                                "ranked":
+                                {
+                                    "mean": ranked_mean,
+                                    "std": ranked_std,
+                                    }
+                                }                   
+                            )
+
+            self.report_time(table)
+            self.report_dataset_size(table)
+
+            if self.plot_as_curves:
+                self.make_plot_as_curves(aggregated_mean)
+
+    def make_double_plot_as_curves(self, table_paths, titles, fontsize=24, linewidth=5):
+        fig, axs = plt.subplots(1, 2, figsize=(24, 8),gridspec_kw={'wspace': 0.3})
+        for i, table_path in enumerate(table_paths):
+            table = pd.read_csv(table_path)
+            axs[i].grid(True, which='both', axis='y', linestyle='--', linewidth=0.7, zorder=-1)  # Grid behind bars with zorder=0
+            axs[i].grid(True, which='both', axis='x', linestyle='--', linewidth=0.7, zorder=-1)  # Grid behind bars with zorder=0
+            values = table.iloc[:,0].values
+
+            for project_name in table.columns[1:]:
+                axs[i].plot(values, table[project_name], label=project_name, linewidth=linewidth)
+
+            axs[i].axhline(y=1., color='black', linestyle='--', linewidth=linewidth*0.5)  
+            axs[i].set_xlabel('DropOut Rate', fontsize=fontsize*1.5)
+
+            if i == 0:
+                axs[i].set_ylabel('Normalized NLL', fontsize=fontsize*1.5)
+            # plt.title('Metric by Method with Different Colors for Method Classes')
+
+            # # Rotate x-axis labels for better readability
+            axs[i].set_xticks(values)
+            axs[i].set_xticklabels(values, fontsize=fontsize)
+            
+            axs[i].set_yticks(axs[i].get_yticks())
+            axs[i].set_yticklabels(axs[i].get_yticklabels(), fontsize=fontsize)
+            
+            axs[i].set_title(titles[i], fontsize=fontsize*1.5)
+            
+        fig.legend(*axs[0].get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(0.5, 0.0),ncol=7, fontsize=fontsize, columnspacing=1)
+        #plt.tight_layout()
+        
+        fig.savefig(self.report_output_path / (f"double_curves_plot.png"), bbox_inches="tight")
+        fig.savefig(self.report_output_path / (f"double_curves_plot.pdf"), bbox_inches="tight")
+
 
     @classmethod
     def load_reporter(cls, reporter_config_file):
@@ -323,11 +455,15 @@ class Reporter:
         
         return Reporter(**config)
 
-       
-
+    
 if __name__ == "__main__":
 
-    report_id = "report15"
-    reporter_config_file = Path(__file__).parent.absolute() / "reporter_configs" / (report_id+".yml")
+    report_id = "report18"
+    reporter_configs_path = Path(__file__).parent.absolute() / "reporter_configs"
+    reporter_output_path =  Path(__file__).parent.absolute() / "reports"
+    reporter_config_file = reporter_configs_path / (report_id+".yml")
     reporter =  Reporter.load_reporter(reporter_config_file)
     reporter.report()
+    reporter.make_double_plot_as_curves(table_paths=[reporter_output_path / "report18"/ "curves_table.csv",
+                                                     reporter_output_path / "report19"/ "curves_table.csv"],
+                                        titles=["Stacking", "Model Average"] )

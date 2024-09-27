@@ -1,15 +1,16 @@
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.svm import SVC
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.model_selection import ParameterSampler
 from scipy.stats import randint, uniform
 import copy
 
 from .base import BasePipelineSampler
 
-param_distributions = {
+param_distributions_classification = {
     RandomForestClassifier: {
         'n_estimators': randint(10, 100),
         'max_depth': [None, 10, 20, 30],
@@ -34,21 +35,38 @@ param_distributions = {
     }
 }
 
+param_distributions_regression = {
+    RandomForestRegressor: {
+        'n_estimators': randint(10, 100),
+        'max_depth': [None, 10, 20, 30],
+        'min_samples_split': randint(2, 11)
+    }
+}
+
 class RandomPipelineSampler(BasePipelineSampler):
 
-    def __init__(self, num_pipelines: int = 20, random_state: int = 42):
+    def __init__(self, num_pipelines: int = 20, random_state: int = 42,
+                task_type="classification"):
         self.num_pipelines = num_pipelines
         self.random_state = random_state
         self.rng = np.random.default_rng(seed=random_state)
-    
+        self.task_type = task_type
+
+        if task_type == "classification":
+            self.param_distributions = param_distributions_classification
+        elif task_type == "regression":
+            self.param_distributions = param_distributions_regression
+        else:
+            raise ValueError("No valid task type.")
+
     def sample(self):
         pipelines = []
         hps = []
         models = []
         for i in range(self.num_pipelines):
-            model_class_id = self.rng.choice(len(param_distributions.keys()))
-            model_class = copy.deepcopy(list(param_distributions.keys())[model_class_id])
-            parameters= list(ParameterSampler(param_distributions=param_distributions[model_class], 
+            model_class_id = self.rng.choice(len(self.param_distributions.keys()))
+            model_class = copy.deepcopy(list(self.param_distributions.keys())[model_class_id])
+            parameters= list(ParameterSampler(param_distributions=self.param_distributions[model_class], 
                                                 n_iter=1, 
                                                 random_state=self.random_state+i))[0]
             

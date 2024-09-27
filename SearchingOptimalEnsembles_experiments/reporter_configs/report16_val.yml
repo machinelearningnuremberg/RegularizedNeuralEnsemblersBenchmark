@@ -1,6 +1,6 @@
-report_id: report16
+report_id: report16_val
 baseline: single1_0
-split: test
+split: val
 plot_by_groups: True
 report_structure:
   project_names:
@@ -13,15 +13,20 @@ report_structure:
       quick1_0: Quick
       topm1_0: TopM
       random1_0: Random
+    Dynamic:
+      des1_0: KNORAE
+      des1_1: MetaDES
+      des1_2: KNOP
     Stacking:
       sks1_0: RF
       sks1_1: GBT
       sks1_2: SVM
       sks1_3: Linear
-    Dynamic:
-      des1_0: KNORAE
-      des1_1: MetaDES
-      des1_2: KNOP
+    Stacking:
+      sks1_0: RF
+      sks1_1: GBT
+      sks1_2: Linear
+      sks1_3: SVM
     Neural:
       neural3_0: NE-Stacking
       neural3_1: NE-MA

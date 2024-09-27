@@ -71,7 +71,11 @@ experiments:
       ne_net_type:
         - simple
 
-
+  single0:
+    base_command: " --ensembler_name single --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
 
   single1:
     base_command: " --ensembler_name single --no_wandb"

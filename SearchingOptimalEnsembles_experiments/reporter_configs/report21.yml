@@ -1,5 +1,6 @@
-report_id: report17
-baseline: single1_0
+#filtering with divbo
+report_id: report21
+baseline: single0_0
 split: test
 report_structure:
   project_names:
@@ -14,30 +15,30 @@ report_structure:
     #RQ1_tr_version3reg_mse: TR-Reg
     #RQ1_qt_micro_nll : QT-Micro
   experiment_names:
-    neural1_4: NE(S) + DivBO
-    neural1_5: NE(MA) + DivBO
-    neural2_4: NE(S) + Random
-    neural2_5: NE(MA) + Random
-    neural3_0: MA + DivBO
-    neural4_0: MA + Random
     single0_0: Single
-    single1_0: Single + Random
     single2_0: Single + DivBO
-    greedy1_0: Greedy + DivBO
-    greedy2_0: Greedy + Random
-    quick1_0: Quick + DivBO
-    quick2_0: Quick + Random
-    topm1_0: TopK + DivBO
-    topm2_0: TopK + Random
     random1_0: Random + DivBO
-    random2_0: Random
+    topm1_0: Top25 + DivBO
+    quick1_0: Quick + DivBO
+    greedy1_0: Greedy + DivBO
     cmaes1_0: CMAES + DivBO
-    cmaes2_0: CMAES + Random
-    sks1_0: RF + DivBO
-    sks1_1: GBT + DivBO
+    sks1_0: Random Forest + DivBO
+    sks1_1: Gradient Boosting + DivBO
     sks1_2: Linear + DivBO
     sks1_3: SVM + DivBO
+    neural3_0: MA + DivBO
+    single1_0: Single + Random
+    topm2_0: Top25 + Random
+    quick2_0: Quick + Random
+    greedy2_0: Greedy + Random
+    cmaes2_0: CMAES + Random
     sks2_0: RF + Random
     sks2_1: GBT + Random
     sks2_2: Linear + Random
     sks2_3: SVM + Random
+    neural4_0: MA + Random
+    neural2_4: NE(S) + Random
+    neural2_5: NE(MA) + Random
+    neural1_4: NE(S) + DivBO
+    neural1_5: NE(MA) + DivBO
+

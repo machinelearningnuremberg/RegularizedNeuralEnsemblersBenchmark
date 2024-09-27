@@ -1,0 +1,46 @@
+report_id: report20
+baseline: single1_0
+split: test
+report_structure:
+  project_names:
+    #RQ1_ftc_mini_error : FTC
+    RQ1_ftc_extended_error : FTC
+    RQ1_qt_mini_error : QT-Mini
+    RQ1_qt_micro_error: QT-Micro
+    RQ1_nb_mini_error: NB-Mini
+    RQ1_nb_micro_error: NB-Micro
+    RQ1_tr_version3class_error: TR-Class
+    RQ1_tr_version3class_roc: TR-Class (AUC)
+    #RQ1_tr_version3reg_mse: TR-Reg
+    #RQ1_qt_micro_nll : QT-Micro
+  experiment_names:
+    # neural1_0: neural1_0
+    # neural1_1: neural1_1
+    # neural2_0: neural20
+    # neural2_1: neural21
+    # neural3_0: neural30
+    # neural3_1: neural31
+    # neural3_2: neural32
+    # neural3_3: neural33
+    #neural5_0: neural50
+    #neural5_1: neural51
+    #divbo1_0: divbo10
+    #leo1_0: leo10
+    #quick1_0: quick10
+    single1_0: Single-Best
+    random1_0: Random
+    topm1_0: Top5
+    topm1_1: Top50
+    quick1_1: Quick
+    greedy1_1: Greedy
+    cmaes1_0: CMAES
+    sks1_0: Random Forest
+    sks1_1: Gradient Boosting
+    sks1_3: SVM
+    sks1_2: Linear
+    neural4_0: MA
+    divbo1_1: DivBO
+    leo1_1: EO
+    #greedy1_0: greedy10
+    neural3_4: NE-Stack
+    neural3_5: NE-MA

@@ -319,15 +319,18 @@ class NeuralEnsembler(BaseEnsembler):
         return torch.cat(X_concat, axis=-1).to(self.device)
     
     def fit(self, X, y):
-        y = torch.tensor(y)
+        y = torch.tensor(y).to(self.device)
         X = self.from_list_to_tensor(X)
 
         if self.task_type == "regression":
             y = y.float()
+            X = X.unsqueeze(-2)
         self.net = self.fit_net(X.unsqueeze(0),y.unsqueeze(0))
 
     def predict(self, X):
         X = self.from_list_to_tensor(X)
+        if self.task_type == "regression":
+            X = X.unsqueeze(-2)
         y_pred = self.batched_prediction(
             X=X.unsqueeze(0),
         )[0][0]

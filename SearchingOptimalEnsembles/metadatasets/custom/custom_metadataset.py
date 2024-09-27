@@ -39,7 +39,7 @@ class CustomMetaDataset(Evaluator):
         self.dataset_name = None
 
         if self.task_type == "regression":
-            self.metric_name  = "relative_absolute_error"
+            self.metric_name  = "mse"
           
         super().__init__(
             data_dir=data_dir,
@@ -85,7 +85,8 @@ class CustomMetaDataset(Evaluator):
             #random pipelines
             if self.base_pipelines is None:
                 self.base_pipelines, self.hp_candidates = RandomPipelineSampler(self.num_base_pipelines,
-                                                                        random_state=self.seed).sample()
+                                                                        random_state=self.seed,
+                                                                        task_type=self.task_type).sample()
 
         else:
             self.base_pipelines = base_pipelines
@@ -202,6 +203,8 @@ class CustomMetaDataset(Evaluator):
     def score(self, y_pred, y_test):
 
         if self.metric_name=="error":
-            return (y_pred.argmax(-1)!=y_test).mean()      
+            return (y_pred.argmax(-1)!=y_test).mean()   
+        elif self.metric_name =="mse":
+            return ((y_pred-y_test)**2).mean()   
         else:
             raise NameError("Metric named is not defined in the score funciton.") 
