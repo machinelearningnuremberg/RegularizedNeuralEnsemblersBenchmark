@@ -22,6 +22,7 @@ class ScikitLearnMetaDataset(Evaluator):
         metric_name: str = "nll",
         data_version: str = "mini",
         task_type: str = "classification",
+        pct_valid_data: float = 1.,
         **kwargs,  # pylint: disable=unused-argument
     ):
         super().__init__(
@@ -31,10 +32,18 @@ class ScikitLearnMetaDataset(Evaluator):
             split=split,
             metric_name=metric_name,
             data_version=data_version,
+            pct_valid_data=pct_valid_data
         )
 
         self.feature_dim = 196
         self.task_type = "classification"
+
+        if data_version.endswith("merged"):
+            data_version = data_version.split("_")[0]
+            data_dir = "/work/dlclarge1/janowski-pipebench/pipeline_bench_merged"
+            self.merged = True
+        else:
+            self.merged = False
 
         # Scikit-learn specific attributes
         self.data_version = data_version
@@ -62,6 +71,9 @@ class ScikitLearnMetaDataset(Evaluator):
 
     def set_state(self, dataset_name: str, split: str = "valid"):
         self.logger.debug(f"Setting dataset: {dataset_name}")
+
+        if split == "valid" and self.merged:
+            split = "train"
 
         if dataset_name != self.dataset_name:
             # Scikit-learn specific attributes
@@ -110,7 +122,7 @@ class ScikitLearnMetaDataset(Evaluator):
             ensembles = [[hp_id.item()] for hp_id in self.hp_candidates_ids]
             metric_per_pipeline = self.benchmark(
                 ensembles=ensembles,
-                datapoints=self.benchmark.get_splits(return_array=False)[
+                datapoints=self.benchmark.get_splits(return_array=False, return_train=True)[
                     f"X_{self.split}"
                 ],
                 get_probabilities=False,
@@ -126,7 +138,7 @@ class ScikitLearnMetaDataset(Evaluator):
             )
 
     def _get_probabilities(self, ensembles: list[list[int]]) -> np.ndarray:
-        splits_ids = self.benchmark.get_splits(return_array=False)
+        splits_ids = self.benchmark.get_splits(return_array=False, return_train=True)
 
         # Retieve the predictions for each pipeline in each ensemble
         y_proba = self.benchmark(
@@ -154,10 +166,10 @@ class ScikitLearnMetaDataset(Evaluator):
         return y_proba
 
     def get_num_samples(self) -> int:
-        return self.benchmark.get_splits(return_array=False)[f"X_{self.split}"].shape[0]
+        return self.benchmark.get_splits(return_array=False, return_train=True)[f"X_{self.split}"].shape[0]
 
     def get_targets(self) -> torch.Tensor:
-        splits = self.benchmark.get_splits(return_array=True)
+        splits = self.benchmark.get_splits(return_array=True, return_train=True)
         y_true = np.repeat(splits[f"y_{self.split}"].reshape(1, -1), 1, axis=0)
         return torch.tensor(y_true, dtype=torch.long).squeeze()
 
@@ -201,8 +213,8 @@ class ScikitLearnMetaDataset(Evaluator):
         pipeline_hps = pipeline_hps.astype(np.float32)
         return torch.from_numpy(pipeline_hps)
 
-    def get_X_and_y(self) -> tuple[torch.Tensor, torch.Tensor]:
-        splits = self.benchmark.get_splits(return_array=True)
+    def get_X_and_y(self, return_train: bool = True) -> tuple[torch.Tensor, torch.Tensor]:
+        splits = self.benchmark.get_splits(return_array=True, return_train=return_train)
         X = torch.tensor(splits[f"X_{self.split}"], dtype=torch.float32)
         y = torch.tensor(splits[f"y_{self.split}"], dtype=torch.long)
         X[torch.isnan(X)] = 0

@@ -39,6 +39,7 @@ if __name__ == "__main__":
     parser.add_argument("--metadataset_name", type=str, default="quicktune")
     parser.add_argument("--searcher_name", type=str, default="bo")
     parser.add_argument("--initial_design_size", type=int, default=1)
+    parser.add_argument("--device", type=str, default="cuda")
     ##############################################################################
     parser.add_argument("--num_iterations", type=int, default=100)
     parser.add_argument("--max_num_pipelines_for_searcher", type=int, default=10)
@@ -100,6 +101,7 @@ if __name__ == "__main__":
     parser.add_argument("--ne_net_mode", type=str, default="model_averaging")
     parser.add_argument("--ne_epochs", type=int, default=1000)
     parser.add_argument("--ne_patience", type=int, default=-1)
+    parser.add_argument("--ne_pct_valid_data", type=float, default=1.)
     ##################### OTHERS #####################################################
     parser.add_argument("--des_method_name", type=str, default="KNOP")
     parser.add_argument("--sks_model_name", type=str, default="random_forest")
@@ -111,6 +113,7 @@ if __name__ == "__main__":
     parser.add_argument("--meta_split_id", type=int, default=0)
     parser.add_argument("--metric_name", type=str, default="nll")
     parser.add_argument("--data_version", type=str, default="micro")
+    parser.add_argument("--pct_valid_data", type=float, default=1.)
     parser.add_argument("--no_wandb", action="store_true")
     parser.add_argument("--normalize_performance", action="store_true")
     parser.add_argument("--apply_posthoc_ensemble_each_iter", action="store_true")

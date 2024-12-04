@@ -96,6 +96,7 @@ class NeuralEnsembler(BaseEnsembler):
         ne_omit_output_mask: bool = True,
         ne_net_mode: str = "model_averaging",
         ne_epochs: int = 1000,
+        ne_pct_valid_data: float = 1.,
         **kwargs
     ) -> None:
         super().__init__(metadataset=metadataset, device=device)
@@ -128,6 +129,7 @@ class NeuralEnsembler(BaseEnsembler):
         self.net_mode = ne_net_mode
         self.normalize_performance = normalize_performance
         self.epochs = ne_epochs
+        self.pct_valid_data = ne_pct_valid_data
         self.training = True
         self.predefined_pipeline_ids = None
         self.y_scale = 1
@@ -233,16 +235,21 @@ class NeuralEnsembler(BaseEnsembler):
         self.X_obs = X_obs
         best_ensemble = None
         weights = None
+
+        predictions = self.metadataset.get_predictions([X_obs])
+        y = self.metadataset.get_targets()
+        predictions, y = self.metadataset.subsample(predictions, y)
+
         # this has to change when using more batches
         base_functions = (
-            self.metadataset.get_predictions([X_obs])[0]
+            predictions[0]
             .transpose(0, 1)
             .transpose(2, 1)
             .unsqueeze(0)
             .to(self.device)
         )
         ##this has to change when using more batches
-        y = self.metadataset.get_targets().unsqueeze(0).to(self.device)
+        y = y.unsqueeze(0).to(self.device)
         
         if self.auto_dropout:
             self.net = self.auto_dropout_and_fit(
@@ -370,7 +377,6 @@ class NeuralEnsembler(BaseEnsembler):
         y_train,
         dropout_rate: float | None = None
     ):
-        
         self.training = True
         if self.net_type == "ffn":
             NetClass = EFFNet
@@ -403,6 +409,8 @@ class NeuralEnsembler(BaseEnsembler):
             num_classes=num_classes
         )
 
+        X_train, y_train = self.subsample_data(X_train, y_train)
+
         if self.task_type == "regression":
             self.y_scale = X_train.mean()
             y_train /= self.y_scale
@@ -432,8 +440,14 @@ class NeuralEnsembler(BaseEnsembler):
         self.training = False
         return model
 
-    def validate(self, model, X_val, y_val):
+    def subsample_data(self, X_train, y_train):
+        num_observations = X_train.shape[1]
+        num_classes = X_train.shape[2]
+        subsample_size = max(int(self.pct_valid_data * num_observations), num_classes)
+        idx = np.random.randint(0, num_observations, subsample_size)
+        return X_train[:,idx], y_train[:,idx]
 
+    def validate(self, model, X_val, y_val):
         X_val, y_val = self.send_to_device(X_val, y_val)
         output, w = model(X_val)
         logits = self.metadataset.get_logits_from_probabilities(output)
@@ -501,8 +515,6 @@ class NeuralEnsembler(BaseEnsembler):
         loss = checkpoint['loss']
 
         return model, optimizer, epoch, loss
-
-
 
 
 class ENetSimple(nn.Module):
@@ -610,6 +622,7 @@ class EFFNet(nn.Module):  # Sample as Sequence
         self.class_embedding = nn.Embedding(num_classes, hidden_dim // 4)
         
         first_module = [nn.Linear(input_dim, hidden_dim)]
+        #TODO: fix this to have num_layers-1
         for _ in range(num_layers):
             first_module.append(nn.ReLU())
             first_module.append(nn.Linear(hidden_dim, hidden_dim))

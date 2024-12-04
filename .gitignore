@@ -17,6 +17,9 @@ SearchingOptimalEnsembles_experiments/plots/saved_results/*
 SearchingOptimalEnsembles_experiments/cluster_scripts/slurm_pineda/bash_args/*
 SearchingOptimalEnsembles_experiments/reports/*
 AutogluonModels/*
+SearchingOptimalEnsembles_experiments/catboost_info/
+**/caboost_info/*
+**/SOE/*
 
 # Documentation
 site/*
@@ -55,3 +58,6 @@ SearchingOptimalEnsembles_experiments/cluster_scripts/slurm_pineda/old_bash_args
 SearchingOptimalEnsembles/metadatasets/tabrepo/tabrepo
 SearchingOptimalEnsembles/metadatasets/scikit_learn/pipeline_bench
 SearchingOptimalEnsembles/posthoc/phem/phem
+
+# Others
+.vscode/*

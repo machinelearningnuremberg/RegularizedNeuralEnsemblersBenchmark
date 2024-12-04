@@ -28,6 +28,7 @@ class QuicktuneMetaDataset(Evaluator):
         use_logits: bool = True,
         device: torch.device = torch.device("cpu"),
         processing_batch_size: int = 1000,
+        pct_valid_data: float = 1.,
         **kwargs,
     ):
         
@@ -37,7 +38,8 @@ class QuicktuneMetaDataset(Evaluator):
             seed=seed,
             split=split,
             metric_name=metric_name,
-            data_version=data_version
+            data_version=data_version,
+            pct_valid_data=pct_valid_data
         )
 
         self.feature_dim = 65

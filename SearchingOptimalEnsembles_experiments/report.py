@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import json
 import yaml
+import copy
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -34,6 +35,10 @@ class Reporter:
                     plot_by_groups: bool = False,
                     plot_as_curves: bool = False,
                     include_legend: bool = True,
+                    impute: bool = True,
+                    normalize: bool = True,
+                    xlabel: str = "DropOut Rate",
+                    ylabel: str = "Normalized NLL",
                     title: str = "",
                     split: str = "test"
             ):
@@ -67,6 +72,10 @@ class Reporter:
         self.plot_as_curves = plot_as_curves
         self.title = title
         self.include_legend = include_legend
+        self.xlabel = xlabel
+        self.ylabel = ylabel
+        self.impute = impute
+        self.normalize = normalize
 
         current_path = Path(__file__).parent.absolute()
 
@@ -176,8 +185,9 @@ class Reporter:
 
  
 
-    def process_table(self, table):
-        table = pd.pivot_table(table, values=["val_metric", "test_metric"], index="experiment_name", columns=["project_name", "dataset_id", "seed"])
+    def process_table(self, original_table):
+        table = pd.pivot_table(original_table, values=["val_metric", "test_metric"], index="experiment_name", columns=["project_name", "dataset_id", "seed"])
+        runtimes = pd.pivot_table(original_table, values=["posthoc_total_time"], index="experiment_name", columns=["project_name", "dataset_id", "seed"])
         
         if self.split == "test": 
             table = table["test_metric"]
@@ -186,18 +196,30 @@ class Reporter:
 
         #average across runs
         table = table.groupby(["dataset_id","project_name"],axis=1).mean()
-
+        runtimes_df = pd.DataFrame({
+            "mean": np.mean(runtimes, axis=1),
+            "median": np.median(runtimes, axis=1),
+            "std": np.std(runtimes, axis=1)
+        })
+        
         if self.baseline is not None:
             for column in table.columns:
-                table[column][np.isnan(table[column])] = table[column][self.baseline] 
+                if self.impute:
+                 table[column][np.isnan(table[column])] = table[column][self.baseline] 
                 #if (table[column][self.baseline] != 0) and (not self.per_dataset):
                 if not self.per_dataset:
                     table[column][table[column]==0] = 1e-08
-                    table[column] /= table[column][self.baseline]
+
+                    if self.baseline is not None and ( self.normalize):
+                        table[column] /= table[column][self.baseline]
                     #table[column] = max(table[column], 1e-05)/ max(table[column][self.baseline], 1e-5)
                     table[column][table[column]>10] = 10 #imputing the very large errors
         table = table.loc[self.experiment_names]
-         
+        processed_table = copy.deepcopy(table)
+        processed_table.columns =[str(x)+"-"+y for (x,y) in processed_table.columns]
+        processed_table.to_csv(self.report_output_path / "processed_table.csv")
+        runtimes_df.to_csv(self.report_output_path / "runtimes.csv")
+
         return table
     
     def report_ranked_metric(self, table):
@@ -354,8 +376,8 @@ class Reporter:
             plt.plot(table[project_name], label=project_name, linewidth=linewidth)
 
         plt.axhline(y=1., color='black', linestyle='--', linewidth=linewidth*0.5)  
-        plt.xlabel('DropOut Rate', fontsize=fontsize*1.5)
-        plt.ylabel('Normalized NLL', fontsize=fontsize*1.5)
+        plt.xlabel(self.xlabel, fontsize=fontsize*1.5)
+        plt.ylabel(self.ylabel, fontsize=fontsize*1.5)
         # plt.title('Metric by Method with Different Colors for Method Classes')
 
         # # Rotate x-axis labels for better readability
@@ -458,12 +480,9 @@ class Reporter:
     
 if __name__ == "__main__":
 
-    report_id = "report18"
+    report_id = "report39"
     reporter_configs_path = Path(__file__).parent.absolute() / "reporter_configs"
     reporter_output_path =  Path(__file__).parent.absolute() / "reports"
     reporter_config_file = reporter_configs_path / (report_id+".yml")
     reporter =  Reporter.load_reporter(reporter_config_file)
     reporter.report()
-    reporter.make_double_plot_as_curves(table_paths=[reporter_output_path / "report18"/ "curves_table.csv",
-                                                     reporter_output_path / "report19"/ "curves_table.csv"],
-                                        titles=["Stacking", "Model Average"] )

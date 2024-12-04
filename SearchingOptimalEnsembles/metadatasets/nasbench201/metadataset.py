@@ -32,6 +32,7 @@ class NASBench201MetaDataset(Evaluator):
         split: str = "valid",
         metric_name: str = "error",
         data_version: str = "micro",
+        pct_valid_data: float = 1,
         **kwargs,  # pylint: disable=unused-argument
     ):
         super().__init__(
@@ -40,6 +41,7 @@ class NASBench201MetaDataset(Evaluator):
             seed=seed,
             split=split,
             metric_name=metric_name,
+            pct_valid_data=pct_valid_data
         )
 
         self.feature_dim = None

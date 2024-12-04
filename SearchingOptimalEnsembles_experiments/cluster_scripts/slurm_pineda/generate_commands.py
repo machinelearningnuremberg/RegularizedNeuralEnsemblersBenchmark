@@ -30,6 +30,7 @@ num_datasets = experiments_conf.pop("num_datasets")
 num_meta_splits = experiments_conf.pop("num_meta_splits")
 experiments = experiments_conf.pop("experiments")
 project_name = experiments_conf["project_name"]
+print("Project Name:", project_name)
 num_seeds = experiments_conf.pop("num_seeds", 1)
 counter = 0
 

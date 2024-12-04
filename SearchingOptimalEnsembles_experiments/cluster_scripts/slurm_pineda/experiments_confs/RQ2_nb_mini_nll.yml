@@ -243,3 +243,52 @@ experiments:
         - linear_model
         - svm
 
+  sks1r1:
+    base_command: "--ensembler_name sks --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 50
+      searcher_name:
+        - divbo
+      sks_model_name:
+        - xgb
+        - catboost
+        - lightgbm
+
+  sks2r1:
+    base_command: "--ensembler_name sks --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 1
+      searcher_name:
+        - random
+      sks_model_name:
+        - xgb
+        - catboost
+        - lightgbm
+
+
+  akaike1r1:
+    base_command: " --ensembler_name akaike --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 50
+      searcher_name:
+        - divbo
+      
+  akaike2r1:
+    base_command: " --ensembler_name akaike --no_wandb"
+    hyper_grid:
+      num_iterations:
+        - 100
+      max_num_pipelines_for_searcher:
+        - 1
+      searcher_name:
+        - random
+      

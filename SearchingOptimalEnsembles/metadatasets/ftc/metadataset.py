@@ -3,7 +3,7 @@ import torch
 from pathlib import Path
 from collections import defaultdict
 
-from .ftc_args import ftc_args, ftctest_args, mini_ftc_args
+from .ftc_args import ftc_args, ftctest_args, mini_ftc_args, ftcplus_args
 from .hub import MODELS, DATASETS
 from ..evaluator import Evaluator
 
@@ -21,6 +21,7 @@ class FTCMetaDataset(Evaluator):
         data_version: str = "mini", 
         device: str = 'cpu',
         load_all: bool = False,
+        pct_valid_data: float = 1.,
         **kwargs
     ):
         self.seed = seed
@@ -37,13 +38,16 @@ class FTCMetaDataset(Evaluator):
             split=split,
             metric_name=metric_name,
             device=device,
-            data_version=data_version
+            data_version=data_version,
+            pct_valid_data=pct_valid_data
         )
 
         if self.data_version == "mini":
             self.data_dir = Path(data_dir) / "mini"
         elif self.data_version == "extended":
             self.data_dir = Path(data_dir) / "ftc"
+        elif self.data_version == "extended_merged":
+            self.data_dir = Path(data_dir) / "ftcplus"
         else:
             raise ValueError("Data version is not valid.")
         
@@ -90,6 +94,8 @@ class FTCMetaDataset(Evaluator):
             args_dict, args_list = mini_ftc_args("mini_ftc")
         elif self.data_version == "extended":
             args_dict, args_list = ftc_args("ftc")
+        elif self.data_version == "extended_merged":
+            args_dict, args_list = ftcplus_args("ftcplus")           
         else:
             raise ValueError("No valid data version.")
         

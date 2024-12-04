@@ -33,6 +33,7 @@ class TabRepoMetaDataset(Evaluator):
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         #task_type: str = "Supervised Classification", #Supervised Regression or #supervised classification
         data_version: str = "version3_class",
+        pct_valid_data: float = 1.,
         **kwargs
     ):
         
@@ -54,7 +55,8 @@ class TabRepoMetaDataset(Evaluator):
             seed=seed,
             split=split,
             metric_name=metric_name,
-            data_version=data_version
+            data_version=data_version,
+            pct_valid_data=pct_valid_data
         )
         if self.task_type == "regression":
             #self.metric_name  = "absolute_relative_error"
