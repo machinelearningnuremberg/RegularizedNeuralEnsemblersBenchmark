@@ -262,10 +262,10 @@ class NASBench201MetaDataset(Evaluator):
     def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:
         # Flatten the list of lists to get all model IDs
         all_model_ids = set(id for sublist in ensembles for id in sublist)
-        
+
         # Query all needed model_ids at once
         all_needed_features = self._features[self._features['model_id'].isin(all_model_ids)].compute()
-    
+
         features = []
         for model_ids in ensembles:
             ensemble_features = []
@@ -339,5 +339,3 @@ class NASBench201MetaDataset(Evaluator):
 
     def get_num_pipelines(self) -> int:
         return self.data_version_map[self.data_version]
-
-

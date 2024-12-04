@@ -22,7 +22,7 @@ def default_to_regular(d):
 
 class Reporter:
 
-    def __init__(self, 
+    def __init__(self,
                     report_id: int,
                     report_structure: dict,
                     experiments_results_path: str | None = None,
@@ -44,7 +44,7 @@ class Reporter:
             ):
         """
         Args:
-        - report_structure: dictionary containing as first level keys the project names, 
+        - report_structure: dictionary containing as first level keys the project names,
                             as second level keys the experiment names.
 
                             Example:
@@ -60,7 +60,7 @@ class Reporter:
                                 }
                             }}
         """
-        
+
         self.report_id = report_id
         self.report_structure = report_structure
         self.config_filter = config_filter
@@ -82,11 +82,11 @@ class Reporter:
         if experiments_results_path is None:
             experiments_results_path = current_path / "experiments_results"
 
-        if project_configs_path is None: 
-            project_configs_path = current_path / "cluster_scripts" / "slurm_pineda" / "experiments_confs" 
-        
+        if project_configs_path is None:
+            project_configs_path = current_path / "cluster_scripts" / "slurm_pineda" / "experiments_confs"
+
         if report_output_path is None:
-            report_output_path = current_path / "reports" 
+            report_output_path = current_path / "reports"
 
         self.experiments_results_path = Path(experiments_results_path)
         self.project_configs_path = Path(project_configs_path)
@@ -108,11 +108,11 @@ class Reporter:
             self.experiment_names = self.report_structure["experiment_names"].keys()
 
     def load_project_config(self, project_name):
-        
+
         with open(self.project_configs_path / (project_name + ".yml"), 'r') as file:
             config = yaml.safe_load(file)
         return config
-    
+
     def check_config(self, config):
         passed = True
         if self.config_filter is not None:
@@ -135,7 +135,7 @@ class Reporter:
 
             for experiment_name in self.experiment_names:
                 for dataset_id in range(num_datasets):
-                    
+
                     if dataset_id in self.dataset_filter: continue
 
                     for seed in range(num_seeds):
@@ -151,7 +151,7 @@ class Reporter:
                             passed = False
                             print("Args file not found for "+str(temp_path))
 
-                        if passed: 
+                        if passed:
                             try:
                                 with open(temp_path / "results.json") as json_file:
                                     experiment_results = json.load(json_file)
@@ -166,7 +166,7 @@ class Reporter:
                                 missing_experiments_list[project_name][experiment_name].append(dataset_id)
 
         return projects_configs, experiments_configs, experiments_results, missing_experiments_list
-    
+
     def write_missing_experiments(self, missing_experiments_list):
         missing_experiments_list = default_to_regular(missing_experiments_list)
         missing_experiments_counts  = defaultdict(lambda: defaultdict(int))
@@ -181,15 +181,15 @@ class Reporter:
             yaml.dump(missing_experiments_list, yaml_file)
 
         with open(self.report_output_path / "missing_experiments_counts.yml", 'w') as yaml_file:
-            yaml.dump(missing_experiments_counts, yaml_file)        
+            yaml.dump(missing_experiments_counts, yaml_file)
 
- 
+
 
     def process_table(self, original_table):
         table = pd.pivot_table(original_table, values=["val_metric", "test_metric"], index="experiment_name", columns=["project_name", "dataset_id", "seed"])
         runtimes = pd.pivot_table(original_table, values=["posthoc_total_time"], index="experiment_name", columns=["project_name", "dataset_id", "seed"])
-        
-        if self.split == "test": 
+
+        if self.split == "test":
             table = table["test_metric"]
         else:
             table = table["val_metric"]
@@ -201,11 +201,11 @@ class Reporter:
             "median": np.median(runtimes, axis=1),
             "std": np.std(runtimes, axis=1)
         })
-        
+
         if self.baseline is not None:
             for column in table.columns:
                 if self.impute:
-                 table[column][np.isnan(table[column])] = table[column][self.baseline] 
+                 table[column][np.isnan(table[column])] = table[column][self.baseline]
                 #if (table[column][self.baseline] != 0) and (not self.per_dataset):
                 if not self.per_dataset:
                     table[column][table[column]==0] = 1e-08
@@ -221,18 +221,18 @@ class Reporter:
         runtimes_df.to_csv(self.report_output_path / "runtimes.csv")
 
         return table
-    
+
     def report_ranked_metric(self, table):
         if self.per_dataset:
             mean = table.rank().groupby(["project_name", "dataset_id"], axis=1).mean()
-            std = table.rank().groupby(["project_name", "dataset_id"], axis=1).std()       
+            std = table.rank().groupby(["project_name", "dataset_id"], axis=1).std()
             #mean.columns = mean.columns.droplevel("project_name")
             #std.columns = std.columns.droplevel("project_name")
         else:
             mean = table.rank().groupby(["project_name"], axis=1).mean()
             std = table.rank().groupby(["project_name"], axis=1).std()
         return mean, std
-    
+
     def report_aggregated_metric(self, table):
         if self.per_dataset:
             mean = table.groupby(["project_name", "dataset_id"], axis=1).mean()
@@ -241,12 +241,12 @@ class Reporter:
             #std.columns = std.columns.droplevel("project_name")
         else:
             mean = table.groupby("project_name", axis=1).mean()
-            std = table.groupby("project_name", axis=1).std()            
+            std = table.groupby("project_name", axis=1).std()
         return mean, std
-    
+
     def report_time(self, table):
         return table
-    
+
     def report_dataset_size(self, table):
         return table
 
@@ -260,7 +260,7 @@ class Reporter:
     def rename_experiments(self, table):
         new_index=[]
         for i, index in enumerate(table.index):
-            new_index.append(self.report_structure["experiment_names"][index])    
+            new_index.append(self.report_structure["experiment_names"][index])
         table.index = new_index
         return table
 
@@ -268,7 +268,7 @@ class Reporter:
         def highlight_smallest(m, s, smallest, second_smallest):
             return '\\textbf{' + str(m) + '}$_{\pm'+ str(s)+'}$' if m == smallest \
                         else ('\\underline{\\textit{' + str(m) + '}}$_{\pm'+ str(s)+'}$' if m == second_smallest else str(m)+'$_{\pm'+ str(s)+'}$')
-                                                                     
+
         for table_name, table_group in tables.items():
             table_mean = table_group["mean"]
             table_std = table_group["std"]
@@ -305,7 +305,7 @@ class Reporter:
                 #table[column] = table[[column, column+"_std"]].apply(lambda x: x[column]+" $\pm$ "+x[column+"_std"], axis=1)
                 if not self.per_dataset:
                     table[column] = table[[column, column+"_std"]].apply(lambda x: highlight_smallest(x[column],x[column+"_std"], smallest, second_smallest), axis=1)
-            
+
             table = table[table_mean.columns]
             table.to_csv(self.report_output_path / (table_name+".csv"))
 
@@ -354,11 +354,11 @@ class Reporter:
             plt.xticks(rotation=45, ha='right', fontsize=fontsize)
             plt.yticks(fontsize=fontsize)  # Adjust font size of y-ticks
             # # Show the plot
-            
+
             plt.grid(True, which='both', axis='y', linestyle='--', linewidth=0.7, zorder=0)  # Grid behind bars with zorder=0
-            
+
             legend_handles = [plt.Rectangle((0, 0), 1, 1, color=color_map[group]) for group in groups]
-            
+
             plt.legend(legend_handles, groups, title="Method Type", fontsize=fontsize, title_fontsize=fontsize)
 
             plt.tight_layout()
@@ -367,7 +367,7 @@ class Reporter:
             plt.savefig(self.report_output_path / (f"{project}_plot.pdf"))
 
     def make_plot_as_curves(self, table, fontsize=30, linewidth=5):
-        
+
         plt.figure(figsize=(10, 10))
         plt.grid(True, which='both', axis='y', linestyle='--', linewidth=0.7, zorder=-1)  # Grid behind bars with zorder=0
         plt.grid(True, which='both', axis='x', linestyle='--', linewidth=0.7, zorder=-1)  # Grid behind bars with zorder=0
@@ -375,7 +375,7 @@ class Reporter:
         for project_name in table.columns:
             plt.plot(table[project_name], label=project_name, linewidth=linewidth)
 
-        plt.axhline(y=1., color='black', linestyle='--', linewidth=linewidth*0.5)  
+        plt.axhline(y=1., color='black', linestyle='--', linewidth=linewidth*0.5)
         plt.xlabel(self.xlabel, fontsize=fontsize*1.5)
         plt.ylabel(self.ylabel, fontsize=fontsize*1.5)
         # plt.title('Metric by Method with Different Colors for Method Classes')
@@ -385,14 +385,14 @@ class Reporter:
         plt.yticks(fontsize=fontsize)  # Adjust font size of y-ticks
         #
         plt.title(self.title, fontsize=fontsize*1.5)
-        
+
         if self.include_legend:
             #plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
 
             plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=3, fontsize=fontsize, columnspacing=1)
         #plt.legend(fontsize=fontsize)
         plt.tight_layout()
-        
+
         table.to_csv(self.report_output_path / (f"curves_table.csv"))
         plt.savefig(self.report_output_path / (f"curves_plot.png"))
         plt.savefig(self.report_output_path / (f"curves_plot.pdf"))
@@ -412,7 +412,7 @@ class Reporter:
         aggregated_mean, aggregated_std = self.report_aggregated_metric(processed_table)
         ranked_mean, ranked_std = self.report_ranked_metric(processed_table)
         self.write_missing_experiments(missing_experiments_list)
- 
+
         if self.plot_by_groups:
             aggregated_mean["group"] = self.groups
             self.make_plot_by_groups(aggregated_mean)
@@ -420,14 +420,14 @@ class Reporter:
         else:
             self.write_tables({"aggregated":
                                     { "mean": aggregated_mean,
-                                    "std": aggregated_std 
+                                    "std": aggregated_std
                                     },
                                 "ranked":
                                 {
                                     "mean": ranked_mean,
                                     "std": ranked_std,
                                     }
-                                }                   
+                                }
                             )
 
             self.report_time(table)
@@ -447,7 +447,7 @@ class Reporter:
             for project_name in table.columns[1:]:
                 axs[i].plot(values, table[project_name], label=project_name, linewidth=linewidth)
 
-            axs[i].axhline(y=1., color='black', linestyle='--', linewidth=linewidth*0.5)  
+            axs[i].axhline(y=1., color='black', linestyle='--', linewidth=linewidth*0.5)
             axs[i].set_xlabel('DropOut Rate', fontsize=fontsize*1.5)
 
             if i == 0:
@@ -457,15 +457,15 @@ class Reporter:
             # # Rotate x-axis labels for better readability
             axs[i].set_xticks(values)
             axs[i].set_xticklabels(values, fontsize=fontsize)
-            
+
             axs[i].set_yticks(axs[i].get_yticks())
             axs[i].set_yticklabels(axs[i].get_yticklabels(), fontsize=fontsize)
-            
+
             axs[i].set_title(titles[i], fontsize=fontsize*1.5)
-            
+
         fig.legend(*axs[0].get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(0.5, 0.0),ncol=7, fontsize=fontsize, columnspacing=1)
         #plt.tight_layout()
-        
+
         fig.savefig(self.report_output_path / (f"double_curves_plot.png"), bbox_inches="tight")
         fig.savefig(self.report_output_path / (f"double_curves_plot.pdf"), bbox_inches="tight")
 
@@ -474,10 +474,10 @@ class Reporter:
     def load_reporter(cls, reporter_config_file):
         with open(reporter_config_file) as file:
             config = yaml.safe_load(file)
-        
+
         return Reporter(**config)
 
-    
+
 if __name__ == "__main__":
 
     report_id = "report39"

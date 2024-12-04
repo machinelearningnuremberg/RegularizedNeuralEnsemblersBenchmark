@@ -36,7 +36,7 @@ class TabRepoMetaDataset(Evaluator):
         pct_valid_data: float = 1.,
         **kwargs
     ):
-        
+
         self.data_dir = data_dir
         self.seed = seed
         self.split = split
@@ -61,16 +61,16 @@ class TabRepoMetaDataset(Evaluator):
         if self.task_type == "regression":
             #self.metric_name  = "absolute_relative_error"
             self.metric_name = "mse"
-        
+
         self.metadataset_task_type = TASK_TYPE_TO_METADATASET[self.task_type]
         self._initialize()
 
     def _filter_datasets(self, dataset_names):
-        dataset_names = [x for x in dataset_names 
+        dataset_names = [x for x in dataset_names
                               if self.repo.dataset_metadata(x)["task_type"]==self.metadataset_task_type]
         return dataset_names
-    
-    def set_state(self, dataset_name: str, 
+
+    def set_state(self, dataset_name: str,
                 split: str = "valid",
                 fold: int = 0):
         self.split = split
@@ -104,7 +104,7 @@ class TabRepoMetaDataset(Evaluator):
         df[categorical_cols] = df[categorical_cols].apply(lambda col: col.fillna("nan").astype(str))
 
         return df
-    
+
     def _get_hp_candidates_and_indices(self) -> tuple[torch.Tensor, torch.Tensor]:
         hp_candidates = []
         for pipeline in self.config_names:
@@ -119,15 +119,15 @@ class TabRepoMetaDataset(Evaluator):
         hp_candidates = torch.FloatTensor( hp_candidates)
         hp_candidates_ids = torch.arange(len(hp_candidates))
         return hp_candidates, hp_candidates_ids
-    
+
     def _posprocess_binary_predictions(self, predictions: np.array) -> np.array:
 
         if self.dataset_metadata["NumberOfClasses"]==2:
             predictions = torch.cat([1-predictions.unsqueeze(-1),
                                      predictions.unsqueeze(-1)], axis=-1)
-                                     
+
         return predictions
-    
+
     def get_targets(self) -> torch.Tensor:
 
         """
@@ -135,7 +135,7 @@ class TabRepoMetaDataset(Evaluator):
 
         M: number of samplers per ensemble
         Returns:
-            target: torch tensor with the target per sample: [M]    
+            target: torch tensor with the target per sample: [M]
         """
 
         if self.split == "valid":
@@ -148,9 +148,9 @@ class TabRepoMetaDataset(Evaluator):
             targets = targets.long()
         elif self.task_type == "regression":
             targets = targets.float()
-            
+
         return targets
-    
+
     def get_time(self, ensembles: list[list[int]]) -> torch.Tensor:
         """
         Returns the target associated to every sample in the active dataset.
@@ -162,12 +162,12 @@ class TabRepoMetaDataset(Evaluator):
             ensembles: List of list with the base model index to evaluate: [B, N]
 
         Returns:
-            time: torch tensor with the time per pipeline and ensemble: [B, N]    
+            time: torch tensor with the time per pipeline and ensemble: [B, N]
         """
-    
-        return torch.zeros(len(ensembles), 
+
+        return torch.zeros(len(ensembles),
                             len(ensembles[0]))
-    
+
 
     def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
         config_names_in_ensemble = self.config_names[ensembles]
@@ -179,12 +179,12 @@ class TabRepoMetaDataset(Evaluator):
 
         for configs in config_names_in_ensemble:
             if self.split == "valid":
-                temp_predictions = torch.FloatTensor(self.repo.predict_val_multi(dataset=self.dataset_name, 
+                temp_predictions = torch.FloatTensor(self.repo.predict_val_multi(dataset=self.dataset_name,
                                                                fold=self.fold,
                                                                configs=configs))
-                
+
             else:
-                temp_predictions = torch.FloatTensor(self.repo.predict_test_multi(dataset=self.dataset_name, 
+                temp_predictions = torch.FloatTensor(self.repo.predict_test_multi(dataset=self.dataset_name,
                                                 fold=self.fold,
                                                 configs=configs))
             if self.task_type == "classification":
@@ -193,9 +193,9 @@ class TabRepoMetaDataset(Evaluator):
                 temp_predictions = temp_predictions.unsqueeze(-1)
             else:
                 raise ValueError("Not valid task type.")
-            
+
             predictions.append(temp_predictions.unsqueeze(0))
-        
+
         predictions = torch.cat(predictions, axis=0)
         num_classes = predictions.shape[-1]
         predictions = torch.nan_to_num(predictions, nan=1./num_classes,
@@ -214,7 +214,7 @@ class TabRepoMetaDataset(Evaluator):
 
     def _get_worst_and_best_performance(self) -> tuple[torch.Tensor, torch.Tensor]:
         #TODO: search the actual worst and best values
-        
+
         if self.metric_name == "neg_roc_auc":
             #to speed up initializatio
             self.worst_performance = 1
@@ -226,11 +226,11 @@ class TabRepoMetaDataset(Evaluator):
             self.worst_performance = metrics.max().item()
             self.best_performance = metrics.min().item()
         return self.worst_performance, self.best_performance
-    
+
     def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:
         #TODO: find better structure for this function
         return torch.tensor(np.array(self.hp_candidates)[ensembles])
-    
+
     def score_ensemble(self, ensemble: list[int]):
         score, _ = self.repo.evaluate_ensemble(datasets =[self.dataset_name],
                                             configs=self.config_names[ensemble],

@@ -41,4 +41,3 @@ report_structure:
     neural2_5: NE(MA) + Random
     neural1_4: NE(S) + DivBO
     neural1_5: NE(MA) + DivBO
-

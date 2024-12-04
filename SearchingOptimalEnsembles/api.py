@@ -156,7 +156,7 @@ def run(
         "ne_weight_thd": ne_weight_thd,
         "ne_dropout_dist": ne_dropout_dist,
         "ne_omit_output_mask": ne_omit_output_mask,
-        "ne_net_mode": ne_net_mode, 
+        "ne_net_mode": ne_net_mode,
         "ne_epochs": ne_epochs,
         "ne_batch_size": ne_batch_size,
         "ne_patience": ne_patience,
@@ -312,7 +312,7 @@ def run(
 
     if normalize_performance:
         incumbent = metadataset.normalize_performance(incumbent)
-    
+
     test_metric = posthoc_ensembler.evaluate_on_split(split="test")
     test_dataset_size = metadataset.get_num_samples()
     number_of_classes = metadataset.get_num_classes()

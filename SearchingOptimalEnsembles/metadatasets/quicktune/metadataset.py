@@ -13,7 +13,7 @@ from ..evaluator import Evaluator
 #TODO: Unify the name "hp_candidate" and "pipeline", it might be confusing
 
 class QuicktuneMetaDataset(Evaluator):
-    
+
     metadataset_name = "quicktune"
 
     def __init__(
@@ -31,7 +31,7 @@ class QuicktuneMetaDataset(Evaluator):
         pct_valid_data: float = 1.,
         **kwargs,
     ):
-        
+
         super().__init__(
             data_dir=data_dir,
             meta_split_ids=meta_split_ids,
@@ -117,7 +117,7 @@ class QuicktuneMetaDataset(Evaluator):
 
     def _get_worst_and_best_performance(self) -> tuple[torch.Tensor, torch.Tensor]:
         return self.worst_performance, self.best_performance
-    
+
     def get_dataset_info(
         self,
         dataset_name: str = "",
@@ -149,7 +149,7 @@ class QuicktuneMetaDataset(Evaluator):
             )
         except:
             self.time = torch.zeros(len(self.hp_candidates))
-            
+
         if self.split == "valid":
             self.targets = self.targets[self.is_test_id == 0]
             self.predictions = self.predictions[:, self.is_test_id == 0, :]
@@ -186,7 +186,7 @@ class QuicktuneMetaDataset(Evaluator):
 
         return self.hp_candidates, self.time, self.predictions, self.targets
 
-    def set_state(self, dataset_name: str, 
+    def set_state(self, dataset_name: str,
                   split: str = "valid"):
 
         self.split = split
@@ -204,7 +204,7 @@ class QuicktuneMetaDataset(Evaluator):
             dataset for dataset in dataset_names if self.data_version in dataset
         ]
         return dataset_names
-    
+
     def get_targets(self):
         return self.targets
 
@@ -219,17 +219,17 @@ class QuicktuneMetaDataset(Evaluator):
 
     def get_num_classes(self) -> int:
         return self.predictions.shape[-1]
-    
+
     def get_num_pipelines(self) -> int:
         return len(self.hp_candidates_ids)
 
     def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:
         return self.hp_candidates[torch.LongTensor(ensembles)]
-    
+
     def get_time(self, ensembles: list[list[int]]) -> torch.Tensor:
         time_per_pipeline = self.time[torch.LongTensor(ensembles)]
         return time_per_pipeline
-    
+
     # def evaluate_ensembles(
     #     self, ensembles: list[list[int]]
     # ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:

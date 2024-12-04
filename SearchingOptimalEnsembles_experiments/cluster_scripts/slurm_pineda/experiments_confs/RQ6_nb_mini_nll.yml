@@ -46,7 +46,7 @@ experiments:
         - 0.25
         - 0.5
         - 1
-  
+
   single1:
     base_command: " --ensembler_name single --no_wandb"
     hyper_grid:

@@ -20,7 +20,7 @@ from .base_ensembler import BaseEnsembler
 try:
     import wandb
     WAND_AVAILABLE = True
-except: 
+except:
     WAND_AVAILABLE = False
 
 class Dataset:
@@ -29,7 +29,7 @@ class Dataset:
         self.y = y
         self.batch_size = batch_size
         self.num_samples = len(X)
-    
+
     def __iter__(self):
         for i in range(self.num_samples):
             down = i*self.batch_size
@@ -152,7 +152,7 @@ class NeuralEnsemblerTabularInput(BaseEnsembler):
         else:
             self.criterion = nn.CrossEntropyLoss()
             self.task_type = "classification"
-   
+
         if self.use_wandb and self.mode == "pretraining" and WAND_AVAILABLE:
             wandb.init(
                 project=self.project_name,
@@ -227,7 +227,7 @@ class NeuralEnsemblerTabularInput(BaseEnsembler):
 
     def sample(self, X_obs, **kwargs) -> tuple[list, float]:
         """Fit neural ensembler, output ensemble WITH weights"""
-        
+
         self.X_obs = X_obs
         best_ensemble = None
         weights = None
@@ -237,7 +237,7 @@ class NeuralEnsemblerTabularInput(BaseEnsembler):
 
         assert hasattr(self.metadataset, "get_X_and_y"), "Metadataset should have attribute get X and y."
         X, y = self.metadataset.get_X_and_y(return_train=True)
-        
+
         # this has to change when using more batches
         base_functions = (
             predictions[0]
@@ -248,7 +248,7 @@ class NeuralEnsemblerTabularInput(BaseEnsembler):
         )
         ##this has to change when using more batches
         y = y.unsqueeze(0).to(self.device)
-        
+
         self.net = self.fit_net(
             X_train=X, y_train=y, base_functions=base_functions
         )
@@ -268,7 +268,7 @@ class NeuralEnsemblerTabularInput(BaseEnsembler):
 
     def get_batch(self, X_train, y_train, base_functions):
         _, num_samples, num_classes, num_base_functions = base_functions.shape
-    
+
         idx = np.random.randint(0, num_samples, self.ne_batch_size)
         return (X_train[ idx], y_train[:, idx], base_functions[:,idx])
 
@@ -285,18 +285,18 @@ class NeuralEnsemblerTabularInput(BaseEnsembler):
         #else:
         self.metadataset.set_state(dataset_name=self.metadataset.dataset_name,
                                         split = split)
-       
+
         y = self.metadataset.get_targets().to(self.device)
         y_pred = self.get_y_pred()
         metric = self.metadataset.score_y_pred(y_pred, y)
-        
+
         if self.normalize_performance:
             metric = self.metadataset.normalize_performance(metric)
-        
+
         return metric
 
     def get_y_pred(self):
-        
+
         base_functions = (
             self.metadataset.get_predictions([self.best_ensemble])[0]
             .transpose(0, 1)
@@ -313,12 +313,12 @@ class NeuralEnsemblerTabularInput(BaseEnsembler):
         y_pred = self.batched_prediction(
             X=X,
             base_functions=base_functions
-            
+
         )[0][0]
 
         return y_pred
-    
-        
+
+
     def fit_net(
         self,
         X_train,
@@ -333,7 +333,7 @@ class NeuralEnsemblerTabularInput(BaseEnsembler):
             output_dim = base_functions.shape[-1]  # [NUMBER OF BASE FUNCTIONS]
         else:
             raise NotImplementedError()
-        
+
         if dropout_rate is None:
             dropout_rate = self.dropout_rate
 
@@ -481,9 +481,9 @@ class EFFNet(nn.Module):  # Sample as Sequence
         self.num_classes = num_classes
 
         num_layers=-1
-        
+
         self.class_embedding = nn.Embedding(num_classes, hidden_dim // 4)
-        
+
         first_module = [nn.Linear(input_dim, hidden_dim)]
         #TODO: fix this to have num_layers-1
         for _ in range(num_layers):

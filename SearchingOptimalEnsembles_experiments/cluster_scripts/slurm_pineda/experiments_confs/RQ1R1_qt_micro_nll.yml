@@ -75,7 +75,7 @@ experiments:
         - None
       sks_model_name:
         - lightgbm
-  
+
   akaike1r1:
     base_command: " --ensembler_name akaike --no_wandb"
     hyper_grid:

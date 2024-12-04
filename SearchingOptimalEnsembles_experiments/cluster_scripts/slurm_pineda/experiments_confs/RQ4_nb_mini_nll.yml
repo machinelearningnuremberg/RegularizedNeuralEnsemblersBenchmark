@@ -25,7 +25,7 @@ experiments:
       ne_net_mode:
         - stacking
         - model_averaging
-        
+
   neural2:
     base_command: " --ensembler_name neural --no_wandb"
     hyper_grid:

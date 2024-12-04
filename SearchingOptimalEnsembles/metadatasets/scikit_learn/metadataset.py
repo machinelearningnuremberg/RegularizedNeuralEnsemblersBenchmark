@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from joblib import load  
+from joblib import load
 import numpy as np
 import pandas as pd
 import pipeline_bench
@@ -85,7 +85,7 @@ class ScikitLearnMetaDataset(Evaluator):
                 lazy=False,
                 data_version=self.data_version,
             )
-        
+
         super().set_state(dataset_name=dataset_name, split=split)
 
     def _get_hp_candidates_and_indices(
@@ -153,7 +153,7 @@ class ScikitLearnMetaDataset(Evaluator):
         nan_mask = np.isnan(y_proba)
         y_proba[nan_mask] = 1e-4
         y_proba= y_proba / y_proba.sum(-1, keepdims=True)
-        
+
         return y_proba
 
     def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:

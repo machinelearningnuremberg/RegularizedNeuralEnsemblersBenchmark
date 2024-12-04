@@ -24,7 +24,7 @@ experiments:
         - None
       sks_model_name:
         - catboost
-        
+
   neural1r1:
     base_command: " --ensembler_name neural --no_wandb"
     hyper_grid:
@@ -39,7 +39,7 @@ experiments:
       ne_net_mode:
         - stacking
         - model_averaging
-  
+
   neural2r1:
     base_command: " --ensembler_name neural --no_wandb"
     hyper_grid:

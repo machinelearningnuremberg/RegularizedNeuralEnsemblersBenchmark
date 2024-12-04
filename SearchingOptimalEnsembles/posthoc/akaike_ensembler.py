@@ -44,7 +44,7 @@ class AkaikeEnsembler(BaseEnsembler):
         if max_num_pipelines != -1:
             cutoff=metrics_per_pipeline.sort()[0][max_num_pipelines]
             metrics_per_pipeline[metrics_per_pipeline>cutoff] = torch.inf
-            
+
         self.weights = self.get_akaike_weights(metrics_per_pipeline)
         y_pred = self.compute_predictions()
         y_true = self.metadataset.get_targets()
@@ -56,7 +56,7 @@ class AkaikeEnsembler(BaseEnsembler):
         return self.best_ensemble, metric
 
     def compute_predictions(self):
-    
+
         base_functions = (
             self.metadataset.get_predictions([self.X_obs])[0]
             .transpose(0, 1)
@@ -69,7 +69,7 @@ class AkaikeEnsembler(BaseEnsembler):
         weights = torch.repeat_interleave(
             weights.unsqueeze(1), base_functions.shape[1], dim=1
         )
-        
+
         y_pred = torch.multiply(base_functions, weights).sum(axis=-1)
         return y_pred
 

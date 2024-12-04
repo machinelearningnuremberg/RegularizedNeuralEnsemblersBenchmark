@@ -65,7 +65,7 @@ for k, experiment_id in enumerate(experiment_ids):
 
     if i == 0:
         ax.set_ylabel("Normalized NLL")
-    
+
 handles, labels = axes[0, 0].get_legend_handles_labels()
 
 # Add a common legend

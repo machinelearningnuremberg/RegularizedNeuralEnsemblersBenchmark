@@ -61,4 +61,3 @@ plt.ylabel("Avg. Normalized NLL", fontsize=fontsize)
 plt.grid(True, which="both", ls="-", color='0.65',zorder=1)
 plt.savefig("SearchingOptimalEnsembles_experiments/plots/saved_plots/runtime_vs_performance.png",  bbox_inches='tight')
 plt.savefig("SearchingOptimalEnsembles_experiments/plots/saved_plots/runtime_vs_performance.pdf",  bbox_inches='tight')
-

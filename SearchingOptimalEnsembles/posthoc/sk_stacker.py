@@ -94,13 +94,13 @@ class ScikitLearnStacker(BaseEnsembler):
             y_pred = torch.FloatTensor(self.model.predict_proba(base_functions))
         else:
             y_pred = torch.FloatTensor(self.model.predict(base_functions))
-           
+
         metric = self.metadataset.score_y_pred(y_pred, y_true)
 
         return self.best_ensemble, metric
 
     def get_metric(self, base_functions, y_true):
-        
+
         y_pred = torch.FloatTensor(self.model.predict_proba(base_functions))
         y_true = torch.tensor(y_true)
         if self.metadataset.metric_name == "nll":
@@ -122,13 +122,13 @@ class ScikitLearnStacker(BaseEnsembler):
         ).numpy()
         num_samples, num_classes, num_pipelines = base_functions.shape
         base_functions = base_functions.reshape(-1, num_classes * num_pipelines)
-        y_true = self.metadataset.get_targets() 
+        y_true = self.metadataset.get_targets()
 
         if self.task_type == "classification":
             y_pred = torch.FloatTensor(self.model.predict_proba(base_functions))
         else:
             y_pred = torch.FloatTensor(self.model.predict(base_functions))
-           
+
         metric = self.metadataset.score_y_pred(y_pred, y_true)
 
         if self.normalize_performance:

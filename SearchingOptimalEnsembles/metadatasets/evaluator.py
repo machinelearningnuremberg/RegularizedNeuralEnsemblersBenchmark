@@ -20,7 +20,7 @@ class Evaluator(BaseMetaDataset):
         pct_valid_data: float = 1.,
         data_version: str = None
     ):
-        
+
         super().__init__(
             data_dir=data_dir,
             meta_split_ids=meta_split_ids,
@@ -38,9 +38,9 @@ class Evaluator(BaseMetaDataset):
         self.absolute_relative_error = lambda y_true,y_pred: torch.abs(y_true-y_pred)/torch.max(torch.ones(1),torch.abs(y_true))
         self.mse = torch.nn.MSELoss(reduction="none")
 
-        #return torch.zeros(len(ensembles), 
+        #return torch.zeros(len(ensembles),
         #                    len(ensembles[0]))
-    
+
     def evaluate_ensembles(
         self, ensembles: list[list[int]]
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -71,7 +71,7 @@ class Evaluator(BaseMetaDataset):
         hp_candidates = self.get_features(ensembles)
 
         ensembles = torch.LongTensor(ensembles).to(self.device)
-        
+
         metric = []
         metric_per_pipeline = []
         total_num_samples = predictions.shape[-2]
@@ -141,7 +141,7 @@ class Evaluator(BaseMetaDataset):
             metric_per_pipeline = metric_per_sample.mean(-1)
             metric_ensemble_per_sample = self.mse(temp_targets, weighted_predictions.sum(axis=1, keepdim=True).squeeze(-1))
             metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(-1)
-        
+
         elif self.metric_name == "neg_roc_auc":
             y_pred = predictions.mean(1)
             metric = []
@@ -178,7 +178,7 @@ class Evaluator(BaseMetaDataset):
             raise ValueError("metric_name must be either error or nll")
 
         return metric, metric_per_pipeline
-    
+
     def score_y_pred(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """
         y_pred: predictions (outpur porbabilities for classification).
@@ -202,5 +202,5 @@ class Evaluator(BaseMetaDataset):
                 metric = 1-roc_auc_score(y_true.detach().cpu().numpy(), y_pred.detach().cpu().numpy(), multi_class="ovo")
             else:
                 raise ValueError("Metric name is not known.")
-            
+
         return metric

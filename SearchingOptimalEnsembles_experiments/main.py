@@ -151,8 +151,6 @@ if __name__ == "__main__":
 
     with open(args.worker_dir + '/results.json', 'w') as f:
         json.dump(results, f)
-    
+
     with open(args.worker_dir + '/args.json', 'w') as f:
         json.dump(args.__dict__, f)
-
-
