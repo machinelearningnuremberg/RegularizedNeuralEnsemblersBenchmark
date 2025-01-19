@@ -69,6 +69,7 @@ def run(
     ne_batch_size: int = 2048,
     ne_epochs: int = 1000,
     ne_patience: int = -1,
+    ne_pct_valid_data: float = 1.,
     #############################################
     des_method_name: str = "KNOP",
     sks_model_name: str = "random_forest",
@@ -78,6 +79,7 @@ def run(
     data_version: str = "micro",
     metric_name: str = "nll",
     device: str = "cuda",
+    pct_valid_data: float = 1.
 ) -> None:
     """Runs SOE on the metadataset.
 
@@ -96,7 +98,8 @@ def run(
         "meta_split_ids": META_SPLITS[meta_split_id],
         "metric_name": metric_name,
         "data_version": data_version,
-        "num_base_pipelines": num_base_pipelines
+        "num_base_pipelines": num_base_pipelines,
+        "pct_valid_data": pct_valid_data
     }
 
     metadataset = instance_from_map(
@@ -153,10 +156,11 @@ def run(
         "ne_weight_thd": ne_weight_thd,
         "ne_dropout_dist": ne_dropout_dist,
         "ne_omit_output_mask": ne_omit_output_mask,
-        "ne_net_mode": ne_net_mode, 
+        "ne_net_mode": ne_net_mode,
         "ne_epochs": ne_epochs,
         "ne_batch_size": ne_batch_size,
         "ne_patience": ne_patience,
+        "ne_pct_valid_data": ne_pct_valid_data,
         "des_method_name": des_method_name,
         "max_num_pipelines": max_num_pipelines,
         "sks_model_name": sks_model_name
@@ -308,7 +312,7 @@ def run(
 
     if normalize_performance:
         incumbent = metadataset.normalize_performance(incumbent)
-    
+
     test_metric = posthoc_ensembler.evaluate_on_split(split="test")
     test_dataset_size = metadataset.get_num_samples()
     number_of_classes = metadataset.get_num_classes()

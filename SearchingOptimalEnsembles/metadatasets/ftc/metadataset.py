@@ -3,7 +3,7 @@ import torch
 from pathlib import Path
 from collections import defaultdict
 
-from .ftc_args import ftc_args, ftctest_args, mini_ftc_args
+from .ftc_args import ftc_args, ftctest_args, mini_ftc_args, ftcplus_args
 from .hub import MODELS, DATASETS
 from ..evaluator import Evaluator
 
@@ -18,9 +18,10 @@ class FTCMetaDataset(Evaluator):
         split: str = "valid",
         metric_name: str = "error",
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
-        data_version: str = "mini", 
+        data_version: str = "mini",
         device: str = 'cpu',
         load_all: bool = False,
+        pct_valid_data: float = 1.,
         **kwargs
     ):
         self.seed = seed
@@ -29,7 +30,7 @@ class FTCMetaDataset(Evaluator):
         self.metric_name = metric_name
         self.data_version = data_version
         self.models = MODELS
-        
+
         super().__init__(
             data_dir=data_dir,
             meta_split_ids=meta_split_ids,
@@ -37,30 +38,33 @@ class FTCMetaDataset(Evaluator):
             split=split,
             metric_name=metric_name,
             device=device,
-            data_version=data_version
+            data_version=data_version,
+            pct_valid_data=pct_valid_data
         )
 
         if self.data_version == "mini":
             self.data_dir = Path(data_dir) / "mini"
         elif self.data_version == "extended":
             self.data_dir = Path(data_dir) / "ftc"
+        elif self.data_version == "extended_merged":
+            self.data_dir = Path(data_dir) / "ftcplus"
         else:
             raise ValueError("Data version is not valid.")
-        
+
         self.files = ["times.csv",
                      "test_predictions.csv",
                      "val_predictions.csv"]
 
         if self.load_all:
             self._load_data()
-        
+
         self._initialize()
 
     def get_dataset_names(self):
         if self.data_version == "ftctest":
             return ["ag_news"]
         return DATASETS.copy()
-    
+
     def _load_predictions(self, config_id):
         path = self.data_dir / config_id
         if path.exists():
@@ -74,7 +78,7 @@ class FTCMetaDataset(Evaluator):
                     ).fillna(0) \
                     .astype(float).values
         return torch.FloatTensor(hps)
-    
+
     def export_failed_configs(self, args_path):
 
         with open(args_path+f'/failed_ftc_{self.data_version}.args', 'w') as file:
@@ -90,9 +94,11 @@ class FTCMetaDataset(Evaluator):
             args_dict, args_list = mini_ftc_args("mini_ftc")
         elif self.data_version == "extended":
             args_dict, args_list = ftc_args("ftc")
+        elif self.data_version == "extended_merged":
+            args_dict, args_list = ftcplus_args("ftcplus")
         else:
             raise ValueError("No valid data version.")
-        
+
         self.val_predictions = defaultdict(list)
         self.test_predictions = defaultdict(list)
         self.times = defaultdict(list)
@@ -106,7 +112,7 @@ class FTCMetaDataset(Evaluator):
         self.test_targets = {}
 
         for (config_id, config), bash_args in zip(args_dict.items(), args_list):
-            
+
             if dataset_name is not None:
                 if dataset_name != config["dataset_name"]:
                     continue
@@ -140,7 +146,7 @@ class FTCMetaDataset(Evaluator):
             self.failed_hps[dataset_name] = pd.DataFrame(self.failed_hps[dataset_name])
             self.all_hp_candidates[dataset_name] = self._preprocess_hps(self.row_hp_candidates[dataset_name])
             self.all_hp_candidates_ids[dataset_name] =  torch.arange(len(self.row_hp_candidates[dataset_name]))
-    
+
     def get_features(self, ensembles):
         hp_candidates, hp_candidates_ids = self._get_hp_candidates_and_indices()
         return hp_candidates[torch.LongTensor(ensembles)]
@@ -151,7 +157,7 @@ class FTCMetaDataset(Evaluator):
 
         self.split = split
         self.dataset_name = dataset_name
-    
+
         if not self.load_all:
             self._load_data(dataset_name)
         super().set_state(dataset_name=dataset_name,
@@ -160,7 +166,7 @@ class FTCMetaDataset(Evaluator):
 
     def _get_hp_candidates_and_indices(self) -> tuple[torch.Tensor, torch.Tensor]:
         return self.all_hp_candidates[self.dataset_name], self.all_hp_candidates_ids[self.dataset_name]
-    
+
     def get_targets(self) -> torch.Tensor:
         if self.split == "valid":
             return self.val_targets[self.dataset_name]
@@ -195,7 +201,7 @@ class FTCMetaDataset(Evaluator):
 
     def get_time(self, ensembles: list[list[int]]) -> torch.Tensor:
         return self.times[self.dataset_name][torch.LongTensor(ensembles)]
-    
+
     def get_predictions(self, ensembles: list):
         if self.split == "valid":
             pred = self.val_predictions[self.dataset_name]
@@ -203,8 +209,7 @@ class FTCMetaDataset(Evaluator):
             pred = self.test_predictions[self.dataset_name]
         else:
             raise NameError("Split name is not specified.")
-    
+
         pred = torch.nn.Softmax(dim=-1)(pred[torch.LongTensor(ensembles)])
-        
+
         return pred
-    

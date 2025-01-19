@@ -41,6 +41,7 @@ lightgbm = { version = "^4.1.0", extras = ["scikit-learn"] }
 matplotlib = ">=3.9.0"
 pandas = ">=2.0"
 dask = "^2024.8.1"
+catboost = ">=1.2.6"
 pipeline-bench = {path = "SearchingOptimalEnsembles/metadatasets/scikit_learn/pipeline_bench", extras = ["soe_compatibility"]}
 
 [tool.poetry.scripts]

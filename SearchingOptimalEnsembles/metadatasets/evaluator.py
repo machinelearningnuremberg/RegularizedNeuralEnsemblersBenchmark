@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import torch
+import numpy as np
 from sklearn.metrics import roc_auc_score
 
 from .base_metadataset import BaseMetaDataset
@@ -16,9 +17,10 @@ class Evaluator(BaseMetaDataset):
         metric_name: str = "nll",
         device: torch.device = torch.device("cpu"),
         processing_batch_size: int = 1000,
+        pct_valid_data: float = 1.,
         data_version: str = None
     ):
-        
+
         super().__init__(
             data_dir=data_dir,
             meta_split_ids=meta_split_ids,
@@ -30,14 +32,15 @@ class Evaluator(BaseMetaDataset):
         self.device = device
         self.processing_batch_size = processing_batch_size
         self.cross_entropy = torch.nn.CrossEntropyLoss(reduction="none")
+        self.pct_valid_data = pct_valid_data
 
         #following: https://lightning.ai/docs/torchmetrics/stable/regression/mean_absolute_percentage_error.html
         self.absolute_relative_error = lambda y_true,y_pred: torch.abs(y_true-y_pred)/torch.max(torch.ones(1),torch.abs(y_true))
         self.mse = torch.nn.MSELoss(reduction="none")
 
-        #return torch.zeros(len(ensembles), 
+        #return torch.zeros(len(ensembles),
         #                    len(ensembles[0]))
-    
+
     def evaluate_ensembles(
         self, ensembles: list[list[int]]
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -48,18 +51,27 @@ class Evaluator(BaseMetaDataset):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         return self._evaluate_ensembles(ensembles=ensembles, weights=weights)
 
+    def subsample(self, predictions, targets):
+        if self.split in ["valid", "val"] and self.pct_valid_data<1.:
+            valid_data_size = max(int(self.pct_valid_data*predictions.shape[2]),predictions.shape[3] )
+            idx = np.random.default_rng(seed=self.seed).integers(0, predictions.shape[2], valid_data_size)
+            return predictions[..., idx,:], targets[idx]
+        else:
+            return predictions, targets
+
     def _evaluate_ensembles(self, ensembles: list[list[int]], weights: torch.Tensor):
         batch_size = len(ensembles)
 
         # Predictions shape: [Num. ensembles X Num. pipelines X Num Samples X Num. Classes]
         time_per_pipeline = self.get_time(ensembles).to(self.device)
         predictions = self.get_predictions(ensembles).to(self.device)
-        targets = self.get_targets().to(self.device).to(self.device)
+        targets = self.get_targets().to(self.device)
+        predictions, targets = self.subsample(predictions, targets)
         targets = torch.tile(targets, (batch_size, 1)).to(self.device)
         hp_candidates = self.get_features(ensembles)
 
         ensembles = torch.LongTensor(ensembles).to(self.device)
-        
+
         metric = []
         metric_per_pipeline = []
         total_num_samples = predictions.shape[-2]
@@ -129,7 +141,7 @@ class Evaluator(BaseMetaDataset):
             metric_per_pipeline = metric_per_sample.mean(-1)
             metric_ensemble_per_sample = self.mse(temp_targets, weighted_predictions.sum(axis=1, keepdim=True).squeeze(-1))
             metric = metric_ensemble_per_sample.reshape(batch_size, -1).mean(-1)
-        
+
         elif self.metric_name == "neg_roc_auc":
             y_pred = predictions.mean(1)
             metric = []
@@ -166,7 +178,7 @@ class Evaluator(BaseMetaDataset):
             raise ValueError("metric_name must be either error or nll")
 
         return metric, metric_per_pipeline
-    
+
     def score_y_pred(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """
         y_pred: predictions (outpur porbabilities for classification).
@@ -190,5 +202,5 @@ class Evaluator(BaseMetaDataset):
                 metric = 1-roc_auc_score(y_true.detach().cpu().numpy(), y_pred.detach().cpu().numpy(), multi_class="ovo")
             else:
                 raise ValueError("Metric name is not known.")
-            
+
         return metric

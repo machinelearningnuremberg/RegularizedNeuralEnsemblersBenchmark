@@ -32,6 +32,7 @@ class NASBench201MetaDataset(Evaluator):
         split: str = "valid",
         metric_name: str = "error",
         data_version: str = "micro",
+        pct_valid_data: float = 1,
         **kwargs,  # pylint: disable=unused-argument
     ):
         super().__init__(
@@ -40,6 +41,7 @@ class NASBench201MetaDataset(Evaluator):
             seed=seed,
             split=split,
             metric_name=metric_name,
+            pct_valid_data=pct_valid_data
         )
 
         self.feature_dim = None
@@ -260,10 +262,10 @@ class NASBench201MetaDataset(Evaluator):
     def get_features(self, ensembles: list[list[int]]) -> torch.Tensor:
         # Flatten the list of lists to get all model IDs
         all_model_ids = set(id for sublist in ensembles for id in sublist)
-        
+
         # Query all needed model_ids at once
         all_needed_features = self._features[self._features['model_id'].isin(all_model_ids)].compute()
-    
+
         features = []
         for model_ids in ensembles:
             ensemble_features = []
@@ -337,5 +339,3 @@ class NASBench201MetaDataset(Evaluator):
 
     def get_num_pipelines(self) -> int:
         return self.data_version_map[self.data_version]
-
-

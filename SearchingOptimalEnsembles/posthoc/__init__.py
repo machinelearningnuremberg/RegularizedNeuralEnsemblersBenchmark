@@ -2,11 +2,13 @@ from typing import Callable
 
 from .greedy_ensembler import GreedyEnsembler
 from .neural_ensembler import NeuralEnsembler
+from .neural_ensembler_tabular_input import NeuralEnsemblerTabularInput
 from .quick_greedy_ensembler import QuickGreedyEnsembler
 from .random_ensembler import RandomEnsembler
 from .sk_stacker import ScikitLearnStacker
 from .top_m_ensembler import TopMEnsembler
 from .identity import IdentityEnsembler
+from .akaike_ensembler import AkaikeEnsembler
 from .temp_neural_ensembler import NeuralEnsembler as TestNeuralEnsembler
 
 try:
@@ -31,6 +33,8 @@ EnsemblerMapping: dict[str, Callable] = {
     "single": SingleBest,
     "des": DESEnsembler,
     "sks": ScikitLearnStacker,
+    "neural_tabular_input": NeuralEnsemblerTabularInput,
     "identity": IdentityEnsembler,
-    "test_neural": TestNeuralEnsembler
+    "test_neural": TestNeuralEnsembler,
+    "akaike": AkaikeEnsembler
 }

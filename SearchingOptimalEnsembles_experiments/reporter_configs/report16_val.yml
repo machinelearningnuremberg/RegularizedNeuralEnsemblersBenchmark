@@ -13,7 +13,7 @@ report_structure:
       quick1_0: Quick
       topm1_0: TopM
       random1_0: Random
-    Dynamic:
+    DES:
       des1_0: KNORAE
       des1_1: MetaDES
       des1_2: KNOP

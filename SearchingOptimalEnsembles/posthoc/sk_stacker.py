@@ -7,6 +7,11 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.svm import SVC, SVR
+#from sklern.linear_model import BayesianRidge, RidgeRegression
+
+from catboost import CatBoostClassifier, CatBoostRegressor
+from xgboost import XGBClassifier, XGBRegressor
+from lightgbm import LGBMClassifier, LGBMRegressor
 
 from ..metadatasets.base_metadataset import BaseMetaDataset
 from .base_ensembler import BaseEnsembler
@@ -17,18 +22,25 @@ MODELS = {
         "random_forest" : RandomForestClassifier,
         "gradient_boosting": GradientBoostingClassifier,
         "linear_model" : LogisticRegression,
-        "svm": SVC
+        "svm": SVC,
+        "catboost": CatBoostClassifier,
+        "xgb": XGBClassifier,
+        "lightgbm": LGBMClassifier
     },
     "regression": {
         "random_forest" : RandomForestRegressor,
         "gradient_boosting": GradientBoostingRegressor,
         "linear_model" : LinearRegression,
-        "svm": SVR      
+        "svm": SVR,
+        "catboost": CatBoostRegressor,
+        "xgb": XGBRegressor,
+        "lightgbm": LGBMRegressor
     }
 }
 DEFAULT_MODEL_ARGS = {
  "classification": {
-      "svm": {"probability":True}
+      "svm": {"probability":True},
+      "catboost": {  "iterations":100}
  }
 }
 
@@ -76,19 +88,19 @@ class ScikitLearnStacker(BaseEnsembler):
         num_samples, num_classes, num_pipelines = base_functions.shape
         base_functions = base_functions.reshape(-1, num_classes * num_pipelines)
         y_true = self.metadataset.get_targets()
-        self.model.fit(base_functions, y_true)
+        self.model.fit(base_functions, y_true.numpy())
 
         if self.task_type == "classification":
             y_pred = torch.FloatTensor(self.model.predict_proba(base_functions))
         else:
             y_pred = torch.FloatTensor(self.model.predict(base_functions))
-           
+
         metric = self.metadataset.score_y_pred(y_pred, y_true)
 
         return self.best_ensemble, metric
 
     def get_metric(self, base_functions, y_true):
-        
+
         y_pred = torch.FloatTensor(self.model.predict_proba(base_functions))
         y_true = torch.tensor(y_true)
         if self.metadataset.metric_name == "nll":
@@ -110,13 +122,13 @@ class ScikitLearnStacker(BaseEnsembler):
         ).numpy()
         num_samples, num_classes, num_pipelines = base_functions.shape
         base_functions = base_functions.reshape(-1, num_classes * num_pipelines)
-        y_true = self.metadataset.get_targets() 
+        y_true = self.metadataset.get_targets()
 
         if self.task_type == "classification":
             y_pred = torch.FloatTensor(self.model.predict_proba(base_functions))
         else:
             y_pred = torch.FloatTensor(self.model.predict(base_functions))
-           
+
         metric = self.metadataset.score_y_pred(y_pred, y_true)
 
         if self.normalize_performance:
