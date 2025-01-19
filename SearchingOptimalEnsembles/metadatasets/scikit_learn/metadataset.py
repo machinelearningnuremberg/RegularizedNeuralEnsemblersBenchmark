@@ -202,7 +202,7 @@ class ScikitLearnMetaDataset(Evaluator):
         return torch.from_numpy(pipeline_hps)
 
     def get_X_and_y(self) -> tuple[torch.Tensor, torch.Tensor]:
-        splits = self.benchmark.get_splits(return_array=True)
+        splits = self.benchmark.get_splits(return_array=True, return_train=True if self.split == "train" else False)
         X = torch.tensor(splits[f"X_{self.split}"], dtype=torch.float32)
         y = torch.tensor(splits[f"y_{self.split}"], dtype=torch.long)
         X[torch.isnan(X)] = 0
