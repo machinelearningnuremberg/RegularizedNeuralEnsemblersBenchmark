@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from joblib import load  
 import numpy as np
 import pandas as pd
 import pipeline_bench
 import torch
+from joblib import load
 from sklearn.pipeline import Pipeline
 
 from ..evaluator import Evaluator
@@ -73,7 +73,7 @@ class ScikitLearnMetaDataset(Evaluator):
                 lazy=False,
                 data_version=self.data_version,
             )
-        
+
         super().set_state(dataset_name=dataset_name, split=split)
 
     def _get_hp_candidates_and_indices(
@@ -85,7 +85,7 @@ class ScikitLearnMetaDataset(Evaluator):
 
         if not return_only_ids:
             # pylint: disable=protected-access
-            _hp_candidates = self.benchmark._configs #.compute()
+            _hp_candidates = self.benchmark._configs  # .compute()
             # Convert DataFrame to a numpy array and handle NaN values.
             hp_candidates = _hp_candidates.values.astype(np.float32)
             hp_candidates[np.isnan(hp_candidates)] = 0
@@ -140,8 +140,8 @@ class ScikitLearnMetaDataset(Evaluator):
         # (treating them as if they are random guesses)
         nan_mask = np.isnan(y_proba)
         y_proba[nan_mask] = 1e-4
-        y_proba= y_proba / y_proba.sum(-1, keepdims=True)
-        
+        y_proba = y_proba / y_proba.sum(-1, keepdims=True)
+
         return y_proba
 
     def get_predictions(self, ensembles: list[list[int]]) -> torch.Tensor:
@@ -186,7 +186,7 @@ class ScikitLearnMetaDataset(Evaluator):
         for sublist in ensembles:
             for pipeline_id in sublist:
                 try:
-                    with open(id_to_path[pipeline_id], 'rb') as f:
+                    with open(id_to_path[pipeline_id], "rb") as f:
                         p = load(f)
                 except Exception as e:
                     print(f"Error loading pipeline {pipeline_id}: {e}")
@@ -202,7 +202,9 @@ class ScikitLearnMetaDataset(Evaluator):
         return torch.from_numpy(pipeline_hps)
 
     def get_X_and_y(self) -> tuple[torch.Tensor, torch.Tensor]:
-        splits = self.benchmark.get_splits(return_array=True, return_train=True if self.split == "train" else False)
+        splits = self.benchmark.get_splits(
+            return_array=True, return_train=True if self.split == "train" else False
+        )
         X = torch.tensor(splits[f"X_{self.split}"], dtype=torch.float32)
         y = torch.tensor(splits[f"y_{self.split}"], dtype=torch.long)
         X[torch.isnan(X)] = 0
