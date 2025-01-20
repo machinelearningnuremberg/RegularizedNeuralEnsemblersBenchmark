@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-<<<<<<< HEAD
-=======
-from joblib import load
->>>>>>> 3fe3e062be0b97b24be35b64cf95e91bff1e5499
 import numpy as np
 import pandas as pd
 import pipeline_bench
@@ -26,7 +22,7 @@ class ScikitLearnMetaDataset(Evaluator):
         metric_name: str = "nll",
         data_version: str = "mini",
         task_type: str = "classification",
-        pct_valid_data: float = 1.,
+        pct_valid_data: float = 1.0,
         **kwargs,  # pylint: disable=unused-argument
     ):
         super().__init__(
@@ -36,7 +32,7 @@ class ScikitLearnMetaDataset(Evaluator):
             split=split,
             metric_name=metric_name,
             data_version=data_version,
-            pct_valid_data=pct_valid_data
+            pct_valid_data=pct_valid_data,
         )
 
         self.feature_dim = 196
@@ -126,9 +122,9 @@ class ScikitLearnMetaDataset(Evaluator):
             ensembles = [[hp_id.item()] for hp_id in self.hp_candidates_ids]
             metric_per_pipeline = self.benchmark(
                 ensembles=ensembles,
-                datapoints=self.benchmark.get_splits(return_array=False, return_train=True)[
-                    f"X_{self.split}"
-                ],
+                datapoints=self.benchmark.get_splits(
+                    return_array=False, return_train=True
+                )[f"X_{self.split}"],
                 get_probabilities=False,
                 aggregate=True,
             )
@@ -156,11 +152,7 @@ class ScikitLearnMetaDataset(Evaluator):
         # (treating them as if they are random guesses)
         nan_mask = np.isnan(y_proba)
         y_proba[nan_mask] = 1e-4
-<<<<<<< HEAD
         y_proba = y_proba / y_proba.sum(-1, keepdims=True)
-=======
-        y_proba= y_proba / y_proba.sum(-1, keepdims=True)
->>>>>>> 3fe3e062be0b97b24be35b64cf95e91bff1e5499
 
         return y_proba
 
@@ -174,7 +166,9 @@ class ScikitLearnMetaDataset(Evaluator):
         return y_proba
 
     def get_num_samples(self) -> int:
-        return self.benchmark.get_splits(return_array=False, return_train=True)[f"X_{self.split}"].shape[0]
+        return self.benchmark.get_splits(return_array=False, return_train=True)[
+            f"X_{self.split}"
+        ].shape[0]
 
     def get_targets(self) -> torch.Tensor:
         splits = self.benchmark.get_splits(return_array=True, return_train=True)
@@ -195,6 +189,7 @@ class ScikitLearnMetaDataset(Evaluator):
 
     def get_pipelines(self, ensembles: list[list[int]]) -> list[list[Pipeline]]:
         pipeline_ids = [pipeline_id for sublist in ensembles for pipeline_id in sublist]
+        # pylint: disable=protected-access
         pipeline_paths_df = self.benchmark._pipelines[
             self.benchmark._pipelines["pipeline_id"].isin(pipeline_ids)
         ]
@@ -221,15 +216,10 @@ class ScikitLearnMetaDataset(Evaluator):
         pipeline_hps = pipeline_hps.astype(np.float32)
         return torch.from_numpy(pipeline_hps)
 
-<<<<<<< HEAD
     def get_X_and_y(self) -> tuple[torch.Tensor, torch.Tensor]:
         splits = self.benchmark.get_splits(
             return_array=True, return_train=True if self.split == "train" else False
         )
-=======
-    def get_X_and_y(self, return_train: bool = True) -> tuple[torch.Tensor, torch.Tensor]:
-        splits = self.benchmark.get_splits(return_array=True, return_train=return_train)
->>>>>>> 3fe3e062be0b97b24be35b64cf95e91bff1e5499
         X = torch.tensor(splits[f"X_{self.split}"], dtype=torch.float32)
         y = torch.tensor(splits[f"y_{self.split}"], dtype=torch.long)
         X[torch.isnan(X)] = 0
