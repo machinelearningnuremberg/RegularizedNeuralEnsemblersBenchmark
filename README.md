@@ -19,7 +19,7 @@ This repository explores **dynamic neural ensemblers**, where a neural network a
 
 ## Installation
 
-We use conda for environment management and [Poetry](https://python-poetry.org/docs) for dependency installation.
+We use [conda](https://www.anaconda.com/) for environment management and [Poetry](https://python-poetry.org/docs) for dependency installation.
 
 ### 1. Optional: Install miniconda and create an environment
 
@@ -66,33 +66,36 @@ Below are minimal examples for **random, greedy, and neural** ensemble methods. 
 
 ```python
 # SearchingOptimalEnsembles_experiments/random_ensemble_example.py
-# Demonstrates how to build a random ensemble on TabRepo metadataset.
+# Demonstrates how to build a random ensemble on a metadataset.
 
-import numpy as np
 import torch
 
-import SearchingOptimalEnsembles.metadatasets.tabrepo.metadataset as trmd
 from SearchingOptimalEnsembles.posthoc.random_ensembler import RandomEnsembler
+import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
 
 if __name__ == "__main__":
-    data_version = "version3_class"
+    data_version = "micro"
     metric_name = "nll"
     task_id = 0  # or any valid index
+    DATA_DIR = "path/to/quicktune/predictions"
 
-    metadataset = trmd.TabRepoMetaDataset(
-        data_dir=None, metric_name=metric_name, data_version=data_version
+    metadataset = qmd.QuicktuneMetaDataset(
+        data_dir=DATA_DIR, metric_name=metric_name, data_version=data_version
     )
     dataset_names = metadataset.get_dataset_names()
     metadataset.set_state(dataset_names[0])
 
     # Initialize random sampler
-    ensembler = RandomEnsembler(metadataset=metadataset, device=torch.device("cpu"))
+    ensembler = RandomEnsembler(
+        metadataset=metadataset,
+        device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+    )
 
     # Candidate pipelines (in practice, you'd sample or load these)
     X_obs = [[1], [2], [3], [4], [5], [6], [7], [8]]
 
     best_ensemble, best_metric = ensembler.sample(X_obs)
-    print("Best random ensembler found:", best_ensemble)
+    print("Best random ensemble found:", best_ensemble)
     print("Random ensembler metric:", best_metric)
 ```
 
@@ -102,27 +105,31 @@ Run the script with `python SearchingOptimalEnsembles_experiments/random_ensembl
 
 ```python
 # SearchingOptimalEnsembles_experiments/greedy_ensemble_example.py
-# Demonstrates how to build a greedy ensemble on TabRepo metadataset.
+# Demonstrates how to build a greedy ensemble on a metadataset.
 
-import numpy as np
 import torch
 
-import SearchingOptimalEnsembles.metadatasets.tabrepo.metadataset as trmd
 from SearchingOptimalEnsembles.posthoc.greedy_ensembler import GreedyEnsembler
+import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
 
 if __name__ == "__main__":
-    data_version = "version3_class"
+    data_version = "micro"
     metric_name = "nll"
     task_id = 0  # or any valid index
+    DATA_DIR = "path/to/quicktune/predictions"
 
-    metadataset = trmd.TabRepoMetaDataset(
-        data_dir=None, metric_name=metric_name, data_version=data_version
+    metadataset = qmd.QuicktuneMetaDataset(
+        data_dir=DATA_DIR, metric_name=metric_name, data_version=data_version
     )
+
     dataset_names = metadataset.get_dataset_names()
     metadataset.set_state(dataset_names[0])
 
     # Initialize greedy ensembler
-    ensembler = GreedyEnsembler(metadataset=metadataset, device=torch.device("cpu"))
+    ensembler = GreedyEnsembler(
+        metadataset=metadataset,
+        device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+    )
 
     # Candidate pipelines (in practice, you'd sample or load these)
     X_obs = [[1], [2], [3], [4], [5], [6], [7], [8]]
@@ -138,29 +145,30 @@ Run the script with `python SearchingOptimalEnsembles_experiments/greedy_ensembl
 
 ```python
 # SearchingOptimalEnsembles_experiments/neural_ensemble_example.py
-# Demonstrates how to train a neural ensemble on TabRepo metadataset.
+# Demonstrates how to train a neural ensemble on a metadataset.
 
-import numpy as np
 import torch
 
-import SearchingOptimalEnsembles.metadatasets.tabrepo.metadataset as trmd
 from SearchingOptimalEnsembles.posthoc.neural_ensembler import NeuralEnsembler
+import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
 
 if __name__ == "__main__":
-    data_version = "version3_class"
+    data_version = "micro"
     metric_name = "nll"
     task_id = 0  # or any valid index
+    DATA_DIR = "path/to/quicktune/predictions"
 
-    metadataset = trmd.TabRepoMetaDataset(
-        data_dir=None, metric_name=metric_name, data_version=data_version
+    metadataset = qmd.QuicktuneMetaDataset(
+        data_dir=DATA_DIR, metric_name=metric_name, data_version=data_version
     )
 
-    dataset_names = metadataset.meta_splits["meta-test"]  # or whichever split
+    dataset_names = metadataset.meta_splits["meta-test"]
     metadataset.set_state(dataset_names[task_id])
 
     # Initialize the neural ensembler
     neural_ensembler = NeuralEnsembler(
         metadataset=metadataset,
+        device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
     )
 
     # Candidate pipelines (in practice, you'd sample or load these)
@@ -173,7 +181,7 @@ if __name__ == "__main__":
     _, metric_val, _, _ = metadataset.evaluate_ensembles_with_weights(
         ensembles=[best_ensemble], weights=weights
     )
-    print("Neural ensemble:", best_ensemble)
+    print("Best ensemble found by Neural Ensembler:", best_ensemble)
     print("Neural ensemble metric:", metric_val.item())
 ```
 
