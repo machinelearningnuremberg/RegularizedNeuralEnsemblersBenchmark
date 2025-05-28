@@ -1,0 +1,512 @@
+from __future__ import annotations
+
+import copy
+import os
+from pathlib import Path
+
+import numpy as np
+import torch
+from scipy import stats
+from sklearn.model_selection import KFold
+from torch import nn
+from torch.optim import Adam
+from torch.utils.data import DataLoader, Dataset
+from typing_extensions import Literal
+
+from ..metadatasets.base_metadataset import BaseMetaDataset
+from ..samplers.random_sampler import RandomSampler
+from .base_ensembler import BaseEnsembler
+
+try:
+    import wandb
+
+    WAND_AVAILABLE = True
+except:
+    WAND_AVAILABLE = False
+
+
+class Dataset:
+    def __init__(self, X, y=None, batch_size=2048):
+        self.X = X
+        self.y = y
+        self.batch_size = batch_size
+        self.num_samples = len(X)
+
+    def __iter__(self):
+        for i in range(self.num_samples):
+            down = i * self.batch_size
+            up = min((i + 1) * self.batch_size, self.num_samples)
+            if self.y is not None:
+                yield self.X[down:up], self.y[down:up]
+            else:
+                yield self.X[down:up]
+
+
+class FeedforwardNetwork(nn.Module):
+    def __init__(self, input_dim, output_dim, num_hidden_layers, hidden_dim):
+        super().__init__()
+        layers = []
+
+        # Input layer
+        layers.append(nn.Linear(input_dim, hidden_dim))
+        layers.append(nn.ReLU())
+
+        # Hidden layers
+        for _ in range(num_hidden_layers - 1):
+            layers.append(nn.Linear(hidden_dim, hidden_dim))
+            layers.append(nn.ReLU())
+
+        # Output layer
+        layers.append(nn.Linear(hidden_dim, output_dim))
+
+        self.network = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.network(x)
+
+
+class NeuralEnsemblerTabularInput(BaseEnsembler):
+    """Neural (End-to-End) Ensembler."""
+
+    def __init__(
+        self,
+        metadataset: BaseMetaDataset | None = None,
+        device: torch.device = torch.device("cuda"),
+        prediction_device: torch.device = torch.device("cpu"),
+        normalize_performance: bool = False,
+        use_wandb: bool = False,
+        checkpoint_freq: int = 1000,
+        run_name: str = None,
+        num_pipelines: int = 64,
+        project_name: str = "Training_NE",
+        metric_name: str = "error",
+        ne_learning_rate: float = 0.0001,
+        ne_hidden_dim: int = 32,
+        ne_reg_term_div: float = 0.0,
+        ne_add_y: bool = True,
+        ne_num_layers: int = 3,
+        ne_reg_term_norm: float = 0.0,
+        ne_net_type: str = "ffn",
+        ne_num_heads: int = 4,
+        ne_mode: Literal["inference", "pretraining"] = "inference",
+        ne_checkpoint_name: str = "auto",
+        ne_resume_from_checkpoint: bool = False,
+        ne_use_mask: bool = True,
+        ne_dropout_rate: float = 0.0,
+        ne_batch_size: int = 2048,
+        ne_auto_dropout: bool = False,
+        ne_weight_thd: float = 0.0,
+        ne_dropout_dist: str | None = None,
+        ne_omit_output_mask: bool = True,
+        ne_net_mode: str = "model_averaging",
+        ne_epochs: int = 1000,
+        ne_pct_valid_data: float = 1.0,
+        **kwargs,
+    ) -> None:
+        super().__init__(metadataset=metadataset, device=device)
+
+        self.hidden_dim = ne_hidden_dim
+        self.reg_term_div = ne_reg_term_div
+        self.device = device
+        self.add_y = ne_add_y
+        self.num_layers = ne_num_layers
+        self.reg_term_norm = ne_reg_term_norm
+        self.net_type = ne_net_type
+        self.prediction_device = prediction_device
+        self.mode = ne_mode
+        self.ne_batch_size = ne_batch_size
+        self.learning_rate = ne_learning_rate
+        self.use_wandb = use_wandb
+        self.num_heads = ne_num_heads
+        self.checkpoint_freq = checkpoint_freq
+        self.checkpoint_name = ne_checkpoint_name
+        self.resume_from_checkpoint = ne_resume_from_checkpoint
+        self.use_mask = ne_use_mask
+        self.run_name = run_name
+        self.num_pipelines = num_pipelines  # used for pretraining
+        self.dropout_rate = ne_dropout_rate
+        self.auto_dropout = ne_auto_dropout
+        self.project_name = project_name  # for wandb
+        self.weight_thd = ne_weight_thd
+        self.dropout_dist = ne_dropout_dist
+        self.omit_output_mask = ne_omit_output_mask
+        self.net_mode = ne_net_mode
+        self.normalize_performance = normalize_performance
+        self.epochs = ne_epochs
+        self.pct_valid_data = ne_pct_valid_data
+        self.training = True
+        self.predefined_pipeline_ids = None
+        self.y_scale = 1
+        self.class_prob = torch.FloatTensor([1, 1, 1, 1])
+        self.best_ensemble = []
+
+        if self.metadataset is not None:
+            self.metric_name = metadataset.metric_name
+        else:
+            # dummy metadataset
+            self.metadataset = BaseMetaDataset("")
+            self.metric_name = metric_name
+
+        if self.metric_name == "absolute_relative_error":
+            self.criterion = nn.L1Loss()
+            self.task_type = "regression"
+        elif self.metric_name == "mse":
+            self.criterion = nn.MSELoss()
+            self.task_type = "regression"
+        else:
+            self.criterion = nn.CrossEntropyLoss()
+            self.task_type = "classification"
+
+        if self.use_wandb and self.mode == "pretraining" and WAND_AVAILABLE:
+            wandb.init(
+                project=self.project_name,
+                name=self.run_name,
+                settings=wandb.Settings(start_method="fork"),
+            )
+
+    def set_state(
+        self,
+        metadataset: BaseMetaDataset,
+        device: torch.device = torch.device("cuda"),
+        mode: str = "inference",
+    ) -> None:
+        self.metadataset = metadataset
+        self.device = device
+        self.mode = mode
+
+    def batched_prediction(self, X, base_functions):
+        _, num_samples, num_classes, num_pipelines = base_functions.shape
+        idx = np.arange(num_samples)
+        # np.random.shuffle(idx)
+        outputs = []
+        weights = []
+
+        for i in range(0, num_samples, self.ne_batch_size):
+            range_idx = idx[range(i, min(i + self.ne_batch_size, num_samples))]
+
+            with torch.no_grad():
+                output, w = self.net(x=X[range_idx], z=base_functions[:, range_idx])
+            outputs.append(output.to(self.prediction_device))
+
+            if w is not None:
+                w = w.transpose(2, 3).transpose(
+                    1, 2
+                )  # Expected shape [BATCH SIZE X NUM_PIPELINES X NUM_SAMPLES X NUM_CLASSES]
+
+                weights.append(w.to(self.prediction_device))
+
+        outputs = torch.cat(outputs, axis=-2).to(self.prediction_device)
+        weights = (
+            torch.cat(weights, axis=-2).to(self.prediction_device)
+            if len(weights) > 0
+            else None
+        )
+
+        return outputs, weights
+
+    def get_auto_weight_thd(self):
+        return 1 / (
+            self.metadataset.get_num_classes() * self.metadataset.get_num_pipelines()
+        )
+
+    def get_weights(self, X_obs):
+        base_functions = (
+            self.metadataset.get_predictions([X_obs])[0]
+            .transpose(0, 1)
+            .transpose(2, 1)
+            .unsqueeze(0)
+            .to(self.device)
+        )
+
+        _, weights = self.batched_prediction(
+            X=base_functions,
+        )
+
+        return weights
+
+    def sample(self, X_obs, **kwargs) -> tuple[list, float]:
+        """Fit neural ensembler, output ensemble WITH weights"""
+
+        self.X_obs = X_obs
+        best_ensemble = None
+        weights = None
+
+        predictions = self.metadataset.get_predictions([X_obs])
+        y = self.metadataset.get_targets()
+
+        assert hasattr(
+            self.metadataset, "get_X_and_y"
+        ), "Metadataset should have attribute get X and y."
+        X, y = self.metadataset.get_X_and_y(return_train=True)
+
+        # this has to change when using more batches
+        base_functions = (
+            predictions[0].transpose(0, 1).transpose(2, 1).unsqueeze(0).to(self.device)
+        )
+        ##this has to change when using more batches
+        y = y.unsqueeze(0).to(self.device)
+
+        self.net = self.fit_net(X_train=X, y_train=y, base_functions=base_functions)
+        self.best_ensemble = X_obs
+
+        best_metric = self.evaluate_on_split(split="valid")
+        return best_ensemble, best_metric
+
+    def send_to_device(self, *args):
+        output = []
+        for arg in args:
+            if arg is not None:
+                output.append(arg.to(self.device))
+            else:
+                output.append(arg)
+        return output
+
+    def get_batch(self, X_train, y_train, base_functions):
+        _, num_samples, num_classes, num_base_functions = base_functions.shape
+
+        idx = np.random.randint(0, num_samples, self.ne_batch_size)
+        return (X_train[idx], y_train[:, idx], base_functions[:, idx])
+
+    def count_parameters(self, model):
+        return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    def evaluate_on_split(
+        self,
+        split: str = "test",
+    ):
+        # if self.net.hypernetwork_mode:
+        #    return super().evaluate_on_split(split="test")
+        # else:
+        self.metadataset.set_state(
+            dataset_name=self.metadataset.dataset_name, split=split
+        )
+
+        y = self.metadataset.get_targets().to(self.device)
+        y_pred = self.get_y_pred()
+        metric = self.metadataset.score_y_pred(y_pred, y)
+
+        if self.normalize_performance:
+            metric = self.metadataset.normalize_performance(metric)
+
+        return metric
+
+    def get_y_pred(self):
+        base_functions = (
+            self.metadataset.get_predictions([self.best_ensemble])[0]
+            .transpose(0, 1)
+            .transpose(2, 1)
+            .unsqueeze(0)
+            .to(self.device)
+        )
+
+        assert hasattr(
+            self.metadataset, "get_X_and_y"
+        ), "Metadataset should have attribute get X and y."
+        X, y = self.send_to_device(*self.metadataset.get_X_and_y(return_train=True))
+
+        y_pred = self.batched_prediction(X=X, base_functions=base_functions)[0][0]
+
+        return y_pred
+
+    def fit_net(
+        self, X_train, y_train, base_functions, dropout_rate: float | None = None
+    ):
+        self.training = True
+        if self.net_type == "ffn":
+            NetClass = EFFNet
+            input_dim = X_train.shape[-1]
+            output_dim = base_functions.shape[-1]  # [NUMBER OF BASE FUNCTIONS]
+        else:
+            raise NotImplementedError()
+
+        if dropout_rate is None:
+            dropout_rate = self.dropout_rate
+
+        num_classes = X_train.shape[-2]
+
+        model = NetClass(
+            input_dim=input_dim,
+            hidden_dim=self.hidden_dim,
+            output_dim=output_dim,
+            add_y=self.add_y,
+            num_layers=self.num_layers,
+            num_heads=self.num_heads,
+            dropout_rate=dropout_rate,
+            dropout_dist=self.dropout_dist,
+            omit_output_mask=self.omit_output_mask,
+            mode=self.net_mode,
+            task_type=self.task_type,
+            num_classes=num_classes,
+        )
+
+        if self.task_type == "classification":
+            y_train = torch.tensor(y_train, dtype=torch.long)
+            # model.set_target_distribution(y_train, self.device)
+
+        optimizer = Adam(model.parameters(), lr=self.learning_rate)
+
+        if self.resume_from_checkpoint:
+            self.load_checkpoint(model)
+
+        X_train, y_train, base_functions, model = self.send_to_device(
+            X_train, y_train, base_functions, model
+        )
+
+        model.train()
+        for epoch in range(self.epochs):
+            batch_data = self.get_batch(X_train, y_train, base_functions)
+            loss, w = self.fit_one_epoch(model, optimizer, batch_data)
+            print("Epoch", epoch, "Loss", loss.item())
+
+        model.eval()
+        self.training = False
+        return model
+
+    def validate(self, model, X_val, y_val):
+        X_val, y_val = self.send_to_device(X_val, y_val)
+        output, w = model(X_val)
+        logits = self.metadataset.get_logits_from_probabilities(output)
+        _, num_samples, num_classes, num_base_functions = X_val.shape
+
+        val_loss = self.criterion(
+            logits.reshape(-1, num_classes), y_val.reshape(-1)
+        ).item()
+
+        return val_loss
+
+    def fit_one_epoch(self, model, optimizer, batch_data):
+        optimizer.zero_grad()
+        X_batch, y_batch, base_functions = batch_data[:3]
+        _, num_samples, num_classes, num_base_functions = base_functions.shape
+        output, w = model(X_batch, base_functions)
+
+        if self.task_type == "classification":
+            logits = self.metadataset.get_logits_from_probabilities(output)
+            loss = self.criterion(logits.reshape(-1, num_classes), y_batch.reshape(-1))
+
+        else:  # assuming task is regression
+            loss = self.criterion(output.reshape(-1), y_batch.reshape(-1))
+
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+        optimizer.step()
+
+        return loss, w
+
+    def save_checkpoint(
+        self, model, optimizer: dict = None, epoch: int = 0, loss: float = 0.0
+    ):
+        if self.checkpoint_name == "auto":
+            test_id = self.metadataset.meta_split_ids[-1][0]
+            checkpoint_name = f"neural_ensembler_{test_id}.pt"
+        else:
+            checkpoint_name = self.checkpoint_name
+
+        if optimizer is not None:
+            optimizer_state_dict = optimizer.state_dict()
+        complete_path = (
+            Path(os.path.abspath(__file__)).parent.parent.parent
+            / "checkpoints"
+            / checkpoint_name
+        )
+        torch.save(
+            {
+                "epoch": epoch,
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer_state_dict,
+                "loss": loss,
+            },
+            complete_path,
+        )
+
+    def load_checkpoint(self, model, optimizer: dict = None):
+        if self.checkpoint_name == "auto":
+            test_id = self.metadataset.meta_split_ids[-1][0]
+            checkpoint_name = f"neural_ensembler_{test_id}.pt"
+        else:
+            checkpoint_name = self.checkpoint_name
+
+        complete_path = (
+            Path(os.path.abspath(__file__)).parent.parent.parent
+            / "checkpoints"
+            / checkpoint_name
+        )
+        checkpoint = torch.load(complete_path)
+        model.load_state_dict(checkpoint["model_state_dict"])
+        if optimizer is not None:
+            optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        epoch = checkpoint["epoch"]
+        loss = checkpoint["loss"]
+
+        return model, optimizer, epoch, loss
+
+
+class EFFNet(nn.Module):  # Sample as Sequence
+    def __init__(
+        self,
+        input_dim=1,
+        hidden_dim=32,
+        output_dim=1,
+        num_layers=3,
+        dropout_rate=0,
+        num_heads=1,
+        add_y=False,
+        inner_batch_size=10,
+        dropout_dist=None,
+        omit_output_mask=False,
+        task_type="classification",
+        mode="model_averaging",
+        num_classes=None,
+        **kwargs,
+    ):
+        super().__init__()
+
+        # input = [BATCH SIZE X NUMBER OF SAMPLES X NUMBER OF BASE FUNCTIONS X NUMBER OF CLASSES]
+        self.num_layers = num_layers
+        self.hidden_dim = hidden_dim
+        self.num_heads = num_heads
+        self.add_y = add_y
+        self.inner_batch_size = inner_batch_size
+        self.dropout_dist = dropout_dist
+        self.omit_output_mask = omit_output_mask
+        self.mode = "model_averaging"
+        self.task_type = task_type
+        self.num_classes = num_classes
+
+        num_layers = -1
+
+        self.class_embedding = nn.Embedding(num_classes, hidden_dim // 4)
+
+        first_module = [nn.Linear(input_dim, hidden_dim)]
+        # TODO: fix this to have num_layers-1
+        for _ in range(num_layers):
+            first_module.append(nn.ReLU())
+            first_module.append(nn.Linear(hidden_dim, hidden_dim))
+        first_module.append(nn.ReLU())
+        self.first_module = nn.Sequential(*first_module)
+        self.second_module = nn.Sequential(nn.Linear(hidden_dim, hidden_dim), nn.ReLU())
+
+        self.out_layer = nn.Linear(hidden_dim, output_dim)
+        self.dropout_rate = dropout_rate
+        self.dropout_is_active = (dropout_rate > 0.0) or (dropout_dist != None)
+
+    def get_batched_weights(self, x):
+        x = self.first_module(x)
+        return x
+
+    def forward(self, x, z):
+        # z = [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
+        num_samples, num_features = x.shape
+        _, num_samples, num_classes, num_base_functions = z.shape
+
+        w = self.first_module(x)
+        w = self.second_module(w).unsqueeze(0)
+        w = torch.repeat_interleave(w.unsqueeze(2), num_classes, dim=2)
+        w = self.out_layer(w)
+
+        w_norm = torch.nn.functional.softmax(w, dim=-1)
+        x = torch.multiply(z, w_norm).sum(axis=-1)
+
+        # x.shape: [BATCH_SIZE, NUM_SAMPLES, FEATURE_SIZE]
+        # w_norm.shape : [BATCH SIZE X NUMBER OF SAMPLES  X NUMBER OF CLASSES X NUMBER OF BASE FUNCTIONS]
+        return x, w_norm

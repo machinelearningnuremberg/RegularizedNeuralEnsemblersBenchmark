@@ -11,13 +11,13 @@ LOGS/
 
 # slurm scripts
 slurm_scripts/*
-SearchingOptimalEnsembles_experiments/cluster_scripts/slurm/all_experiments.txt
+RegularizedNeuralEnsemblers_experiments/cluster_scripts/slurm/all_experiments.txt
 checkpoints/
-SearchingOptimalEnsembles_experiments/plots/saved_results/*
-SearchingOptimalEnsembles_experiments/cluster_scripts/slurm_pineda/bash_args/*
-SearchingOptimalEnsembles_experiments/reports/*
+RegularizedNeuralEnsemblers_experiments/plots/saved_results/*
+RegularizedNeuralEnsemblers_experiments/cluster_scripts/slurm_pineda/bash_args/*
+RegularizedNeuralEnsemblers_experiments/reports/*
 AutogluonModels/*
-SearchingOptimalEnsembles_experiments/catboost_info/
+RegularizedNeuralEnsemblers_experiments/catboost_info/
 **/caboost_info/*
 **/SOE/*
 
@@ -48,20 +48,20 @@ results
 *.DS_Store
 
 # WandB
-SearchingOptimalEnsembles_experiments/wandb/
+RegularizedNeuralEnsemblers_experiments/wandb/
 **/wandb/
 
 # Plots
-SearchingOptimalEnsembles_experiments/plots/saved_plots/
-SearchingOptimalEnsembles_experiments/cluster_scripts/slurm_pineda/bash_args/
-SearchingOptimalEnsembles_experiments/cluster_scripts/slurm_pineda/old_bash_args/
-SearchingOptimalEnsembles/metadatasets/tabrepo/tabrepo
-SearchingOptimalEnsembles/metadatasets/scikit_learn/pipeline_bench
-SearchingOptimalEnsembles/posthoc/phem/phem
-SearchingOptimalEnsembles_experiments/
-SearchingOptimalEnsembles_experiments/plots/data/
-SearchingOptimalEnsembles_experiments/plots/figures/
-SearchingOptimalEnsembles_experiments/plots/models/
+RegularizedNeuralEnsemblers_experiments/plots/saved_plots/
+RegularizedNeuralEnsemblers_experiments/cluster_scripts/slurm_pineda/bash_args/
+RegularizedNeuralEnsemblers_experiments/cluster_scripts/slurm_pineda/old_bash_args/
+RegularizedNeuralEnsemblers/metadatasets/tabrepo/tabrepo
+RegularizedNeuralEnsemblers/metadatasets/scikit_learn/pipeline_bench
+RegularizedNeuralEnsemblers/posthoc/phem/phem
+RegularizedNeuralEnsemblers_experiments/
+RegularizedNeuralEnsemblers_experiments/plots/data/
+RegularizedNeuralEnsemblers_experiments/plots/figures/
+RegularizedNeuralEnsemblers_experiments/plots/models/
 *.pdf
 
 # Others

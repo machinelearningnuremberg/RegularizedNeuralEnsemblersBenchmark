@@ -1,12 +1,12 @@
 # Regularized Neural Ensemblers
 
 <p align="center">
-  <a href="https://github.com/machinelearningnuremberg/SearchingOptimalEnsembles">
+  <a href="https://github.com/machinelearningnuremberg/RegularizedNeuralEnsemblers">
     <img src="https://img.shields.io/badge/Python-3.10-blue?style=for-the-badge&logo=python" />
     </a>&nbsp; <a href="https://pytorch.org/">
     <img src="https://img.shields.io/badge/pytorch-2.0-orange?style=for-the-badge&logo=pytorch" alt="PyTorch Version" />
     </a>&nbsp;
-    <a href="https://github.com/machinelearningnuremberg/SearchingOptimalEnsembles">
+    <a href="https://github.com/machinelearningnuremberg/RegularizedNeuralEnsemblers">
     <img src="https://img.shields.io/badge/open-source-9cf?style=for-the-badge&logo=Open-Source-Initiative" alt="Open Source" />
   </a>
 </p>
@@ -34,8 +34,8 @@ rm install_miniconda.sh
 # Then restart your shell or source your rc file
 
 # Create and activate the environment
-conda create -n searching_optimal_ensembles python=3.10
-conda activate searching_optimal_ensembles
+conda create -n regularized_neural_ensemblers python=3.10
+conda activate regularized_neural_ensemblers
 ```
 
 ### 2. Install poetry
@@ -65,13 +65,13 @@ Below are minimal examples for **random, greedy, and neural** ensemble methods. 
 ### Random Ensembling
 
 ```python
-# SearchingOptimalEnsembles_experiments/random_ensemble_example.py
+# RegularizedNeuralEnsemblers_experiments/random_ensemble_example.py
 # Demonstrates how to build a random ensemble on a metadataset.
 
 import torch
 
-from SearchingOptimalEnsembles.posthoc.random_ensembler import RandomEnsembler
-import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
+from RegularizedNeuralEnsemblers.posthoc.random_ensembler import RandomEnsembler
+import RegularizedNeuralEnsemblers.metadatasets.quicktune.metadataset as qmd
 
 if __name__ == "__main__":
     data_version = "micro"
@@ -99,18 +99,18 @@ if __name__ == "__main__":
     print("Random ensembler metric:", best_metric)
 ```
 
-Run the script with `python SearchingOptimalEnsembles_experiments/random_ensemble_example.py`.
+Run the script with `python RegularizedNeuralEnsemblers_experiments/random_ensemble_example.py`.
 
 ### Greedy Ensembling
 
 ```python
-# SearchingOptimalEnsembles_experiments/greedy_ensemble_example.py
+# RegularizedNeuralEnsemblers_experiments/greedy_ensemble_example.py
 # Demonstrates how to build a greedy ensemble on a metadataset.
 
 import torch
 
-from SearchingOptimalEnsembles.posthoc.greedy_ensembler import GreedyEnsembler
-import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
+from RegularizedNeuralEnsemblers.posthoc.greedy_ensembler import GreedyEnsembler
+import RegularizedNeuralEnsemblers.metadatasets.quicktune.metadataset as qmd
 
 if __name__ == "__main__":
     data_version = "micro"
@@ -139,18 +139,18 @@ if __name__ == "__main__":
     print("Greedy ensemble metric:", best_metric)
 ```
 
-Run the script with `python SearchingOptimalEnsembles_experiments/greedy_ensemble_example.py`.
+Run the script with `python RegularizedNeuralEnsemblers_experiments/greedy_ensemble_example.py`.
 
 ### Neural Ensembling
 
 ```python
-# SearchingOptimalEnsembles_experiments/neural_ensemble_example.py
+# RegularizedNeuralEnsemblers_experiments/neural_ensemble_example.py
 # Demonstrates how to train a neural ensemble on a metadataset.
 
 import torch
 
-from SearchingOptimalEnsembles.posthoc.neural_ensembler import NeuralEnsembler
-import SearchingOptimalEnsembles.metadatasets.quicktune.metadataset as qmd
+from RegularizedNeuralEnsemblers.posthoc.neural_ensembler import NeuralEnsembler
+import RegularizedNeuralEnsemblers.metadatasets.quicktune.metadataset as qmd
 
 if __name__ == "__main__":
     data_version = "micro"
@@ -185,4 +185,4 @@ if __name__ == "__main__":
     print("Neural ensemble metric:", metric_val.item())
 ```
 
-Run the script with `python SearchingOptimalEnsembles_experiments/neural_ensemble_example.py`.
+Run the script with `python RegularizedNeuralEnsemblers_experiments/neural_ensemble_example.py`.

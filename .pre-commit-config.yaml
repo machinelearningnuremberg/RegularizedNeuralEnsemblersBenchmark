@@ -19,7 +19,7 @@ repos:
     hooks:
     - id: absolufy-imports
       args: [--never]
-      exclude: ^(SearchingOptimalEnsembles_experiments/main.py)
+      exclude: ^(RegularizedNeuralEnsemblers_experiments/main.py)
 
   - repo: https://github.com/PyCQA/isort
     rev: 5.12.0
