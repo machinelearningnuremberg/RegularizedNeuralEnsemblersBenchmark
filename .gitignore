@@ -58,7 +58,6 @@ RegularizedNeuralEnsemblers_experiments/cluster_scripts/slurm_pineda/old_bash_ar
 RegularizedNeuralEnsemblers/metadatasets/tabrepo/tabrepo
 RegularizedNeuralEnsemblers/metadatasets/scikit_learn/pipeline_bench
 RegularizedNeuralEnsemblers/posthoc/phem/phem
-RegularizedNeuralEnsemblers_experiments/
 RegularizedNeuralEnsemblers_experiments/plots/data/
 RegularizedNeuralEnsemblers_experiments/plots/figures/
 RegularizedNeuralEnsemblers_experiments/plots/models/
