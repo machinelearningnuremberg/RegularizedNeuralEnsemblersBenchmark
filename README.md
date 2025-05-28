@@ -44,9 +44,9 @@ conda activate searching_optimal_ensembles
 curl -sSL https://install.python-poetry.org | python3 -
 # Add Poetry to your PATH in ~/.bashrc or ~/.zshrc
 export PATH="$HOME/.local/bin:$PATH"```
-
-Consider appending `export PATH="$HOME/.local/bin:$PATH"` into `~/.zshrc` / `~/.bashrc`.
 ````
+Consider appending `export PATH="$HOME/.local/bin:$PATH"` into `~/.zshrc` / `~/.bashrc`.
+
 
 ### 3. Install dependencies
 

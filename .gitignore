@@ -58,6 +58,11 @@ SearchingOptimalEnsembles_experiments/cluster_scripts/slurm_pineda/old_bash_args
 SearchingOptimalEnsembles/metadatasets/tabrepo/tabrepo
 SearchingOptimalEnsembles/metadatasets/scikit_learn/pipeline_bench
 SearchingOptimalEnsembles/posthoc/phem/phem
+SearchingOptimalEnsembles_experiments/
+SearchingOptimalEnsembles_experiments/plots/data/
+SearchingOptimalEnsembles_experiments/plots/figures/
+SearchingOptimalEnsembles_experiments/plots/models/
+*.pdf
 
 # Others
 .vscode/*
