@@ -1,0 +1,44 @@
+project_name: SOE_qt_extended
+num_datasets: 26
+num_meta_splits: 1
+num_iterations: 100
+metric_name: error
+data_version: extended
+experiments:
+  neural97:
+    base_command: " --ensembler_name neural"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_dropout_rate:
+        - 0.25
+      ne_hidden_dim:
+        - 32
+      ne_net_mode:
+        - combined
+  neural1:
+    base_command: " --ensembler_name neural"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_dropout_rate:
+        - 0.25
+      ne_hidden_dim:
+        - 32
+      ne_net_mode:
+        - combined
+      ne_batch_size:
+        - 256
+  neural2:
+    base_command: " --ensembler_name neural"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_dropout_rate:
+        - 0.25
+      ne_hidden_dim:
+        - 32
+      ne_net_mode:
+        - combined
+      ne_batch_size:
+        - 256

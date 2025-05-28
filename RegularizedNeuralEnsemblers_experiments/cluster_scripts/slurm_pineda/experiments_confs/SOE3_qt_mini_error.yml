@@ -1,0 +1,26 @@
+project_name: SOE3_qt_mini_error
+num_datasets: 30
+num_meta_splits: 1
+num_iterations: 100
+metric_name: error
+metadataset_name: quicktune
+data_version: mini
+ne_epochs: 10000
+ne_batch_size: 256
+experiments:
+  neural5:
+    base_command: " --ensembler_name neural --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 32
+      ne_learning_rate:
+        - 0.001
+        - 0.0001
+      ne_dropout_rate:
+        - 0.
+        - 0.5
+      ne_net_mode:
+        - stacking
+        - model_averaging

@@ -1,0 +1,32 @@
+report_id: report16_val
+baseline: single1_0
+split: val
+plot_by_groups: True
+report_structure:
+  project_names:
+    RQ1B_sk_micro_nll : Scikit-Learn
+  experiment_groups:
+    Constant:
+      neural4_0: MA
+      single1_0: Single
+      greedy1_0: Greedy
+      quick1_0: Quick
+      topm1_0: TopM
+      random1_0: Random
+    DES:
+      des1_0: KNORAE
+      des1_1: MetaDES
+      des1_2: KNOP
+    Stacking:
+      sks1_0: RF
+      sks1_1: GBT
+      sks1_2: SVM
+      sks1_3: Linear
+    Stacking:
+      sks1_0: RF
+      sks1_1: GBT
+      sks1_2: Linear
+      sks1_3: SVM
+    Neural:
+      neural3_0: NE-Stacking
+      neural3_1: NE-MA

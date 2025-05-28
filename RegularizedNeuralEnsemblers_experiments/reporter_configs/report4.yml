@@ -1,0 +1,67 @@
+report_id: report4
+baseline: single1_0
+split: test
+report_structure:
+  project_names:
+    SOE2_ftc_mini_nll: FTC
+  experiment_names:
+    neural1_0: neural1_0
+    neural1_1: neural1_1
+    neural1_2: neural1_2
+    neural1_3: neural1_3
+    neural1_4: neural1_4
+    neural1_5: neural1_5
+    neural1_6: neural1_6
+    neural1_7: neural1_7
+    neural1_8: neural1_8
+    neural1_9: neural1_9
+    neural1_10: neural1_10
+    neural1_11: neural1_11
+    neural2_0: neural2_0
+    neural2_1: neural2_1
+    neural2_2: neural2_2
+    neural2_3: neural2_3
+    neural3_0: neural3_0
+    neural3_1: neural3_1
+    neural3_2: neural3_2
+    neural3_3: neural3_3
+    neural3_4: neural3_4
+    neural3_5: neural3_5
+    neural3_6: neural3_6
+    neural3_7: neural3_7
+    neural4_0: neural4_0
+    neural4_1: neural4_1
+    neural4_2: neural4_2
+    neural5_0: neural5_0
+    neural5_1: neural5_1
+    neural5_2: neural5_2
+    neural5_3: neural5_3
+    cmaes1_0: cmaes1_0
+    cmaes1_1: cmaes1_1
+    cmaes1_2: cmaes1_2
+    divbo1_0: divbo1_0
+    divbo1_1: divbo1_1
+    greedy1_0: greedy1_0
+    greedy1_1: greedy1_1
+    greedy1_2: greedy1_2
+    greedy1_3: greedy1_3
+    greedy1_4: greedy1_4
+    greedy1_5: greedy1_5
+    leo1_0: leo1_0
+    leo1_1: leo1_1
+    quick1_0: quick1_0
+    quick1_1: quick1_1
+    quick1_2: quick1_2
+    quick1_3: quick1_3
+    quick1_4: quick1_4
+    quick1_5: quick1_5
+    single1_0: single1_0
+    sks1_0: sks1_0
+    sks1_1: sks1_1
+    sks1_2: sks1_2
+    topm1_0: topm1_0
+    topm1_1: topm1_1
+    topm1_2: topm1_2
+    topm1_3: topm1_3
+    topm1_4: topm1_4
+    topm1_5: topm1_5

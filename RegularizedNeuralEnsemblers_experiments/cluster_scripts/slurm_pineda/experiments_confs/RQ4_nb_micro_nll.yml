@@ -1,0 +1,44 @@
+project_name: RQ4_nb_micro_nll
+metric_name: nll
+metadataset_name: nasbench201
+data_version: micro
+num_datasets: 3
+num_meta_splits: 1
+num_iterations: 100
+ne_batch_size: 2048
+ne_epochs: 10000
+num_seeds: 3
+experiments:
+  neural1:
+    base_command: " --ensembler_name neural --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 32
+      ne_dropout_rate:
+        - 0.
+        - 0.2
+        - 0.4
+        - 0.6
+        - 0.8
+      ne_net_mode:
+        - stacking
+        - model_averaging
+
+  neural2:
+    base_command: " --ensembler_name neural --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 32
+      ne_dropout_rate:
+        - 0.1
+        - 0.3
+        - 0.5
+        - 0.7
+        - 0.9
+      ne_net_mode:
+        - stacking
+        - model_averaging

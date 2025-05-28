@@ -1,0 +1,26 @@
+report_id: report34_val
+baseline: single1_0
+split: val
+plot_by_groups: True
+report_structure:
+  project_names:
+    RQ1B_sk_micro_nll : Scikit-Learn
+  experiment_groups:
+    OriginalInput:
+      neural4r1_0: NE-MA (Original Input)
+    MergedSplit:
+      neural3r1_0: NE-Stacking (Merged)
+      neural3r1_1: NE-MA (Merged)
+      single1r1_0: Single-Best (Merged)
+      greedy1r1_1: Greedy (Merged)
+      random1r1_1: Random (Merged)
+    Constant:
+      neural4_0: MA
+      single1_0: Single
+      greedy1_0: Greedy
+      quick1_0: Quick
+      topm1_0: TopM
+      random1_0: Random
+    Neural:
+      neural3_0: NE-Stacking
+      neural3_1: NE-MA

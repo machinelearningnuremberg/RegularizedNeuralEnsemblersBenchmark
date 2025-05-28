@@ -1,0 +1,57 @@
+project_name: RQ1B_sk_micro_nll
+num_datasets: 69
+num_meta_splits: 1
+num_iterations: 100
+metric_name: nll
+metadataset_name: scikit-learn
+data_version: micro_merged
+ne_batch_size: 2048
+ne_epochs: 10000
+num_seeds: 3
+experiments:
+  neural3r1:
+    base_command: " --ensembler_name neural --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 32
+      ne_dropout_rate:
+        - 0.75
+      ne_net_mode:
+        - stacking
+        - model_averaging
+
+  single1r1:
+    base_command: " --ensembler_name single --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+
+  greedy1r1:
+    base_command: " --ensembler_name greedy --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      max_num_pipelines:
+        - 5
+        - 50
+
+  random1r1:
+    base_command: "--ensembler_name random --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      max_num_pipelines:
+        - 5
+        - 50
+
+  neural4r1:
+    base_command: " --ensembler_name neural_tabular_input --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 32
+      ne_dropout_rate:
+        - 0.75

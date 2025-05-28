@@ -1,0 +1,86 @@
+project_name: RQ1_qt_micro_nll
+metadataset_name: quicktune
+data_version: micro
+num_datasets: 30
+metric_name: nll
+num_meta_splits: 1
+num_iterations: 100
+ne_batch_size: 2048
+ne_epochs: 10000
+num_seeds: 3
+experiments:
+  sks1r1:
+    base_command: " --ensembler_name sks --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      sks_model_name:
+        - xgb
+  sks2r1:
+    base_command: " --ensembler_name sks --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      sks_model_name:
+        - catboost
+  neural1r1:
+    base_command: " --ensembler_name neural --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 16
+      ne_num_layers:
+        - 2
+      ne_dropout_rate:
+        - 0.75
+      ne_net_mode:
+        - stacking
+        - model_averaging
+
+  neural2r1:
+    base_command: " --ensembler_name neural --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 16
+      ne_num_layers:
+        - 1
+      ne_dropout_rate:
+        - 0.75
+      ne_net_mode:
+        - stacking
+        - model_averaging
+
+  neural3r1:
+    base_command: " --ensembler_name neural --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      ne_hidden_dim:
+        - 16
+      ne_num_layers:
+        - 3
+      ne_dropout_rate:
+        - 0.75
+      ne_net_mode:
+        - stacking
+        - model_averaging
+
+  sks3r1:
+    base_command: " --ensembler_name sks --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      sks_model_name:
+        - lightgbm
+
+  akaike1r1:
+    base_command: " --ensembler_name akaike --no_wandb"
+    hyper_grid:
+      searcher_name:
+        - None
+      max_num_pipelines:
+        - -1
+        - 50
