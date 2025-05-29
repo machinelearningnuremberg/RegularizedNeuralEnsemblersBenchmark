@@ -1,15 +1,16 @@
 # RegularizedNeuralEnsemblers_experiments/neural_ensemble_example.py
 # Demonstrates how to train a neural ensemble on a metadataset.
 
-import RegularizedNeuralEnsembler.metadatasets.quicktune.metadataset as qmd
+import RegularizedNeuralEnsemblers.metadatasets.quicktune.metadataset as qmd
 import torch
-from RegularizedNeuralEnsembler.posthoc.neural_ensembler import NeuralEnsembler
+from RegularizedNeuralEnsemblers.posthoc.neural_ensembler import NeuralEnsembler
 
 if __name__ == "__main__":
     data_version = "micro"
     metric_name = "nll"
     task_id = 0  # or any valid index
-    DATA_DIR = "path/to/quicktune/predictions"
+    #Use your "path/to/quicktune/predictions"
+    DATA_DIR =  "/work/dlclarge2/janowski-quicktune/predictions"
 
     metadataset = qmd.QuicktuneMetaDataset(
         data_dir=DATA_DIR, metric_name=metric_name, data_version=data_version
@@ -25,9 +26,9 @@ if __name__ == "__main__":
     )
 
     # Candidate pipelines (in practice, you'd sample or load these)
-    X_obs = [[1], [2], [3], [4], [5], [6], [7], [8]]
+    X_obs = [1,2,3,4,5]
 
-    # Now sample an ensemble with learned dynamic weights
+    # Now fits an ensemble with learned dynamic weights
     best_ensemble, best_metric = neural_ensembler.sample(X_obs)
     weights = neural_ensembler.get_weights(X_obs)
 
