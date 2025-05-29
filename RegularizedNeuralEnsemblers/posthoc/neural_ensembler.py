@@ -255,7 +255,7 @@ class NeuralEnsembler(BaseEnsembler):
         self.best_ensemble = X_obs
 
         best_metric = self.evaluate_on_split(split="valid")
-        return best_ensemble, best_metric
+        return self.best_ensemble, best_metric
 
     def send_to_device(self, *args):
         output = []

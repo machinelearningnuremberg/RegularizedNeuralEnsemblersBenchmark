@@ -186,3 +186,56 @@ if __name__ == "__main__":
 ```
 
 Run the script with `python RegularizedNeuralEnsemblers_experiments/neural_ensemble_example.py`.
+
+
+## Run in command line
+
+Here we provide an example on how to run Neural ensemblers on `ftc` dataset. This command will train the ensembler on the validation split, and report results on the test split for dataset with id 0:
+```bash
+cd RegularizedNeuralEnsemblers_experiments
+python main.py  --ensembler_name neural --no_wandb --dataset_id 0 --project_name test --num_iterations 100 --metric_name error --metadataset_name ftc --data_version extended --ne_epochs 1000 --ne_batch_size 256 --ne_hidden_dim 32 --ne_net_mode stacking --searcher_name None
+```
+
+At the end of the succesful execution, the script will print a summary of results:
+
+```json
+{'posthoc_total_time': 212.64057779312134, 'val_metric': 0.007357142865657806, 'test_metric': 0.007514285854995251, 'ensemble_size': 25, 'number_of_classes': 14, 'val_dataset_size': 112000, 'test_dataset_size': 70000, 'num_base_models': 25}
+```
+
+Possible ensemblers names are: `ramdom, greedy, quick, topm, neural, cmaes, single, des, sks, akaike`.
+
+Other possible metadataset names are: `scikit-learn, nasbench201, quicktune, tabrepo, ftc, openml`.
+
+## Run batch experiments
+
+We run the experiments on slurm by executing several scripts. Here we summarize the procedure using the experiments of the first research question. To clairfy the structure, we start by listing end enumarting keys files inside the folder`RegularizedNeuralEnsemblers_experiments`:
+
+```shell
+├── cluster_scrips/slurm_pineda/
+    ├── bash_args
+        ├── RQ1_ftc_extended_error/ 
+        ├── RQ1_qt_micro_error/
+        ...
+    ├── experiments_confs
+        ├── RQ1_ftc_extended_error.yml
+        ├── RQ1_qt_micro_error.yml 
+        ...
+    generate_commands.py [0]
+    all_run_RQ1.sh [1]
+    per_project_run_RQ1.sh [2]
+    run.sh [3]
+├── reporter_configs/
+        ├── report1.yml
+        ├── report2.yml
+report.py [5]
+```
+
+Based on the artifacts listed above, our experiments work as follows. 
+- We generate once the experiment combinations, by executing **[0]** with the experiments configurations folder as input (`experiments_confs`).
+- Then we run **[1]**, which calls **[2]** by specifying the number of datasets per metadataset (called project in this context).
+- Finally, each execution of **[2]*** runs **[3]**, a slurm script that launches batch jobs. The arguments for each job are specified in the folder `bash_args`.
+- After execution, we report the results jointly by running `report.py`. This report uses a configuration file located in `report_configs`, which specifies which projects to report, and under which name, when generating the tables.
+
+## Cite Us
+
+[]

@@ -1,16 +1,17 @@
 # RegularizedNeuralEnsemblers_experiments/random_ensemble_example.py
 # Demonstrates how to build a random ensemble on a metadataset.
 
-import RegularizedNeuralEnsemblers.metadatasets.quicktune.metadataset as qmd
 import torch
+
+import RegularizedNeuralEnsemblers.metadatasets.quicktune.metadataset as qmd
 from RegularizedNeuralEnsemblers.posthoc.random_ensembler import RandomEnsembler
 
 if __name__ == "__main__":
     data_version = "micro"
     metric_name = "nll"
     task_id = 0  # or any valid index
-    #Use your "path/to/quicktune/predictions"
-    DATA_DIR =  "/work/dlclarge2/janowski-quicktune/predictions"
+    # Use your "path/to/quicktune/predictions"
+    DATA_DIR = "/work/dlclarge2/janowski-quicktune/predictions"
 
     metadataset = qmd.QuicktuneMetaDataset(
         data_dir=DATA_DIR, metric_name=metric_name, data_version=data_version
