@@ -17,11 +17,11 @@ This folder provides lightweight **loader classes** plus pointers to large predi
 ## Expected Directory Layout
 ```text
 /data/
-└──  scikit-learn/
+└──  quicktune/
 │   ├── micro/
 │   ├── mini/
 │   └── extended/
-├── quicktune/
+├── scikit-learn/
 ├── nasbench201/
 ```
 
