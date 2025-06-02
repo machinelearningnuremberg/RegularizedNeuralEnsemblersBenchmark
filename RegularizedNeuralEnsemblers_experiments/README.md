@@ -72,8 +72,4 @@ python RegularizedNeuralEnsemblers_experiments/main.py \
   --searcher_name None 
 ```
 
----
 
-## Tips
-* Add `--searcher_name None` to disable hyperparameter search when debugging.
-* Edit `cluster_scripts/.../run.sh` to match your GPU/CPU partition before submitting.
