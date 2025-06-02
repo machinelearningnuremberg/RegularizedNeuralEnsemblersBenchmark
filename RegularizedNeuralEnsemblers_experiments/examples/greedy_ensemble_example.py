@@ -1,9 +1,10 @@
 # RegularizedNeuralEnsemblers_experiments/greedy_ensemble_example.py
 # Demonstrates how to build a greedy ensemble on a metadataset.
 
-import RegularizedNeuralEnsembler.metadatasets.quicktune.metadataset as qmd
 import torch
-from RegularizedNeuralEnsembler.posthoc.greedy_ensembler import GreedyEnsembler
+
+import RegularizedNeuralEnsemblers.metadatasets.quicktune.metadataset as qmd
+from RegularizedNeuralEnsemblers.posthoc.greedy_ensembler import GreedyEnsembler
 
 if __name__ == "__main__":
     data_version = "micro"

@@ -32,7 +32,7 @@ site/*
 poetry.lock
 
 # Misc
-*.sh
+# *.sh
 *.model
 *.pth
 *.png

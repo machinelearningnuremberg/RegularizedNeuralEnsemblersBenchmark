@@ -15,12 +15,12 @@ class ScikitLearnMetaDataset(Evaluator):
 
     def __init__(
         self,
-        data_dir: str = "/work/dlclarge1/janowski-pipebench/",
+        data_dir: str = "/work/dlclarge1/janowski-pipebench/pipeline_bench_merged/",
         meta_split_ids: tuple[tuple, tuple, tuple] = ((0, 1, 2), (3,), (4,)),
         seed: int = 42,
         split: str = "valid",
         metric_name: str = "nll",
-        data_version: str = "mini",
+        data_version: str = "micro",
         task_type: str = "classification",
         pct_valid_data: float = 1.0,
         **kwargs,  # pylint: disable=unused-argument

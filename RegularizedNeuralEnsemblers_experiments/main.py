@@ -34,7 +34,7 @@ if __name__ == "__main__":
         "--worker_dir",
         type=str,
         # default="/work/dlclarge2/janowski-quicktune/RegularizedNeuralEnsemblers/RegularizedNeuralEnsemblers_experiments/",
-        default="/work/dlclarge2/janowski-quicktune/results/",
+        default="/work/dlclarge2/janowski-quicktune/results",
     )
     ##############################################################################
     parser.add_argument("--metadataset_name", type=str, default="quicktune")

@@ -8,8 +8,8 @@ authors = [
 ]
 license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/releaunifreiburg/RegularizedNeuralEnsemblers"
-repository = "https://github.com/releaunifreiburg/RegularizedNeuralEnsemblers"
+homepage = "https://github.com/machinelearningnuremberg/RegularizedNeuralEnsemblersBenchmark"
+repository = "https://github.com/machinelearningnuremberg/RegularizedNeuralEnsemblersBenchmark"
 keywords = ["Neural Ensemble Search", "Neural Architecture Search", "Hyperparameter Optimization", "AutoML"]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -45,6 +45,8 @@ catboost = ">=1.2.6"
 openml = "^0.15.1"
 xgboost = "2.1.3"
 protobuf = "<6"
+deslib = "^0.3.7"
+pipeline-bench = {path = "RegularizedNeuralEnsemblers/metadatasets/scikit_learn/pipeline_bench", extras = ["soe_compatibility"]}
 
 [tool.poetry.scripts]
 install-tabrepo = "RegularizedNeuralEnsemblers.metadatasets.tabrepo.install_tabrepo:main"
