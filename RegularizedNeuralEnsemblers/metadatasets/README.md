@@ -24,9 +24,3 @@ This folder provides lightweight **loader classes** plus pointers to large predi
 ├── scikit-learn/
 ├── nasbench201/
 ```
-
-Point your code to the root:
-```python
-from pathlib import Path
-DATA_DIR = Path("/data/scikit-learn")  # adjust as needed
-```
