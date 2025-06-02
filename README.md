@@ -52,7 +52,7 @@ meta = QuicktuneMetaDataset(data_dir=DATA_DIR, metric_name="nll", data_version="
 meta.set_state(meta.meta_splits["meta-test"][0])          # pick a dataset
 
 ensembler = NeuralEnsembler(meta, device="cuda" if torch.cuda.is_available() else "cpu")
-ensemble, _ = ensembler.sample([[1], [2], [3]])           # candidate IDs → ensemble
+ensemble, _ = ensembler.sample([1, 2, 3])           # candidate IDs → ensemble
 ```
 Full runnable scripts (random, greedy, neural) live in [`examples/`](./RegularizedNeuralEnsemblers_experiments/).
 

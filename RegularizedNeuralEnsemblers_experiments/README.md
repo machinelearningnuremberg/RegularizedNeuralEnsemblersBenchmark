@@ -56,7 +56,7 @@ Produces LaTeX-ready tables and JSON summaries.
 
 ## Single Local Run Example
 ```bash
-python main.py \
+python RegularizedNeuralEnsemblers_experiments/main.py \
   --ensembler_name neural \
   --no_wandb \
   --dataset_id 0 \
@@ -68,11 +68,12 @@ python main.py \
   --ne_epochs 1000 \
   --ne_batch_size 256 \
   --ne_hidden_dim 32 \
-  --ne_net_mode stacking
+  --ne_net_mode stacking \
+  --searcher_name None 
 ```
 
 ---
 
 ## Tips
-* Add `--searcher_name None` to disable hyper-parameter search when debugging.
+* Add `--searcher_name None` to disable hyperparameter search when debugging.
 * Edit `cluster_scripts/.../run.sh` to match your GPU/CPU partition before submitting.
