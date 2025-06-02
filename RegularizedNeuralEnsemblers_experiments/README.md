@@ -27,9 +27,21 @@ RegularizedNeuralEnsemblers_experiments/
 
 ## Examples
 
-*
-*
-*
+* Random Ensembling:
+```bash
+python RegularizedNeuralEnsemblers_experiments/examples/random_ensemble_example.py
+```
+
+* Greedy Ensembling:
+```bash
+python RegularizedNeuralEnsemblers_experiments/examples/greedy_ensemble_example.py
+```
+
+* Neural Ensembling: 
+```bash
+python RegularizedNeuralEnsemblers_experiments/examples/neural_ensemble_example.py
+```
+
 ---
 
 ## Workflow
