@@ -10,8 +10,7 @@ if __name__ == "__main__":
     data_version = "micro"
     metric_name = "nll"
     task_id = 0  # or any valid index
-    # Use your "path/to/quicktune/predictions"
-    DATA_DIR = "/work/dlclarge2/janowski-quicktune/predictions"
+    DATA_DIR = "path/to/quicktune/predictions"
 
     metadataset = qmd.QuicktuneMetaDataset(
         data_dir=DATA_DIR, metric_name=metric_name, data_version=data_version
