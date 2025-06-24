@@ -15,7 +15,9 @@
 
 Ensemble methods can significantly enhance the accuracy and robustness of machine learning models by combining multiple base learners. However, standard approaches like greedy or random ensembling often assume a constant weighting for each base model, which can limit expressiveness.
 
-This repository explores **dynamic neural ensemblers**, where a neural network adaptively aggregates predictions from multiple candidate models. To address overfitting and low-diversity ensembles, we propose a simple but effective regularization strategy by randomly dropping base model predictions during training, ensuring a lower bound on ensemble diversity.
+This repository explores **dynamic neural ensemblers**, where a neural network adaptively aggregates predictions from multiple candidate models. To address overfitting and low-diversity ensembles, we propose a simple but effective regularization strategy by randomly dropping base model predictions during training, ensuring a lower bound on ensemble diversity. 
+
+This repo contains details experiments from [this original paper](https://openreview.net/pdf?id=uB4olDCuU2). For a simple, easy-to-run version, please access [this other repository](https://github.com/machinelearningnuremberg/RegularizedNeuralEnsemblers)
 
 ## Installation
 
